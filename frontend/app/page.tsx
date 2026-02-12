@@ -349,7 +349,7 @@ export default function Home() {
               </div>
             )}
 
-            <UserMenu username={username} role={role} onLogout={handleLogout} />
+            <UserMenu username={username} onLogout={handleLogout} />
           </div>
         </div>
       </header>
