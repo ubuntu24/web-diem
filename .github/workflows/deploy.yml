@@ -12,6 +12,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      - name: Create .env files
+        run: |
+          echo "${{ secrets.FRONTEND_ENV }}" > frontend/.env
+          echo "${{ secrets.BACKEND_ENV }}" > backend/.env
+
       - name: Build and Lint Frontend (Inside Docker)
         run: |
           docker-compose build frontend
@@ -26,6 +31,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+
+      - name: Create .env files
+        run: |
+          echo "${{ secrets.FRONTEND_ENV }}" > frontend/.env
+          echo "${{ secrets.BACKEND_ENV }}" > backend/.env
 
       - name: Deploy (Up updated containers)
         run: |
