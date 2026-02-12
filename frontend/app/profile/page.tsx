@@ -66,29 +66,21 @@ export default function ProfilePage() {
 
                     <div className="pt-12 pb-8 px-8 text-center">
                         <h1 className="text-2xl font-bold text-slate-900 mb-1">{user.username}</h1>
-                        <p className="text-sm text-slate-500 font-medium bg-slate-100 inline-block px-3 py-1 rounded-full">
-                            {user.role === 1 ? 'Quản trị viên' : 'Thành viên'}
-                        </p>
+
 
                         <div className="mt-8 space-y-4 text-left">
                             <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl">
                                 <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center text-blue-500 shadow-sm">
                                     <User className="w-5 h-5" />
                                 </div>
-                                <div>
-                                    <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">ID Người dùng</p>
-                                    <p className="font-semibold text-slate-900">#{user.id}</p>
-                                </div>
+
                             </div>
 
                             <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl">
                                 <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center text-green-500 shadow-sm">
                                     <Shield className="w-5 h-5" />
                                 </div>
-                                <div>
-                                    <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Vai trò</p>
-                                    <p className="font-semibold text-slate-900">{user.role === 1 ? 'Admin' : 'TVT'}</p>
-                                </div>
+
                             </div>
 
                             <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl">
