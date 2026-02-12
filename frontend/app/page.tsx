@@ -7,15 +7,16 @@ import { Student } from '@/lib/types';
 import Sidebar from '@/components/Sidebar';
 import SemesterAccordion from '@/components/SemesterAccordion';
 import GPASimulator from '@/components/GPASimulator';
-import { Search, Loader2, Skull, ChevronRight, Home as HomeIcon, Sparkles, ChevronLeft, Users, Award } from 'lucide-react';
+import { Search, Loader2, Skull, ChevronRight, Home as HomeIcon, Sparkles, ChevronLeft, Users, Award, Shield } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import UserMenu from '@/components/UserMenu';
 import { getMe } from '@/lib/api';
 import HeroSection from '@/components/HeroSection';
+import AdminUserList from '@/components/AdminUserList';
 
 export default function Home() {
   const router = useRouter();
-  const [view, setView] = useState<'classes' | 'students' | 'grades' | 'search'>('classes');
+  const [view, setView] = useState<'classes' | 'students' | 'grades' | 'search' | 'admin'>('classes');
   const [loading, setLoading] = useState(false);
   const [classes, setClasses] = useState<string[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
@@ -400,17 +401,27 @@ export default function Home() {
 
           <div className="flex items-center gap-4">
             {role === 1 && (
-              <div className="flex-1 max-w-xl mx-auto">
-                <div className="relative group">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 group-focus-within:text-blue-500 transition-colors" />
-                  <input
-                    type="text"
-                    placeholder="Tìm kiếm sinh viên (Tên hoặc MSV)..."
-                    className="w-full pl-10 pr-4 py-2 bg-slate-100 dark:bg-slate-800 border-transparent focus:bg-white dark:focus:bg-slate-900 border focus:border-blue-500 rounded-lg text-sm transition-all outline-none text-slate-900 dark:text-slate-100 font-medium placeholder-slate-500"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                  />
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setView('admin')}
+                  className={`p-2 rounded-lg transition-colors ${view === 'admin' ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-300' : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400'}`}
+                  title="Quản lý người dùng"
+                >
+                  <Shield className="w-5 h-5" />
+                </button>
+
+                <div className="flex-1 max-w-xl mx-auto hidden md:block">
+                  <div className="relative group">
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 group-focus-within:text-blue-500 transition-colors" />
+                    <input
+                      type="text"
+                      placeholder="Tìm kiếm sinh viên (Tên hoặc MSV)..."
+                      className="w-full pl-10 pr-4 py-2 bg-slate-100 dark:bg-slate-800 border-transparent focus:bg-white dark:focus:bg-slate-900 border focus:border-blue-500 rounded-lg text-sm transition-all outline-none text-slate-900 dark:text-slate-100 font-medium placeholder-slate-500"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                    />
+                  </div>
                 </div>
               </div>
             )}
@@ -418,7 +429,7 @@ export default function Home() {
             <UserMenu username={username} onLogout={handleLogout} />
           </div>
         </div>
-      </header>
+      </header >
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Functional Breadcrumbs */}
@@ -444,6 +455,9 @@ export default function Home() {
                   >
                     {selectedClass}
                   </span>
+                  {view === 'admin' && (
+                    <span className="font-semibold text-slate-900 dark:text-white">Quản trị hệ thống</span>
+                  )}
                   {view === 'grades' && currentStudent && (
                     <>
                       <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600" />
@@ -538,6 +552,15 @@ export default function Home() {
                     ))}
                   </div>
                 </div>
+              )}
+
+              {view === 'admin' && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                >
+                  <AdminUserList />
+                </motion.div>
               )}
 
               {(view === 'students' || view === 'search') && (

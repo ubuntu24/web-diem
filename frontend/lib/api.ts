@@ -88,3 +88,36 @@ export async function getOnlineUsers(): Promise<number> {
     const data = await res.json();
     return data.count;
 }
+
+export interface AdminUser {
+    id: number;
+    username: string;
+    role: number;
+    allowed_classes: string[];
+}
+
+export async function getUsers(): Promise<AdminUser[]> {
+    const token = localStorage.getItem('token');
+    const headers: HeadersInit = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const res = await fetch(`${API_BASE_URL}/api/admin/users`, { headers });
+    if (!res.ok) throw new Error('Failed to fetch users');
+    return res.json();
+}
+
+export async function updateUserPermissions(userId: number, allowedClasses: string[]): Promise<void> {
+    const token = localStorage.getItem('token');
+    const headers: HeadersInit = {
+        'Content-Type': 'application/json'
+    };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const res = await fetch(`${API_BASE_URL}/api/admin/user/${userId}/permissions`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ allowed_classes: allowedClasses })
+    });
+
+    if (!res.ok) throw new Error('Failed to update permissions');
+}

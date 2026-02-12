@@ -166,6 +166,11 @@ class User(BaseModel):
     class Config:
         orm_mode = True
 
+class UpdatePermissionRequest(BaseModel):
+    allowed_classes: List[str]
+
+DEFAULT_CLASSES = "DHMT16A1HN,DHMT16A2HN"
+
 # Database Initialization & Admin User
 @app.on_event("startup")
 def startup_event():
@@ -253,8 +258,13 @@ def register(request: RegisterRequest, db: Session = Depends(database.get_db)):
         raise HTTPException(status_code=400, detail="Username already exists")
     
     hashed_password = get_password_hash(request.password)
-    # Default role 0 (Guest)
-    new_user = models.Nick(username=request.username, password=hashed_password, role=0)
+    # Default role 0 (Guest) with default permissions
+    new_user = models.Nick(
+        username=request.username, 
+        password=hashed_password, 
+        role=0,
+        user_permission=DEFAULT_CLASSES
+    )
     db.add(new_user)
     db.commit()
     return {"message": "User created successfully"}
@@ -293,11 +303,15 @@ def get_student_count(
     from sqlalchemy import func
     
     if current_user.role == 0:
-        # Guest role: Count only students in allowed classes
-        # Allowed classes are hardcoded for now: DHMT16A1HN, DHMT16A2HN
-        allowed_classes = ["DHMT16A1HN", "DHMT16A2HN"]
+        # User role: Count only students in allowed classes
+        # Parse from comma-separated string, fallback to defaults if None
+        perms_str = current_user.user_permission if current_user.user_permission is not None else DEFAULT_CLASSES
+        allowed = [x.strip() for x in perms_str.split(",") if x.strip()]
+        if not allowed:
+            return {"count": 0}
+            
         count = db.query(func.count(models.SinhVien.msv)).filter(
-            func.trim(models.SinhVien.ma_lop).in_(allowed_classes)
+            func.trim(models.SinhVien.ma_lop).in_(allowed)
         ).scalar()
     else:
         # Admin/Other roles: Count all students
@@ -382,9 +396,12 @@ def get_classes(
 ):
     print(f"DEBUG: User '{current_user.username}' (Role: {current_user.role}) fetching classes")
     from sqlalchemy import func
+    
     if current_user.role == 0:
-        # Guest role: Restrict to specific classes
-        return {"classes": ["DHMT16A1HN", "DHMT16A2HN"]}
+        # User role: Restrict to specific classes
+        perms_str = current_user.user_permission if current_user.user_permission is not None else DEFAULT_CLASSES
+        allowed = [x.strip() for x in perms_str.split(",") if x.strip()]
+        return {"classes": allowed}
     
     # Admin role (or others): Show all classes, using trim to be safe
     classes = db.query(func.trim(models.SinhVien.ma_lop)).distinct().order_by(func.trim(models.SinhVien.ma_lop)).all()
@@ -447,9 +464,28 @@ def get_students_by_class(
     
     # Use TRIM and case-insensitive matching for ma_lop
     # Eager load 'diem' to avoid N+1 problem and actually get the data
-    students = db.query(models.SinhVien).options(joinedload(models.SinhVien.diem)).filter(
+    # Eager load 'diem' to avoid N+1 problem and actually get the data
+    query = db.query(models.SinhVien).options(joinedload(models.SinhVien.diem)).filter(
         func.trim(models.SinhVien.ma_lop).in_(class_list)
-    ).order_by(models.SinhVien.msv).all()
+    )
+    
+    if current_user.role == 0:
+        # Security Check: Ensure user is allowed to view THESE classes
+        perms_str = current_user.user_permission if current_user.user_permission is not None else DEFAULT_CLASSES
+        allowed_list = [x.strip() for x in perms_str.split(",") if x.strip()]
+        allowed_set = set(allowed_list)
+        # If any requested class is NOT in allowed list, forbid or filter?
+        # Let's filter: only return students from allowed classes intersection
+        valid_classes = [c for c in class_list if c in allowed_set]
+        if not valid_classes:
+            return {"students": []}
+            
+        # Re-apply filter with ONLY valid classes
+        query = db.query(models.SinhVien).options(joinedload(models.SinhVien.diem)).filter(
+            func.trim(models.SinhVien.ma_lop).in_(valid_classes)
+        )
+        
+    students = query.order_by(models.SinhVien.msv).all()
     print(f"DEBUG: Found {len(students)} students for classes: {class_list}")
     
     hide = (current_user.role == 0)
@@ -507,6 +543,47 @@ def search_students(
         results.append(formatted)
         
     return {"results": results}
+
+
+@app.get("/api/admin/users")
+def get_all_users(
+    current_user: models.Nick = Depends(get_current_user),
+    db: Session = Depends(database.get_db)
+):
+    if current_user.role != 1:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    users = db.query(models.Nick).all()
+    result = []
+    for u in users:
+        perms_str = u.user_permission if u.user_permission is not None else DEFAULT_CLASSES
+        result.append({
+            "id": u.id,
+            "username": u.username,
+            "role": u.role,
+            "allowed_classes": [x.strip() for x in perms_str.split(",") if x.strip()]
+        })
+    return result
+
+@app.post("/api/admin/user/{user_id}/permissions")
+def update_user_permissions(
+    user_id: int,
+    request: UpdatePermissionRequest,
+    current_user: models.Nick = Depends(get_current_user),
+    db: Session = Depends(database.get_db)
+):
+    if current_user.role != 1:
+        raise HTTPException(status_code=403, detail="Not authorized")
+        
+    user = db.query(models.Nick).filter(models.Nick.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    # Join into comma-separated string
+    user.user_permission = ",".join(request.allowed_classes)
+        
+    db.commit()
+    return {"message": "Permissions updated"}
 
 if __name__ == "__main__":
     import uvicorn

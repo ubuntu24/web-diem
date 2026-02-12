@@ -61,7 +61,10 @@ class Nick(Base):
     __tablename__ = "nick"
 
     id = Column(BigInteger, primary_key=True, index=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    username = Column("user", Text, nullable=False)
-    password = Column("pass", Text, nullable=False)
-    role = Column(Integer, nullable=False)
+    created_at = Column(DateTime(timezone=True), primary_key=True, server_default=func.now())
+    username = Column("user", Text, primary_key=True, nullable=False)
+    password = Column("pass", Text, primary_key=True, nullable=False)
+    role = Column(Integer, primary_key=True, nullable=False)
+    
+    # Store permissions as comma-separated string (e.g. "DHMT16A1HN,DHMT16A2HN")
+    user_permission = Column(Text, nullable=True)
