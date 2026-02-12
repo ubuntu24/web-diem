@@ -57,13 +57,20 @@ access_logger.addHandler(file_handler)
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
-    # Basic request info
-    ip = request.client.host if request.client else "unknown"
+    # Extract Real IP from headers if behind proxy (Cloudflare, Nginx, etc.)
+    real_ip = request.headers.get("CF-Connecting-IP") or \
+              request.headers.get("X-Forwarded-For") or \
+              (request.client.host if request.client else "unknown")
+    
+    # If X-Forwarded-For has multiple IPs, take the first one
+    if "," in real_ip:
+        real_ip = real_ip.split(",")[0].strip()
+
     method = request.method
     path = request.url.path
     user_agent = request.headers.get("user-agent", "Unknown")
     
-    # Try to extract username from token if present (without DB hit for performance)
+    # Try to extract username from token if present
     username = "Anonymous"
     auth_header = request.headers.get("Authorization")
     if auth_header and auth_header.startswith("Bearer "):
@@ -74,8 +81,8 @@ async def log_requests(request: Request, call_next):
         except:
             username = "InvalidToken"
             
-    # Log the entry
-    access_logger.info(f"{ip} | {username} | {method} {path} | {user_agent}")
+    # Log the entry with Real IP
+    access_logger.info(f"{real_ip} | {username} | {method} {path} | {user_agent}")
     
     response = await call_next(request)
     return response
