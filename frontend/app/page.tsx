@@ -110,8 +110,23 @@ export default function Home() {
 
     const connectWebSocket = () => {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const host = window.location.host;
-      const wsUrl = `${protocol}//${host}/ws/online-count`;
+      let wsUrl = `${protocol}//${window.location.host}/ws/online-count`;
+
+      // HOTFIX: Next.js rewrites don't proxy WebSockets reliably in production builds.
+      // If we are on port 3000 (frontend default), try connecting directly to backend port 8000.
+      if (window.location.port === '3000') {
+        const hostname = window.location.hostname;
+        wsUrl = `${protocol}//${hostname}:8000/ws/online-count`;
+        console.log("Detected port 3000, switching WS to backend port 8000:", wsUrl);
+      } else {
+        console.log("Using relative WS URL (assuming Nginx/Cloudflare proxy):", wsUrl);
+      }
+
+      // Append Token for User Identification (Account-based counting)
+      const token = localStorage.getItem('token');
+      if (token) {
+        wsUrl += `?token=${token}`;
+      }
 
       socket = new WebSocket(wsUrl);
 

@@ -65,23 +65,24 @@ class ConnectionManager:
         # Store tuple of (WebSocket, ip_address)
         self.active_connections: List[dict] = []
 
-    async def connect(self, websocket: WebSocket, ip: str):
+    async def connect(self, websocket: WebSocket, user_identifier: str):
         await websocket.accept()
-        self.active_connections.append({"ws": websocket, "ip": ip})
-        print(f"[WS] Connected: {ip}. Total connections: {len(self.active_connections)}")
+        # Store user_identifier (username for logged in, IP for guests)
+        self.active_connections.append({"ws": websocket, "id": user_identifier})
+        print(f"[WS] Connected: {user_identifier}. Total connections: {len(self.active_connections)}")
         await self.broadcast_online_count()
 
     def disconnect(self, websocket: WebSocket):
         before_count = len(self.active_connections)
         self.active_connections = [c for c in self.active_connections if c["ws"] != websocket]
         print(f"[WS] Disconnected. Connections: {before_count} -> {len(self.active_connections)}")
-
-    async def broadcast_online_count(self):
-        # Count unique IPs
-        unique_ips = {c["ip"] for c in self.active_connections}
-        count = len(unique_ips)
         
-        print(f"[WS] Broadcasting count: {count} (Unique IPs: {unique_ips})")
+    async def broadcast_online_count(self):
+        # Count unique identifiers (Usernames or IPs)
+        unique_users = {c["id"] for c in self.active_connections}
+        count = len(unique_users)
+        
+        print(f"[WS] Broadcasting count: {count} (Unique Users: {unique_users})")
         
         # We only broadcast if there are connections
         if self.active_connections:
@@ -93,7 +94,7 @@ class ConnectionManager:
                     await connection["ws"].send_json(message)
                 except Exception as e:
                     # Handle broken connections lazily
-                    print(f"[WS] Error broadcasting to {connection['ip']}: {e}")
+                    print(f"[WS] Error broadcasting to {connection['id']}: {e}")
 
 manager = ConnectionManager()
 
@@ -336,8 +337,7 @@ def get_online_users(
 
 @app.websocket("/ws/online-count")
 async def websocket_endpoint(websocket: WebSocket):
-    # Extract Real IP for WebSocket
-    # headers are binary in scope, but Starlette/FastAPI exposes them nicely
+    # Extract Real IP for logging/fallback
     real_ip = websocket.headers.get("CF-Connecting-IP") or \
               websocket.headers.get("X-Forwarded-For") or \
               (websocket.client.host if websocket.client else "unknown")
@@ -345,18 +345,33 @@ async def websocket_endpoint(websocket: WebSocket):
     if "," in real_ip:
         real_ip = real_ip.split(",")[0].strip()
 
-    print(f"[WS DEBUG] New connection from IP: {real_ip} | Total connections: {len(manager.active_connections)+1} | Headers: CF={websocket.headers.get('CF-Connecting-IP')}, XFF={websocket.headers.get('X-Forwarded-For')}, Client={websocket.client.host if websocket.client else 'unknown'}")
-    await manager.connect(websocket, real_ip)
+    # Attempt to authenticate via Token in Query Param
+    token = websocket.query_params.get("token")
+    user_identifier = f"Guest-{real_ip}"
+    
+    if token:
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            username = payload.get("sub")
+            if username:
+                user_identifier = username
+                print(f"[WS AUTH] Authenticated user: {username}")
+        except Exception as e:
+            print(f"[WS AUTH] Token invalid/expired: {e}. Falling back to IP.")
+            pass
+
+    print(f"[WS DEBUG] New connection request. ID: {user_identifier} | IP: {real_ip}")
+    await manager.connect(websocket, user_identifier)
     try:
         while True:
             # Keep connection alive
             await websocket.receive_text()
     except WebSocketDisconnect:
-        print(f"[WS] WebSocketDisconnect from {real_ip}")
+        print(f"[WS] WebSocketDisconnect from {user_identifier}")
         manager.disconnect(websocket)
         await manager.broadcast_online_count()
     except Exception as e:
-        print(f"[WS] Error in connection from {real_ip}: {e}")
+        print(f"[WS] Error in connection from {user_identifier}: {e}")
         manager.disconnect(websocket)
         await manager.broadcast_online_count()
 
