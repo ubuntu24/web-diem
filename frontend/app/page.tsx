@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { getClasses, getStudentsByClass, getStudent, searchStudents } from '@/lib/api';
+import { getClasses, getStudentsByClass, getStudent, searchStudents, getStudentCount, getOnlineUsers } from '@/lib/api';
 import { Student } from '@/lib/types';
 import Sidebar from '@/components/Sidebar';
 import SemesterAccordion from '@/components/SemesterAccordion';
@@ -11,6 +11,7 @@ import { Search, Loader2, Skull, ChevronRight, Home as HomeIcon, Sparkles, Chevr
 import { motion, AnimatePresence } from 'framer-motion';
 import UserMenu from '@/components/UserMenu';
 import { getMe } from '@/lib/api';
+import HeroSection from '@/components/HeroSection';
 
 export default function Home() {
   const router = useRouter();
@@ -28,6 +29,8 @@ export default function Home() {
   const [username, setUsername] = useState('User');
   const [totalCredits, setTotalCredits] = useState(0);
   const [totalPoints, setTotalPoints] = useState(0);
+  const [totalStudentCount, setTotalStudentCount] = useState(0);
+  const [onlineUsers, setOnlineUsers] = useState(1);
   const [sortBy, setSortBy] = useState<'cumulative' | 'semester'>('cumulative');
   const [sortingScale, setSortingScale] = useState<'4' | '10'>('4');
   const [selectedSemester, setSelectedSemester] = useState<string>('all');
@@ -96,7 +99,16 @@ export default function Home() {
       router.push('/login');
     });
 
+    getStudentCount().then(count => setTotalStudentCount(count)).catch(console.error);
+
+    // Initial fetch and polling for online users
+    const fetchOnline = () => getOnlineUsers().then(count => setOnlineUsers(count)).catch(console.error);
+    fetchOnline();
+    const interval = setInterval(fetchOnline, 30000); // 30 seconds
+
     loadClasses();
+
+    return () => clearInterval(interval);
   }, []);
 
   const handleLogout = () => {
@@ -318,18 +330,18 @@ export default function Home() {
   });
 
   return (
-    <div className="min-h-screen bg-white font-sans text-slate-900">
+    <div className="min-h-screen bg-white dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-100 transition-colors">
       {/* Sleek Navbar */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
+      <header className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 sticky top-0 z-50 transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
           <div
             className="flex items-center gap-2 cursor-pointer group"
             onClick={loadClasses}
           >
-            <div className="bg-slate-950 p-1.5 rounded-lg group-hover:bg-black transition-colors">
+            <div className="bg-slate-950 dark:bg-blue-600 p-1.5 rounded-lg group-hover:bg-black dark:group-hover:bg-blue-700 transition-colors">
               <Skull className="w-5 h-5 text-white" />
             </div>
-            <span className="font-bold text-lg tracking-tight text-slate-900">LIFE SUCKS</span>
+            <span className="font-bold text-lg tracking-tight text-slate-900 dark:text-white">LIFE SUCKS</span>
           </div>
 
           <div className="flex items-center gap-4">
@@ -340,7 +352,7 @@ export default function Home() {
                   <input
                     type="text"
                     placeholder="Tìm kiếm sinh viên (Tên hoặc MSV)..."
-                    className="w-full pl-10 pr-4 py-2 bg-slate-100 border-transparent focus:bg-white border focus:border-blue-500 rounded-lg text-sm transition-all outline-none text-slate-900 font-medium"
+                    className="w-full pl-10 pr-4 py-2 bg-slate-100 dark:bg-slate-800 border-transparent focus:bg-white dark:focus:bg-slate-900 border focus:border-blue-500 rounded-lg text-sm transition-all outline-none text-slate-900 dark:text-slate-100 font-medium placeholder-slate-500"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
@@ -356,9 +368,9 @@ export default function Home() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Functional Breadcrumbs */}
-        <div className="flex items-center gap-2 text-sm text-slate-500 mb-6 bg-white px-4 py-3 rounded-lg border border-slate-200 shadow-sm">
+        <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 mb-6 bg-white dark:bg-slate-900 px-4 py-3 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
           <div
-            className="flex items-center gap-1.5 hover:text-blue-600 cursor-pointer font-medium transition-colors"
+            className="flex items-center gap-1.5 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer font-medium transition-colors"
             onClick={loadClasses}
           >
             <HomeIcon className="w-4 h-4" />
@@ -367,21 +379,21 @@ export default function Home() {
 
           {view !== 'classes' && (
             <>
-              <ChevronRight className="w-4 h-4 text-slate-300" />
+              <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600" />
               {view === 'search' ? (
-                <span className="font-semibold text-slate-900">Tìm kiếm: "{searchQuery}"</span>
+                <span className="font-semibold text-slate-900 dark:text-white">Tìm kiếm: "{searchQuery}"</span>
               ) : (
                 <>
                   <span
-                    className={`hover:text-blue-600 cursor-pointer transition-colors ${!selectedClass ? 'hidden' : ''}`}
+                    className={`hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer transition-colors ${!selectedClass ? 'hidden' : ''}`}
                     onClick={() => loadStudents(selectedClass)}
                   >
                     {selectedClass}
                   </span>
                   {view === 'grades' && currentStudent && (
                     <>
-                      <ChevronRight className="w-4 h-4 text-slate-300" />
-                      <span className="font-semibold text-slate-900 line-clamp-1">{currentStudent.ho_ten}</span>
+                      <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600" />
+                      <span className="font-semibold text-slate-900 dark:text-white line-clamp-1">{currentStudent.ho_ten}</span>
                     </>
                   )}
                 </>
@@ -406,14 +418,14 @@ export default function Home() {
               {view === 'classes' && (
                 <div className="space-y-6">
                   {role !== 0 && (
-                    <div className="flex items-center justify-between bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <div className="flex items-center justify-between bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm transition-colors">
                       <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600">
+                        <div className="h-10 w-10 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
                           <Users className="w-5 h-5" />
                         </div>
                         <div>
-                          <h4 className="font-bold text-slate-900">Chế độ so sánh</h4>
-                          <p className="text-xs text-slate-500">Chọn nhiều lớp để so sánh điểm số</p>
+                          <h4 className="font-bold text-slate-900 dark:text-white">Chế độ so sánh</h4>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">Chọn nhiều lớp để so sánh điểm số</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
@@ -431,7 +443,7 @@ export default function Home() {
                             setCompareMode(!compareMode);
                             setSelectedClasses([]);
                           }}
-                          className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${compareMode ? 'bg-slate-100 text-slate-600' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+                          className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${compareMode ? 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300' : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
                         >
                           {compareMode ? 'Hủy bỏ' : 'Chọn nhiều lớp'}
                         </button>
@@ -439,41 +451,48 @@ export default function Home() {
                     </div>
                   )}
 
+                  {/* Hero Section */}
+                  <HeroSection username={username} totalClasses={classes.length} totalStudents={totalStudentCount} onlineUsers={onlineUsers} />
+
                   <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                    {classes.map((cls) => (
-                      <div
+                    {classes.map((cls, index) => (
+                      <motion.div
                         key={cls}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.05 }}
+                        whileHover={{ y: -5, transition: { duration: 0.2 } }}
                         onClick={() => compareMode ? toggleClassSelection(cls) : loadStudents(cls)}
-                        className={`bg-white p-4 rounded-lg border transition-all flex flex-col items-center justify-center gap-2 group relative overflow-hidden ${compareMode && selectedClasses.includes(cls)
-                          ? 'border-indigo-500 bg-indigo-50/30'
-                          : 'border-gray-200 hover:border-blue-500 hover:shadow-md'
+                        className={`bg-white dark:bg-slate-800 p-3 md:p-5 rounded-xl border transition-all flex flex-col items-center justify-center gap-3 group relative overflow-hidden shadow-sm hover:shadow-lg hover:border-indigo-300 dark:hover:border-indigo-700 ${compareMode && selectedClasses.includes(cls)
+                          ? 'border-indigo-500 bg-indigo-50/30 ring-2 ring-indigo-500'
+                          : 'border-slate-100 dark:border-slate-700'
                           } cursor-pointer`}
                       >
                         {compareMode && (
-                          <div className={`absolute top-2 right-2 w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${selectedClasses.includes(cls) ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-slate-300'
+                          <div className={`absolute top-2 right-2 w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${selectedClasses.includes(cls) ? 'bg-indigo-600 border-indigo-600' : 'bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600'
                             }`}>
                             {selectedClasses.includes(cls) && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
                           </div>
                         )}
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${compareMode && selectedClasses.includes(cls) ? 'bg-indigo-100 text-indigo-700' : 'bg-blue-50 text-blue-600'
-                          } group-hover:scale-110 transition-transform`}>
-                          <span className="font-bold text-xs">{cls.substring(0, 2)}</span>
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${compareMode && selectedClasses.includes(cls) ? 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300' : 'bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-700 dark:to-slate-700 text-indigo-600 dark:text-indigo-300'
+                          } group-hover:scale-110 transition-transform shadow-inner`}>
+                          <span className="font-bold text-sm tracking-tight">{cls.substring(0, 2)}</span>
                         </div>
-                        <div className={`font-semibold text-sm truncate w-full text-center group-hover:text-blue-700 ${compareMode && selectedClasses.includes(cls) ? 'text-indigo-900' : 'text-slate-700'
+                        <div className={`font-semibold text-sm truncate w-full text-center group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors ${compareMode && selectedClasses.includes(cls) ? 'text-indigo-900 dark:text-indigo-200' : 'text-slate-600 dark:text-slate-300'
                           }`}>{cls}</div>
-                      </div>
+                      </motion.div>
                     ))}
                   </div>
                 </div>
               )}
 
               {(view === 'students' || view === 'search') && (
-                <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between p-4 border-b border-gray-200 bg-gray-50 gap-4">
+                <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm overflow-hidden transition-colors">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between p-4 border-b border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/50 gap-4 transition-colors">
                     <div className="flex items-center gap-4">
-                      <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                      <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
                         {view === 'search' ? 'Kết quả tìm kiếm' : `Lớp ${selectedClass}`}
-                        <span className="text-xs font-normal text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+                        <span className="text-xs font-normal text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-full border border-slate-200 dark:border-slate-600">
                           {filteredStudents.length}
                         </span>
                       </h3>
@@ -486,7 +505,7 @@ export default function Home() {
                             onClick={() => setSortingScale(sortingScale === '4' ? '10' : '4')}
                             className={`h-8 px-3 text-xs font-bold rounded-md border transition-all flex items-center gap-1.5 ${sortingScale === '10'
                               ? 'bg-indigo-600 border-indigo-600 text-white'
-                              : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                              : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
                               }`}
                           >
                             <Sparkles className={`w-3.5 h-3.5 ${sortingScale === '10' ? 'text-indigo-200' : 'text-indigo-500'}`} />
@@ -497,7 +516,7 @@ export default function Home() {
                           <select
                             value={selectedSemester}
                             onChange={(e) => setSelectedSemester(e.target.value)}
-                            className="px-2 py-1 text-xs font-medium bg-white border border-slate-200 rounded-md outline-none focus:border-blue-500 text-slate-700 h-8"
+                            className="px-2 py-1 text-xs font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-md outline-none focus:border-blue-500 text-slate-700 dark:text-slate-300 h-8"
                           >
                             <option value="all">Tích lũy (All)</option>
                             {allSemesters.map(sem => (
@@ -514,7 +533,7 @@ export default function Home() {
                         <input
                           type="text"
                           placeholder="Tìm trong lớp này..."
-                          className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-md text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-slate-900 font-medium"
+                          className="w-full pl-9 pr-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-md text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-slate-900 dark:text-slate-100 font-medium placeholder-slate-400"
                           value={localSearchTerm}
                           onChange={(e) => setLocalSearchTerm(e.target.value)}
                         />
@@ -522,9 +541,9 @@ export default function Home() {
                     )}
                   </div>
 
-                  <div className="grid grid-cols-1 divide-y divide-gray-100">
+                  <div className="grid grid-cols-1 divide-y divide-gray-100 dark:divide-slate-700">
                     {filteredStudents.length === 0 ? (
-                      <div className="p-8 text-center text-slate-500">
+                      <div className="p-8 text-center text-slate-500 dark:text-slate-400">
                         {localSearchTerm ? 'Không tìm thấy sinh viên phù hợp.' : 'Không có dữ liệu.'}
                       </div>
                     ) : (
@@ -532,10 +551,10 @@ export default function Home() {
                         <div
                           key={sv.msv}
                           onClick={() => loadGrade(sv.msv)}
-                          className="p-4 hover:bg-blue-50/50 cursor-pointer transition-colors flex items-center gap-4 group"
+                          className="p-3 md:p-4 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 cursor-pointer transition-colors flex items-center gap-3 md:gap-4 group"
                         >
                           <div className="relative">
-                            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 group-hover:bg-blue-100 group-hover:text-blue-600 transition-colors">
+                            <div className="w-16 h-16 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center text-slate-400 dark:text-slate-300 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/50 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                               <span className="font-bold text-2xl">{sv.ho_ten.charAt(0).toUpperCase()}</span>
                             </div>
 
@@ -543,7 +562,7 @@ export default function Home() {
                             {/* GPA Badges Comparison */}
                             <div className="absolute -bottom-2 -right-2 flex gap-1 z-10">
                               {/* Cumulative GPA Badge */}
-                              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-extrabold text-white border-2 border-white shadow-md ${sortingScale === '4'
+                              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-extrabold text-white border-2 border-white dark:border-slate-800 shadow-md ${sortingScale === '4'
                                 ? ((sv.gpa || 0) >= 3.2 ? 'bg-green-500' : (sv.gpa || 0) >= 2.5 ? 'bg-yellow-500' : 'bg-red-500')
                                 : ((sv.gpa10 || 0) >= 8.0 ? 'bg-green-500' : (sv.gpa10 || 0) >= 6.5 ? 'bg-yellow-500' : 'bg-red-500')
                                 }`}
@@ -554,7 +573,7 @@ export default function Home() {
 
                               {/* Semester GPA Badge (Only if a specific semester is selected) */}
                               {selectedSemester !== 'all' && (
-                                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-extrabold text-white border-2 border-white shadow-md ${sortingScale === '4'
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-extrabold text-white border-2 border-white dark:border-slate-800 shadow-md ${sortingScale === '4'
                                   ? (calculateSemesterGPA(sv, selectedSemester).gpa4 >= 3.2 ? 'bg-green-500' : calculateSemesterGPA(sv, selectedSemester).gpa4 >= 2.5 ? 'bg-yellow-500' : 'bg-red-500')
                                   : (calculateSemesterGPA(sv, selectedSemester).gpa10 >= 8.0 ? 'bg-green-500' : calculateSemesterGPA(sv, selectedSemester).gpa10 >= 6.5 ? 'bg-yellow-500' : 'bg-red-500')
                                   }`}
@@ -567,25 +586,25 @@ export default function Home() {
                           </div>
 
                           <div className="flex-1 min-w-0">
-                            <div className="font-bold text-lg text-slate-900 group-hover:text-blue-700 truncate">{sv.ho_ten}</div>
-                            <div className="flex items-center gap-2 text-sm text-slate-500 mt-1">
+                            <div className="font-bold text-base md:text-lg text-slate-900 dark:text-white group-hover:text-blue-700 dark:group-hover:text-blue-400 break-words">{sv.ho_ten}</div>
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-1">
                               {role !== 0 && (
                                 <>
                                   <span className="font-mono">{sv.msv}</span>
-                                  <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
+                                  <span className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600"></span>
                                 </>
                               )}
-                              <span>{sv.ngay_sinh || '***'}</span>
+                              <span>{sv.ngay_sinh}</span>
                             </div>
                           </div>
 
                           {sv.ma_lop && (
-                            <div className="px-3 py-1.5 bg-slate-100 rounded-md text-sm font-medium text-slate-600 border border-slate-200">
+                            <div className="px-3 py-1.5 bg-slate-100 dark:bg-slate-700 rounded-md text-sm font-medium text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600">
                               {sv.ma_lop}
                             </div>
                           )}
 
-                          <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-blue-400 group-hover:translate-x-1 transition-all" />
+                          <ChevronRight className="w-5 h-5 text-slate-300 dark:text-slate-600 group-hover:text-blue-400 group-hover:translate-x-1 transition-all" />
                         </div>
                       ))
                     )}
@@ -601,14 +620,14 @@ export default function Home() {
                 >
                   {/* Detailed Sidebar Info */}
                   <div className="lg:col-span-1 space-y-4">
-                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 sticky top-24">
-                      <div className="flex flex-col items-center text-center pb-6 border-b border-slate-100">
-                        <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mb-3">
+                    <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 sticky top-24 transition-colors">
+                      <div className="flex flex-col items-center text-center pb-6 border-b border-slate-100 dark:border-slate-700">
+                        <div className="w-20 h-20 bg-blue-50 dark:bg-blue-900/30 rounded-full flex items-center justify-center mb-3">
                           <UserIconBig />
                         </div>
-                        <h2 className="text-lg font-bold text-slate-900">{currentStudent.ho_ten}</h2>
+                        <h2 className="text-lg font-bold text-slate-900 dark:text-white">{currentStudent.ho_ten}</h2>
                         {role !== 0 && (
-                          <p className="text-sm text-slate-500 font-mono mt-1">{currentStudent.msv}</p>
+                          <p className="text-sm text-slate-500 dark:text-slate-400 font-mono mt-1">{currentStudent.msv}</p>
                         )}
                       </div>
                       <div className="pt-4 space-y-3">
@@ -620,9 +639,9 @@ export default function Home() {
                           </>
                         )}
                       </div>
-                      <div className="mt-6 p-4 bg-slate-900 rounded-lg text-white text-center">
-                        <div className="text-xs uppercase tracking-wider opacity-70 mb-1">GPA Tích Lũy</div>
-                        <div className="text-3xl font-bold">{gpa}</div>
+                      <div className="mt-6 p-4 bg-slate-900 dark:bg-indigo-950/50 border border-slate-800 dark:border-indigo-900/50 rounded-lg text-white text-center shadow-inner">
+                        <div className="text-xs uppercase tracking-wider opacity-70 mb-1 text-slate-300 dark:text-indigo-200">GPA Tích Lũy</div>
+                        <div className="text-3xl font-bold text-white dark:text-indigo-100">{gpa}</div>
                       </div>
                     </div>
                   </div>
@@ -630,7 +649,7 @@ export default function Home() {
                   {/* Main Content */}
                   <div className="lg:col-span-3 space-y-4">
                     <div className="flex items-center gap-2 mb-2">
-                      <h3 className="font-bold text-slate-800">Bảng Điểm Chi Tiết</h3>
+                      <h3 className="font-bold text-slate-800 dark:text-white">Bảng Điểm Chi Tiết</h3>
                     </div>
 
                     {sortedSemesterKeys.map(hk => {
@@ -680,7 +699,7 @@ export default function Home() {
             exit={{ opacity: 0, y: 50 }}
             className="fixed bottom-6 right-6 z-40"
           >
-            <div className="bg-white p-4 rounded-xl shadow-2xl border border-slate-200 max-w-md w-full relative">
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 max-w-md w-full relative transition-colors">
               <button
                 onClick={() => {
                   const el = document.getElementById('gpa-simulator-container');
@@ -690,8 +709,8 @@ export default function Home() {
               >
                 <Sparkles className="w-5 h-5" />
               </button>
-              <div className="text-sm font-medium text-slate-600 mb-2">Xem điểm tích lũy dự kiến?</div>
-              <div className="text-xs text-slate-400">Cuộn xuống dưới cùng để thêm môn học dự kiến.</div>
+              <div className="text-sm font-medium text-slate-600 dark:text-slate-200 mb-2">Xem điểm tích lũy dự kiến?</div>
+              <div className="text-xs text-slate-400 dark:text-slate-400">Cuộn xuống dưới cùng để thêm môn học dự kiến.</div>
             </div>
           </motion.div>
         )}
@@ -736,8 +755,8 @@ function UserIconBig() {
 function InfoRow({ label, value }: { label: string, value?: string }) {
   return (
     <div className="flex justify-between items-center text-sm">
-      <span className="text-slate-500">{label}</span>
-      <span className="font-medium text-slate-900">{value || '--'}</span>
+      <span className="text-slate-500 dark:text-slate-400">{label}</span>
+      <span className="font-medium text-slate-900 dark:text-slate-200">{value || '--'}</span>
     </div>
   )
 }

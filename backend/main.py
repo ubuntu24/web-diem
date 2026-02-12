@@ -12,7 +12,7 @@ from fastapi import Request
 import logging
 
 # Secret key for JWT
-SECRET_KEY = os.getenv("SECRET_KEY", "supersecretkey") # Change this in .env for production
+SECRET_KEY = os.getenv("SECRET_KEY", "nhincaichogi")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
@@ -55,12 +55,19 @@ file_formatter = logging.Formatter("%(asctime)s | %(message)s", datefmt="%Y-%m-%
 file_handler.setFormatter(file_formatter)
 access_logger.addHandler(file_handler)
 
+# In-memory Active Users Store
+# content: { "ip_or_username": datetime_timestamp }
+active_users = {}
+
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     # Extract Real IP from headers if behind proxy (Cloudflare, Nginx, etc.)
     real_ip = request.headers.get("CF-Connecting-IP") or \
               request.headers.get("X-Forwarded-For") or \
               (request.client.host if request.client else "unknown")
+
+    # Update active users
+    active_users[real_ip] = datetime.now()
     
     # If X-Forwarded-For has multiple IPs, take the first one
     if "," in real_ip:
@@ -238,6 +245,52 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
 @app.get("/api/me", response_model=User)
 def read_users_me(current_user: models.Nick = Depends(get_current_user)):
     return current_user
+
+@app.get("/api/stats/student-count")
+def get_student_count(
+    current_user: models.Nick = Depends(get_current_user),
+    db: Session = Depends(database.get_db)
+):
+    from sqlalchemy import func
+    
+    if current_user.role == 0:
+        # Guest role: Count only students in allowed classes
+        # Allowed classes are hardcoded for now: DHMT16A1HN, DHMT16A2HN
+        allowed_classes = ["DHMT16A1HN", "DHMT16A2HN"]
+        count = db.query(func.count(models.SinhVien.msv)).filter(
+            func.trim(models.SinhVien.ma_lop).in_(allowed_classes)
+        ).scalar()
+    else:
+        # Admin/Other roles: Count all students
+        count = db.query(func.count(models.SinhVien.msv)).scalar()
+        
+    return {"count": count}
+
+@app.get("/api/stats/online-users")
+def get_online_users(
+    current_user: models.Nick = Depends(get_current_user),
+    db: Session = Depends(database.get_db)
+):
+    # Threshold: 5 minutes
+    threshold = datetime.now() - timedelta(minutes=5)
+    
+    # Filter and Count
+    # Also cleanup old entries to prevent memory leak
+    # We iterate a copy of keys to avoid runtime error during deletion
+    valid_count = 0
+    to_remove = []
+    
+    for ip, last_seen in active_users.items():
+        if last_seen > threshold:
+            valid_count += 1
+        else:
+            to_remove.append(ip)
+            
+    # Cleanup
+    for ip in to_remove:
+        del active_users[ip]
+        
+    return {"count": valid_count}
 
 @app.get("/api/classes")
 def get_classes(

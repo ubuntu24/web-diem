@@ -66,3 +66,25 @@ export async function getMe(): Promise<User> {
     if (!res.ok) throw new Error('Failed to fetch user info');
     return res.json();
 }
+
+export async function getStudentCount(): Promise<number> {
+    const token = localStorage.getItem('token');
+    const headers: HeadersInit = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const res = await fetch(`${API_BASE_URL}/api/stats/student-count`, { headers });
+    if (!res.ok) throw new Error('Failed to fetch student count');
+    const data = await res.json();
+    return data.count;
+}
+
+export async function getOnlineUsers(): Promise<number> {
+    const token = localStorage.getItem('token');
+    const headers: HeadersInit = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const res = await fetch(`${API_BASE_URL}/api/stats/online-users`, { headers });
+    if (!res.ok) throw new Error('Failed to fetch online users');
+    const data = await res.json();
+    return data.count;
+}
