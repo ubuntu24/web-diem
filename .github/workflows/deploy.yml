@@ -14,11 +14,11 @@ jobs:
 
       - name: Build and Lint Frontend (Inside Docker)
         run: |
-          docker compose build frontend
+          docker-compose build frontend
 
       - name: Build Backend (Inside Docker)
         run: |
-          docker compose build backend
+          docker-compose build backend
 
   deploy:
     needs: build-and-test
@@ -29,4 +29,4 @@ jobs:
 
       - name: Deploy (Up updated containers)
         run: |
-          docker compose up -d --build
+          docker-compose up -d --build
