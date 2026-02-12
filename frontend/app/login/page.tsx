@@ -66,7 +66,7 @@ export default function LoginPage() {
                         <Lock className="w-8 h-8" />
                     </div>
                     <h1 className="text-2xl font-bold text-slate-800">Đăng Nhập Hệ Thống</h1>
-                    <p className="text-slate-500 text-sm mt-2">Vui lòng đăng nhập để tra cứu điểm thi</p>
+                    <p className="text-slate-500 text-sm mt-2">Vui lòng đăng nhập</p>
                 </div>
 
                 <form onSubmit={handleLogin} className="space-y-4">
@@ -128,7 +128,7 @@ export default function LoginPage() {
                 </form>
 
                 <div className="mt-6 text-center text-sm text-slate-500">
-                    <p className="mb-2">Chưa có tài khoản?</p>
+                    <p className="mb-2">Chưa có tài khoản ?</p>
                     <a href="/register" className="font-semibold text-blue-600 hover:text-blue-500 hover:underline transition-all">
                         Tạo tài khoản mới
                     </a>
