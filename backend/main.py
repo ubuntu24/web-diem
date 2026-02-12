@@ -8,6 +8,8 @@ from pydantic import BaseModel
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
 from fastapi.security import OAuth2PasswordBearer
+from fastapi import Request
+import logging
 
 # Secret key for JWT
 SECRET_KEY = os.getenv("SECRET_KEY", "supersecretkey") # Change this in .env for production
@@ -39,6 +41,44 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Setup Access Logging
+LOG_DIR = "/app/logs"
+if not os.path.exists(LOG_DIR):
+    os.makedirs(LOG_DIR, exist_ok=True)
+
+# Configure custom logger for access logs
+access_logger = logging.getLogger("access")
+access_logger.setLevel(logging.INFO)
+file_handler = logging.FileHandler(os.path.join(LOG_DIR, "access.log"), encoding='utf-8')
+file_formatter = logging.Formatter("%(asctime)s | %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+file_handler.setFormatter(file_formatter)
+access_logger.addHandler(file_handler)
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    # Basic request info
+    ip = request.client.host if request.client else "unknown"
+    method = request.method
+    path = request.url.path
+    user_agent = request.headers.get("user-agent", "Unknown")
+    
+    # Try to extract username from token if present (without DB hit for performance)
+    username = "Anonymous"
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        try:
+            token = auth_header.split(" ")[1]
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            username = payload.get("sub", "Anonymous")
+        except:
+            username = "InvalidToken"
+            
+    # Log the entry
+    access_logger.info(f"{ip} | {username} | {method} {path} | {user_agent}")
+    
+    response = await call_next(request)
+    return response
 
 # Helper functions
 def verify_password(plain_password, hashed_password):

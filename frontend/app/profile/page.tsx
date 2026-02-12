@@ -70,20 +70,6 @@ export default function ProfilePage() {
 
                         <div className="mt-8 space-y-4 text-left">
                             <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl">
-                                <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center text-blue-500 shadow-sm">
-                                    <User className="w-5 h-5" />
-                                </div>
-
-                            </div>
-
-                            <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl">
-                                <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center text-green-500 shadow-sm">
-                                    <Shield className="w-5 h-5" />
-                                </div>
-
-                            </div>
-
-                            <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl">
                                 <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center text-purple-500 shadow-sm">
                                     <Calendar className="w-5 h-5" />
                                 </div>

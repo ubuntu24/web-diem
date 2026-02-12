@@ -7,11 +7,10 @@ import Link from 'next/link';
 
 interface UserMenuProps {
     username: string;
-    role: number;
     onLogout: () => void;
 }
 
-export default function UserMenu({ username, role, onLogout }: UserMenuProps) {
+export default function UserMenu({ username, onLogout }: UserMenuProps) {
     return (
         <Menu as="div" className="relative inline-block text-left">
             <div>
@@ -21,9 +20,7 @@ export default function UserMenu({ username, role, onLogout }: UserMenuProps) {
                     </div>
                     <div className="hidden md:flex flex-col items-start">
                         <span className="text-sm font-medium text-slate-700">{username}</span>
-                        <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">
-                            {role === 1 ? 'Admin' : 'Guest'}
-                        </span>
+                        
                     </div>
                     <ChevronDown className="w-4 h-4 text-slate-400" />
                 </Menu.Button>
