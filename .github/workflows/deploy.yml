@@ -1,4 +1,4 @@
-name: CI/CD Pipeline (Docker Native)
+name: WEB DIEM
 
 on:
   push:
@@ -17,13 +17,13 @@ jobs:
           echo "${{ secrets.FRONTEND_ENV }}" > frontend/.env
           echo "${{ secrets.BACKEND_ENV }}" > backend/.env
 
-      - name: Build and Lint Frontend (Inside Docker)
+      - name: Build Frontend
         run: |
-          docker-compose build frontend
+          docker compose build frontend
 
-      - name: Build Backend (Inside Docker)
+      - name: Build Backend
         run: |
-          docker-compose build backend
+          docker compose build backend
 
   deploy:
     needs: build-and-test
@@ -37,6 +37,7 @@ jobs:
           echo "${{ secrets.FRONTEND_ENV }}" > frontend/.env
           echo "${{ secrets.BACKEND_ENV }}" > backend/.env
 
-      - name: Deploy (Up updated containers)
+      - name: Deploy
         run: |
-          docker-compose up -d --build
+          docker compose down
+          docker compose up -d --build
