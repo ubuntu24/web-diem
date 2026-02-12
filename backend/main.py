@@ -68,15 +68,20 @@ class ConnectionManager:
     async def connect(self, websocket: WebSocket, ip: str):
         await websocket.accept()
         self.active_connections.append({"ws": websocket, "ip": ip})
+        print(f"[WS] Connected: {ip}. Total connections: {len(self.active_connections)}")
         await self.broadcast_online_count()
 
     def disconnect(self, websocket: WebSocket):
+        before_count = len(self.active_connections)
         self.active_connections = [c for c in self.active_connections if c["ws"] != websocket]
+        print(f"[WS] Disconnected. Connections: {before_count} -> {len(self.active_connections)}")
 
     async def broadcast_online_count(self):
         # Count unique IPs
         unique_ips = {c["ip"] for c in self.active_connections}
         count = len(unique_ips)
+        
+        print(f"[WS] Broadcasting count: {count} (Unique IPs: {unique_ips})")
         
         # We only broadcast if there are connections
         if self.active_connections:
@@ -86,9 +91,9 @@ class ConnectionManager:
             for connection in self.active_connections:
                 try:
                     await connection["ws"].send_json(message)
-                except:
+                except Exception as e:
                     # Handle broken connections lazily
-                    pass
+                    print(f"[WS] Error broadcasting to {connection['ip']}: {e}")
 
 manager = ConnectionManager()
 
@@ -99,12 +104,12 @@ async def log_requests(request: Request, call_next):
               request.headers.get("X-Forwarded-For") or \
               (request.client.host if request.client else "unknown")
 
-    # Update active users
-    active_users[real_ip] = datetime.now()
-    
     # If X-Forwarded-For has multiple IPs, take the first one
     if "," in real_ip:
         real_ip = real_ip.split(",")[0].strip()
+
+    # Update active users
+    active_users[real_ip] = datetime.now()
 
     method = request.method
     path = request.url.path
@@ -347,9 +352,11 @@ async def websocket_endpoint(websocket: WebSocket):
             # Keep connection alive
             await websocket.receive_text()
     except WebSocketDisconnect:
+        print(f"[WS] WebSocketDisconnect from {real_ip}")
         manager.disconnect(websocket)
         await manager.broadcast_online_count()
-    except Exception:
+    except Exception as e:
+        print(f"[WS] Error in connection from {real_ip}: {e}")
         manager.disconnect(websocket)
         await manager.broadcast_online_count()
 
