@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tra Cứu Điểm Sinh Viên</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>Hệ Thống Tra Cứu Điểm</h1>
+        </header>
+
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="Nhập tên hoặc MSV..." onkeypress="handleKeyPress(event)">
+            <button onclick="searchStudent()">Tìm Kiếm</button>
+        </div>
+
+        <div id="breadcrumb" class="breadcrumb hidden"></div>
+        <div id="loading" class="hidden">Đang tải...</div>
+
+        <!-- View Container -->
+        <div id="mainContent">
+            <!-- Initial View: List of Classes -->
+            <div id="classListArea" class="grid-container"></div>
+
+            <!-- Second View: List of Students in a Class -->
+            <div id="studentListArea" class="grid-container hidden"></div>
+
+            <!-- Third View: Student Grades -->
+            <div id="gradeArea" class="hidden"></div>
+        </div>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+
+</html>
