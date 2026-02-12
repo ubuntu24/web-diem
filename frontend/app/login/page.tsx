@@ -128,7 +128,7 @@ export default function LoginPage() {
                 </form>
 
                 <div className="mt-6 text-center text-sm text-slate-500">
-                    <p className="mb-2">Chưa có tài khoản ?</p>
+                    <p className="mb-2">Chưa có tài khoản?</p>
                     <a href="/register" className="font-semibold text-blue-600 hover:text-blue-500 hover:underline transition-all">
                         Tạo tài khoản mới
                     </a>
