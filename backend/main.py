@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, Query, status
+from fastapi import FastAPI, Depends, HTTPException, Query, status, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import models, database, os
@@ -55,9 +55,42 @@ file_formatter = logging.Formatter("%(asctime)s | %(message)s", datefmt="%Y-%m-%
 file_handler.setFormatter(file_formatter)
 access_logger.addHandler(file_handler)
 
-# In-memory Active Users Store
+# In-memory Active Users Store (Middleware-based fallback)
 # content: { "ip_or_username": datetime_timestamp }
 active_users = {}
+
+# WebSocket Connection Manager
+class ConnectionManager:
+    def __init__(self):
+        # Store tuple of (WebSocket, ip_address)
+        self.active_connections: List[dict] = []
+
+    async def connect(self, websocket: WebSocket, ip: str):
+        await websocket.accept()
+        self.active_connections.append({"ws": websocket, "ip": ip})
+        await self.broadcast_online_count()
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections = [c for c in self.active_connections if c["ws"] != websocket]
+
+    async def broadcast_online_count(self):
+        # Count unique IPs
+        unique_ips = {c["ip"] for c in self.active_connections}
+        count = len(unique_ips)
+        
+        # We only broadcast if there are connections
+        if self.active_connections:
+            # Prepare message
+            message = {"count": count}
+            # Broadcast to all
+            for connection in self.active_connections:
+                try:
+                    await connection["ws"].send_json(message)
+                except:
+                    # Handle broken connections lazily
+                    pass
+
+manager = ConnectionManager()
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
@@ -271,12 +304,16 @@ def get_online_users(
     current_user: models.Nick = Depends(get_current_user),
     db: Session = Depends(database.get_db)
 ):
+    # Prefer WebSocket count if available, otherwise fallback to active_users
+    # Calculate unique IPs from WS manager
+    if manager.active_connections:
+        unique_ips = {c["ip"] for c in manager.active_connections}
+        return {"count": max(1, len(unique_ips))}
+
     # Threshold: 5 minutes
     threshold = datetime.now() - timedelta(minutes=5)
     
     # Filter and Count
-    # Also cleanup old entries to prevent memory leak
-    # We iterate a copy of keys to avoid runtime error during deletion
     valid_count = 0
     to_remove = []
     
@@ -290,7 +327,31 @@ def get_online_users(
     for ip in to_remove:
         del active_users[ip]
         
-    return {"count": valid_count}
+    return {"count": max(1, valid_count)} # Minimum 1 for current user
+
+@app.websocket("/ws/online-count")
+async def websocket_endpoint(websocket: WebSocket):
+    # Extract Real IP for WebSocket
+    # headers are binary in scope, but Starlette/FastAPI exposes them nicely
+    real_ip = websocket.headers.get("CF-Connecting-IP") or \
+              websocket.headers.get("X-Forwarded-For") or \
+              (websocket.client.host if websocket.client else "unknown")
+              
+    if "," in real_ip:
+        real_ip = real_ip.split(",")[0].strip()
+
+    print(f"[WS DEBUG] New connection from IP: {real_ip} | Total connections: {len(manager.active_connections)+1} | Headers: CF={websocket.headers.get('CF-Connecting-IP')}, XFF={websocket.headers.get('X-Forwarded-For')}, Client={websocket.client.host if websocket.client else 'unknown'}")
+    await manager.connect(websocket, real_ip)
+    try:
+        while True:
+            # Keep connection alive
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+        await manager.broadcast_online_count()
+    except Exception:
+        manager.disconnect(websocket)
+        await manager.broadcast_online_count()
 
 @app.get("/api/classes")
 def get_classes(

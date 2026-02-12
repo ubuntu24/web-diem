@@ -64,6 +64,10 @@ const nextConfig: NextConfig = {
         source: '/static/:path*',
         destination: `${apiBase}/static/:path*`, // Proxy static files
       },
+      {
+        source: '/ws/:path*',
+        destination: `${apiBase}/ws/:path*`, // Proxy WebSockets
+      },
     ]
   },
 };

@@ -101,14 +101,53 @@ export default function Home() {
 
     getStudentCount().then(count => setTotalStudentCount(count)).catch(console.error);
 
-    // Initial fetch and polling for online users
-    const fetchOnline = () => getOnlineUsers().then(count => setOnlineUsers(count)).catch(console.error);
-    fetchOnline();
-    const interval = setInterval(fetchOnline, 30000); // 30 seconds
+    // Initial fetch for online users
+    getOnlineUsers().then(count => setOnlineUsers(count)).catch(console.error);
+
+    // WebSocket for real-time online users
+    let socket: WebSocket | null = null;
+    let reconnectTimeout: NodeJS.Timeout;
+
+    const connectWebSocket = () => {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const host = window.location.host;
+      const wsUrl = `${protocol}//${host}/ws/online-count`;
+
+      socket = new WebSocket(wsUrl);
+
+      socket.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data && typeof data.count === 'number') {
+            setOnlineUsers(data.count);
+          }
+        } catch (error) {
+          console.error("WebSocket message error:", error);
+        }
+      };
+
+      socket.onclose = () => {
+        console.log("WebSocket disconnected. Reconnecting...");
+        reconnectTimeout = setTimeout(connectWebSocket, 5000);
+      };
+
+      socket.onerror = (error) => {
+        console.error("WebSocket error:", error);
+        socket?.close();
+      };
+    };
+
+    connectWebSocket();
 
     loadClasses();
 
-    return () => clearInterval(interval);
+    return () => {
+      if (socket) {
+        socket.onclose = null; // Prevent reconnection loop
+        socket.close();
+      }
+      clearTimeout(reconnectTimeout);
+    };
   }, []);
 
   const handleLogout = () => {
