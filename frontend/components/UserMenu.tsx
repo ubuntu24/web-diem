@@ -53,18 +53,6 @@ export default function UserMenu({ username, onLogout }: UserMenuProps) {
                                 </Link>
                             )}
                         </Menu.Item>
-                        <Menu.Item>
-                            {({ active }) => (
-                                <Link
-                                    href="/docs"
-                                    className={`${active ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-300'
-                                        } group flex w-full items-center rounded-lg px-2 py-2 text-sm transition-colors`}
-                                >
-                                    <FileText className="mr-2 h-4 w-4" />
-                                    Tài liệu API
-                                </Link>
-                            )}
-                        </Menu.Item>
                     </div>
                     <div className="px-1 py-1">
                         <Menu.Item>

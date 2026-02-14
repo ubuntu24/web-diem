@@ -2,17 +2,19 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { getClasses, getStudentsByClass, getStudent, searchStudents, getStudentCount, getOnlineUsers } from '@/lib/api';
 import { Student } from '@/lib/types';
 import Sidebar from '@/components/Sidebar';
 import SemesterAccordion from '@/components/SemesterAccordion';
 import GPASimulator from '@/components/GPASimulator';
-import { Search, Loader2, Skull, ChevronRight, Home as HomeIcon, Sparkles, ChevronLeft, Users, Award, Shield } from 'lucide-react';
+import { Search, Loader2, Skull, ChevronRight, Home as HomeIcon, Sparkles, ChevronLeft, Users, Award, Shield, MapPin, Star } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import UserMenu from '@/components/UserMenu';
 import { getMe } from '@/lib/api';
 import HeroSection from '@/components/HeroSection';
 import AdminUserList from '@/components/AdminUserList';
+import ClassPicker from '@/components/ClassPicker';
 
 export default function Home() {
   const router = useRouter();
@@ -32,11 +34,13 @@ export default function Home() {
   const [totalPoints, setTotalPoints] = useState(0);
   const [totalStudentCount, setTotalStudentCount] = useState(0);
   const [onlineUsers, setOnlineUsers] = useState(1);
+  const [showClassPicker, setShowClassPicker] = useState(false);
   const [sortBy, setSortBy] = useState<'cumulative' | 'semester'>('cumulative');
   const [sortingScale, setSortingScale] = useState<'4' | '10'>('4');
   const [selectedSemester, setSelectedSemester] = useState<string>('all');
   const [compareMode, setCompareMode] = useState(false);
   const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
+  const [isVipLimitReached, setIsVipLimitReached] = useState(false);
 
   function calculateSemesterGPA(student: Student, semester: string): { gpa4: number, gpa10: number } {
     if (!student.diem) return { gpa4: 0, gpa10: 0 };
@@ -93,14 +97,52 @@ export default function Home() {
     getMe().then(user => {
       setUsername(user.username);
       setRole(user.role);
+
+      // Read selected class from localStorage
+      const storedClass = localStorage.getItem('selectedClass') || '';
+      setSelectedClass(storedClass);
+
       localStorage.setItem('role', user.role.toString());
+
+      // If regular user: show class picker if no class, or auto-load students
+      if (user.role === 0) {
+        // Handle offline reset
+        if (user.reset_limit_at) {
+          const lastApplied = localStorage.getItem('lastResetApplied');
+          if (!lastApplied || new Date(user.reset_limit_at) > new Date(lastApplied)) {
+            console.log("Applying offline limit reset from server");
+            localStorage.removeItem('classChanges');
+            localStorage.removeItem('classChangeDate');
+            localStorage.setItem('lastResetApplied', user.reset_limit_at);
+            setIsVipLimitReached(false);
+          }
+        }
+
+        // Check VIP limit
+        const count = parseInt(localStorage.getItem('classChanges') || '0');
+        const today = new Date().toISOString().slice(0, 10);
+        const storedDate = localStorage.getItem('classChangeDate');
+        if (storedDate === today && count >= 3) {
+          setIsVipLimitReached(true);
+        }
+
+        if (!storedClass) {
+          setShowClassPicker(true);
+        } else {
+          // Auto-load the stored class's students
+          loadStudentsForClass(storedClass);
+        }
+      }
     }).catch(() => {
       // Fallback or redirect if token invalid
       localStorage.removeItem('token');
       router.push('/login');
     });
 
-    getStudentCount().then(count => setTotalStudentCount(count)).catch(console.error);
+    const storedClass = localStorage.getItem('selectedClass') || '';
+    getStudentCount(roleStored && parseInt(roleStored) === 0 ? storedClass : undefined)
+      .then(count => setTotalStudentCount(count))
+      .catch(console.error);
 
     // Initial fetch for online users
     getOnlineUsers().then(count => setOnlineUsers(count)).catch(console.error);
@@ -137,6 +179,12 @@ export default function Home() {
           if (data && typeof data.count === 'number') {
             setOnlineUsers(data.count);
           }
+          if (data && data.type === 'reset_limit') {
+            console.log("Limit reset signal received via WebSocket");
+            localStorage.removeItem('classChanges');
+            localStorage.removeItem('classChangeDate');
+            setIsVipLimitReached(false);
+          }
         } catch (error) {
           console.error("WebSocket message error:", error);
         }
@@ -169,6 +217,9 @@ export default function Home() {
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('role');
+    localStorage.removeItem('selectedClass');
+    localStorage.removeItem('classChanges');
+    localStorage.removeItem('classChangeDate');
     router.push('/login');
   };
 
@@ -185,10 +236,36 @@ export default function Home() {
     }
   }
 
+  // Helper to load students directly (used on mount for role 0)
+  async function loadStudentsForClass(cls: string) {
+    setLoading(true);
+    setSelectedClass(cls);
+    try {
+      const data = await getStudentsByClass(cls);
+      setStudents(data);
+      setView('students');
+      // Refresh count for this specific class
+      getStudentCount(cls).then(count => setTotalStudentCount(count)).catch(console.error);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function loadStudents(maLop: string | string[]) {
+    // If it's a single class and user role is 0, store it
+    if (role === 0 && typeof maLop === 'string') {
+      localStorage.setItem('selectedClass', maLop);
+      // Refresh count for this specific class
+      getStudentCount(maLop).then(count => setTotalStudentCount(count)).catch(console.error);
+    }
+
     setLoading(true);
     const maLopStr = Array.isArray(maLop) ? maLop.join(',') : maLop;
-    setSelectedClass(Array.isArray(maLop) ? `So sánh: ${maLop.join(', ')}` : maLop);
+    if (!Array.isArray(maLop)) {
+      setSelectedClass(maLop);
+    }
     setLocalSearchTerm('');
     try {
       const data = await getStudentsByClass(maLopStr);
@@ -426,7 +503,33 @@ export default function Home() {
               </div>
             )}
 
+            {isVipLimitReached && role === 0 && (
+              <Link
+                href="/vip"
+                className="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-amber-400 to-amber-600 text-white rounded-full text-[10px] font-black uppercase tracking-tighter shadow-sm hover:scale-105 transition-transform"
+              >
+                <div className="w-4 h-4 rounded-full bg-white flex items-center justify-center">
+                  <Star className="w-2.5 h-2.5 text-amber-600 fill-amber-600" />
+                </div>
+                UPGRADE VIP
+              </Link>
+            )}
+
             <UserMenu username={username} onLogout={handleLogout} />
+
+            {role === 0 && (
+              <button
+                onClick={() => setShowClassPicker(true)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all ${selectedClass
+                  ? 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200'
+                  : 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-200 animate-pulse'
+                  }`}
+              >
+                <MapPin className="w-4 h-4" />
+                <span className="text-xs font-bold">{selectedClass || 'Chọn lớp'}</span>
+              </button>
+            )}
+
           </div>
         </div>
       </header >
@@ -520,37 +623,79 @@ export default function Home() {
                   )}
 
                   {/* Hero Section */}
-                  <HeroSection username={username} totalClasses={classes.length} totalStudents={totalStudentCount} onlineUsers={onlineUsers} />
+                  <HeroSection
+                    username={username}
+                    totalClasses={role === 0 ? (selectedClass ? 1 : 0) : classes.length}
+                    totalStudents={totalStudentCount}
+                    onlineUsers={onlineUsers}
+                    role={role}
+                  />
 
-                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                    {classes.map((cls, index) => (
-                      <motion.div
-                        key={cls}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.05 }}
-                        whileHover={{ y: -5, transition: { duration: 0.2 } }}
-                        onClick={() => compareMode ? toggleClassSelection(cls) : loadStudents(cls)}
-                        className={`bg-white dark:bg-slate-800 p-3 md:p-5 rounded-xl border transition-all flex flex-col items-center justify-center gap-3 group relative overflow-hidden shadow-sm hover:shadow-lg hover:border-indigo-300 dark:hover:border-indigo-700 ${compareMode && selectedClasses.includes(cls)
-                          ? 'border-indigo-500 bg-indigo-50/30 ring-2 ring-indigo-500'
-                          : 'border-slate-100 dark:border-slate-700'
-                          } cursor-pointer`}
-                      >
-                        {compareMode && (
-                          <div className={`absolute top-2 right-2 w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${selectedClasses.includes(cls) ? 'bg-indigo-600 border-indigo-600' : 'bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600'
-                            }`}>
-                            {selectedClasses.includes(cls) && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
+                  {/* Role 0: Show only selected class or prompt to pick */}
+                  {role === 0 ? (
+                    selectedClass ? (
+                      <div className="grid grid-cols-1 gap-3">
+                        <motion.div
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          whileHover={{ y: -5, transition: { duration: 0.2 } }}
+                          onClick={() => loadStudents(selectedClass)}
+                          className="bg-white dark:bg-slate-800 p-5 rounded-xl border border-indigo-200 dark:border-indigo-700 transition-all flex items-center gap-4 group cursor-pointer shadow-sm hover:shadow-lg hover:border-indigo-400"
+                        >
+                          <div className="w-12 h-12 rounded-full flex items-center justify-center bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 group-hover:scale-110 transition-transform">
+                            <MapPin className="w-6 h-6" />
                           </div>
-                        )}
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${compareMode && selectedClasses.includes(cls) ? 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300' : 'bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-700 dark:to-slate-700 text-indigo-600 dark:text-indigo-300'
-                          } group-hover:scale-110 transition-transform shadow-inner`}>
-                          <span className="font-bold text-sm tracking-tight">{cls.substring(0, 2)}</span>
-                        </div>
-                        <div className={`font-semibold text-sm truncate w-full text-center group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors ${compareMode && selectedClasses.includes(cls) ? 'text-indigo-900 dark:text-indigo-200' : 'text-slate-600 dark:text-slate-300'
-                          }`}>{cls}</div>
-                      </motion.div>
-                    ))}
-                  </div>
+                          <div className="flex-1">
+                            <div className="font-bold text-lg text-slate-900 dark:text-white">{selectedClass}</div>
+                            <div className="text-xs text-slate-500 dark:text-slate-400">Nhấn để xem danh sách sinh viên</div>
+                          </div>
+                          <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-indigo-500 transition-colors" />
+                        </motion.div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-12">
+                        <MapPin className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
+                        <p className="text-slate-500 dark:text-slate-400 font-medium">Vui lòng chọn lớp để bắt đầu</p>
+                        <button
+                          onClick={() => setShowClassPicker(true)}
+                          className="mt-4 px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors"
+                        >
+                          Chọn lớp
+                        </button>
+                      </div>
+                    )
+                  ) : (
+                    /* Role 1 (Admin): Show all classes grid */
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                      {classes.map((cls, index) => (
+                        <motion.div
+                          key={cls}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.05 }}
+                          whileHover={{ y: -5, transition: { duration: 0.2 } }}
+                          onClick={() => compareMode ? toggleClassSelection(cls) : loadStudents(cls)}
+                          className={`bg-white dark:bg-slate-800 p-3 md:p-5 rounded-xl border transition-all flex flex-col items-center justify-center gap-3 group relative overflow-hidden shadow-sm hover:shadow-lg hover:border-indigo-300 dark:hover:border-indigo-700 ${compareMode && selectedClasses.includes(cls)
+                            ? 'border-indigo-500 bg-indigo-50/30 ring-2 ring-indigo-500'
+                            : 'border-slate-100 dark:border-slate-700'
+                            } cursor-pointer`}
+                        >
+                          {compareMode && (
+                            <div className={`absolute top-2 right-2 w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${selectedClasses.includes(cls) ? 'bg-indigo-600 border-indigo-600' : 'bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600'
+                              }`}>
+                              {selectedClasses.includes(cls) && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
+                            </div>
+                          )}
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${compareMode && selectedClasses.includes(cls) ? 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300' : 'bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-700 dark:to-slate-700 text-indigo-600 dark:text-indigo-300'
+                            } group-hover:scale-110 transition-transform shadow-inner`}>
+                            <span className="font-bold text-sm tracking-tight">{cls.substring(0, 2)}</span>
+                          </div>
+                          <div className={`font-semibold text-sm truncate w-full text-center group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors ${compareMode && selectedClasses.includes(cls) ? 'text-indigo-900 dark:text-indigo-200' : 'text-slate-600 dark:text-slate-300'
+                            }`}>{cls}</div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -763,6 +908,26 @@ export default function Home() {
                 </motion.div>
               )}
             </>
+          )}
+        </AnimatePresence>
+
+        {/* Global Class Picker Overlay */}
+        <AnimatePresence>
+          {showClassPicker && (
+            <ClassPicker
+              classes={classes}
+              currentClass={selectedClass}
+              onClassSelected={(cls) => {
+                setSelectedClass(cls);
+                // Refresh data for the new class
+                loadStudents(cls);
+
+                // Check if limit reached after selection
+                const count = parseInt(localStorage.getItem('classChanges') || '0');
+                if (count >= 3) setIsVipLimitReached(true);
+              }}
+              onClose={selectedClass ? () => setShowClassPicker(false) : undefined}
+            />
           )}
         </AnimatePresence>
       </main>

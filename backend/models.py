@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Date, DateTime, ForeignKey, Text, BigInteger
+from sqlalchemy import Column, Integer, String, Date, DateTime, ForeignKey, Text, BigInteger, Boolean
 from sqlalchemy.orm import relationship
 from database import Base
 from sqlalchemy.sql import func
@@ -66,9 +66,10 @@ class Nick(Base):
     password = Column("pass", Text, primary_key=True, nullable=False)
     role = Column(Integer, primary_key=True, nullable=False)
     
-    # Store permissions as comma-separated string (e.g. "DHMT16A1HN,DHMT16A2HN")
-    user_permission = Column(Text, nullable=True)
+    # Nick table for user authentication and roles
+    # Role 1: Admin, Role 0: Regular User
     last_active = Column(DateTime, nullable=True)
+    reset_limit_at = Column(DateTime, nullable=True)
 
 class UserAccess(Base):
     __tablename__ = "user_access"

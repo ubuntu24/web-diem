@@ -7,9 +7,10 @@ interface HeroSectionProps {
     totalClasses: number;
     totalStudents: number;
     onlineUsers?: number;
+    role: number;
 }
 
-export default function HeroSection({ username, totalClasses, totalStudents, onlineUsers }: HeroSectionProps) {
+export default function HeroSection({ username, totalClasses, totalStudents, onlineUsers, role }: HeroSectionProps) {
     const [greeting, setGreeting] = useState('Chào bạn');
 
     useEffect(() => {
@@ -18,6 +19,8 @@ export default function HeroSection({ username, totalClasses, totalStudents, onl
         else if (hour < 18) setGreeting('Chào buổi chiều');
         else setGreeting('Chào buổi tối');
     }, []);
+
+    const isGuest = role === 0;
 
     return (
         <div className="mb-8 space-y-6">
@@ -32,7 +35,9 @@ export default function HeroSection({ username, totalClasses, totalStudents, onl
                         {greeting}, {username}! <span className="text-3xl md:text-4xl">👋</span>
                     </h1>
                     <p className="text-indigo-100 text-base md:text-lg opacity-90">
-                        Hôm nay bạn muốn kiểm tra tiến độ của lớp nào?
+                        {isGuest
+                            ? "Hôm nay bạn muốn kiểm tra tiến độ học tập của mình chứ?"
+                            : "Hôm nay bạn muốn kiểm tra tiến độ của lớp nào?"}
                     </p>
                 </div>
 
@@ -45,13 +50,13 @@ export default function HeroSection({ username, totalClasses, totalStudents, onl
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <StatsCard
                     icon={<BookOpen className="w-6 h-6 text-blue-600 dark:text-blue-400" />}
-                    label="Lớp học đang quản lý"
+                    label={isGuest ? "Lớp học đang theo dõi" : "Lớp học đang quản lý"}
                     value={totalClasses.toString()}
                     color="bg-blue-50 border-blue-100 dark:bg-blue-900/20 dark:border-blue-800"
                 />
                 <StatsCard
                     icon={<Users className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />}
-                    label="Tổng sinh viên (Ước tính)"
+                    label={isGuest ? "Sinh viên trong lớp" : "Tổng sinh viên (Toàn trường)"}
                     value={totalStudents > 0 ? totalStudents.toString() : "--"}
                     color="bg-emerald-50 border-emerald-100 dark:bg-emerald-900/20 dark:border-emerald-800"
                 />

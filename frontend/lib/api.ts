@@ -55,6 +55,7 @@ export interface User {
     username: string;
     role: number;
     created_at: string;
+    reset_limit_at?: string | null;
 }
 
 export async function getMe(): Promise<User> {
@@ -67,12 +68,17 @@ export async function getMe(): Promise<User> {
     return res.json();
 }
 
-export async function getStudentCount(): Promise<number> {
+
+export async function getStudentCount(className?: string): Promise<number> {
     const token = localStorage.getItem('token');
     const headers: HeadersInit = {};
     if (token) headers['Authorization'] = `Bearer ${token}`;
 
-    const res = await fetch(`${API_BASE_URL}/api/stats/student-count`, { headers });
+    const url = className
+        ? `${API_BASE_URL}/api/stats/student-count?class_name=${encodeURIComponent(className)}`
+        : `${API_BASE_URL}/api/stats/student-count`;
+
+    const res = await fetch(url, { headers });
     if (!res.ok) throw new Error('Failed to fetch student count');
     const data = await res.json();
     return data.count;
@@ -98,8 +104,8 @@ export interface AdminUser {
     id: number;
     username: string;
     role: number;
-    allowed_classes: string[];
     access_history?: AccessHistory[];
+    reset_limit_at?: string | null;
 }
 
 export async function getUsers(): Promise<AdminUser[]> {
@@ -112,18 +118,15 @@ export async function getUsers(): Promise<AdminUser[]> {
     return res.json();
 }
 
-export async function updateUserPermissions(userId: number, allowedClasses: string[]): Promise<void> {
+export async function resetUserLimit(userId: number): Promise<void> {
     const token = localStorage.getItem('token');
-    const headers: HeadersInit = {
-        'Content-Type': 'application/json'
-    };
+    const headers: HeadersInit = {};
     if (token) headers['Authorization'] = `Bearer ${token}`;
 
-    const res = await fetch(`${API_BASE_URL}/api/admin/user/${userId}/permissions`, {
+    const res = await fetch(`${API_BASE_URL}/api/admin/user/${userId}/reset-limit`, {
         method: 'POST',
-        headers,
-        body: JSON.stringify({ allowed_classes: allowedClasses })
+        headers
     });
-
-    if (!res.ok) throw new Error('Failed to update permissions');
+    if (!res.ok) throw new Error('Failed to reset user limit');
 }
+

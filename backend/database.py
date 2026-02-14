@@ -36,7 +36,13 @@ else:
         print(f"[ERROR] DB_CONNECTION: Failed to connect to Postgres: {e}")
         print("[INFO] DB_CONNECTION: Connected to Postgres")
 
-engine = create_engine(SQLALCHEMY_DATABASE_URL)
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL,
+    pool_size=5,
+    max_overflow=10,
+    pool_pre_ping=True,
+    pool_recycle=1800,
+)
 
 # Create a SessionLocal class
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
