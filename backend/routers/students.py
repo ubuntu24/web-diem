@@ -216,7 +216,7 @@ def get_students_by_class(
         joinedload(models.SinhVien.diem)
     ).filter(models.SinhVien.ma_lop == ma_lop).all()
     if not students:
-        raise HTTPException(status_code=404, detail="Class not found")
+        raise HTTPException(status_code=404, detail=f"No students found for class(es): {ma_lop}")
         
     return {"students": [format_student(sv, hide_details=True) for sv in students]}
 
