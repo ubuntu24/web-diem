@@ -16,6 +16,8 @@ jobs:
         run: |
           echo "${{ secrets.FRONTEND_ENV }}" > frontend/.env
           echo "${{ secrets.BACKEND_ENV }}" > backend/.env
+          echo "CF_TOKEN=${{ secrets.CF_TOKEN }}" > .env
+
 
       - name: Build Frontend
         run: |
@@ -36,6 +38,7 @@ jobs:
         run: |
           echo "${{ secrets.FRONTEND_ENV }}" > frontend/.env
           echo "${{ secrets.BACKEND_ENV }}" > backend/.env
+          echo "CF_TOKEN=${{ secrets.CF_TOKEN }}" > .env
 
       - name: Deploy
         run: |
