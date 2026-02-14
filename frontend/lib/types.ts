@@ -29,6 +29,8 @@ export interface Grade {
     tb_hoc_ky_4?: string;
     tb_tich_luy_10?: string;
     tb_tich_luy_4?: string;
+    loai_du_lieu?: string;
+    exclude_from_gpa?: boolean;
 }
 
 export interface Student {

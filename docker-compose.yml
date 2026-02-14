@@ -16,7 +16,6 @@ services:
     volumes:
       - ./backend/students.db:/app/students.db
       - ./backend/static:/app/static
-      - ~/access.log:/app/logs/access.log
     restart: always
 
   frontend:

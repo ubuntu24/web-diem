@@ -25,17 +25,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Setup Access Logging
-LOG_DIR = "/app/logs"
-if not os.path.exists(LOG_DIR):
-    os.makedirs(LOG_DIR, exist_ok=True)
-
-access_logger = logging.getLogger("access")
-access_logger.setLevel(logging.INFO)
-file_handler = logging.FileHandler(os.path.join(LOG_DIR, "access.log"), encoding='utf-8')
-file_formatter = logging.Formatter("%(asctime)s | %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
-file_handler.setFormatter(file_formatter)
-access_logger.addHandler(file_handler)
 
 # Track last access update time per user to avoid DB writes on every request
 _last_access_update = {}  # username -> datetime
@@ -93,8 +82,6 @@ async def log_requests(request: Request, call_next):
                 except Exception:
                     pass
     
-    log_msg = f"{client_ip} | {username} | {request.method} {request.url.path} | {response.status_code}"
-    access_logger.info(log_msg)
     
     return response
 

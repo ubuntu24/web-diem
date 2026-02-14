@@ -42,46 +42,129 @@ export default function Home() {
   const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
   const [isVipLimitReached, setIsVipLimitReached] = useState(false);
 
+  // ---------------------------------------------------------------------------
+  // GPA helpers (clean version)
+  // ---------------------------------------------------------------------------
+
+  const EXCLUDED_MA_MON = new Set(['0101000515', '0101000509', '0101000518']);
+  const EXCLUDED_KEYWORDS = [
+    'giáo dục thể chất', 'gdtc',
+    'giáo dục quốc phòng', 'gdqp',
+    'thể dục',
+    'toeic',
+    'tiếng anh đầu vào', 'tieng anh dau vao',
+    'english placement',
+    'xếp lớp tiếng anh', 'xep lop tieng anh',
+    'kiểm tra đầu vào tiếng anh', 'kiem tra dau vao tieng anh',
+    'điểm test tiếng anh đầu vào', 'diem test tieng anh dau vao',
+  ];
+
+  function toNumber(value: unknown): number | null {
+    if (value === null || value === undefined) return null;
+    if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+    const n = Number(String(value).trim().replace(',', '.'));
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function cleanScore(raw10: unknown, raw4: unknown): { s10: number | null; s4: number | null } {
+    let s10 = toNumber(raw10);
+    let s4 = toNumber(raw4);
+
+    // Clamp to valid academic range
+    if (s10 !== null && (s10 < 0 || s10 > 10)) s10 = null;
+    if (s4 !== null && (s4 < 0 || s4 > 4)) s4 = null;
+
+    if (s10 === null && s4 === null) return { s10: null, s4: null };
+
+    if (s4 === null && s10 !== null) s4 = (s10 * 4) / 10;
+    if (s10 === null && s4 !== null) s10 = (s4 * 10) / 4;
+
+    return { s10, s4 };
+  }
+
+  function isExcludedFromGPA(grade: { ten_mon?: string; ma_mon?: string; exclude_from_gpa?: boolean; tong_ket_10?: string }): boolean {
+    // Layer 1: backend flag
+    if (grade.exclude_from_gpa === true) return true;
+
+    // Layer 2: hard-coded ma_mon
+    if (EXCLUDED_MA_MON.has((grade.ma_mon || '').trim())) return true;
+
+    // Layer 3: name keywords
+    const name = (grade.ten_mon || '').trim().toLowerCase();
+    if (name && EXCLUDED_KEYWORDS.some(kw => name.includes(kw))) return true;
+
+    // Layer 4: score > 10 → non-academic
+    const raw10 = toNumber(grade.tong_ket_10);
+    if (raw10 !== null && raw10 > 10) return true;
+
+    return false;
+  }
+
+  function getNormalizedSemester(grade: any): string {
+    let hk = (grade.hoc_ky || '').trim();
+    const ldl = (grade.loai_du_lieu || '').trim();
+    const tenMon = (grade.ten_mon || '').trim().toLowerCase();
+
+    // Robust detection of "Học vượt" (HV)
+    const isHocVuot =
+      hk.toUpperCase() === 'HV' ||
+      ldl.toUpperCase() === 'HV' ||
+      hk.toLowerCase().includes('hoc vuot') ||
+      ldl.toLowerCase().includes('hoc vuot') ||
+      tenMon.includes('_ hv') ||
+      tenMon.includes('(hoc vuot)') ||
+      tenMon.includes('(hv)');
+
+    if (isHocVuot) return 'Học vượt';
+    if (!hk && ldl) return ldl;
+    return hk || 'Khác';
+  }
+
   function calculateSemesterGPA(student: Student, semester: string): { gpa4: number, gpa10: number } {
     if (!student.diem) return { gpa4: 0, gpa10: 0 };
-    // Normalize comparison to be safe
     const target = semester.trim().toLowerCase();
-    const semesterGrades = student.diem.filter(d => (d.hoc_ky || '').trim().toLowerCase() === target);
+    const rows = student.diem.filter(
+      d => !isExcludedFromGPA(d) && getNormalizedSemester(d).toLowerCase() === target
+    );
+    if (!rows.length) return { gpa4: 0, gpa10: 0 };
 
-    if (!semesterGrades.length) return { gpa4: 0, gpa10: 0 };
-
-    let semPoints4 = 0;
-    let semPoints10 = 0;
-    let semCredits = 0;
-    const subjectMap = new Map<string, { score4: number, score10: number, credit: number }>();
-
-    semesterGrades.forEach(g => {
-      const score4 = parseFloat(g.tong_ket_4);
-      const score10 = parseFloat(g.tong_ket_10);
-      const credit = parseInt(g.so_tin_chi);
-      if (isNaN(score4) || isNaN(score10) || isNaN(credit) || credit === 0) return;
-
-      // Handle Retakes
-      if (subjectMap.has(g.ma_mon)) {
-        const current = subjectMap.get(g.ma_mon)!;
-        if (score4 > current.score4) {
-          subjectMap.set(g.ma_mon, { score4, score10, credit });
-        }
-      } else {
-        subjectMap.set(g.ma_mon, { score4, score10, credit });
-      }
+    const map = new Map<string, { s4: number; s10: number; cr: number }>();
+    rows.forEach(g => {
+      const { s10, s4 } = cleanScore(g.tong_ket_10, g.tong_ket_4);
+      const cr = toNumber(g.so_tin_chi);
+      if (!cr || cr <= 0 || s10 === null || s4 === null) return;
+      const key = (g.ma_mon || '').trim() || `N_${(g.ten_mon || '').trim().toLowerCase()}`;
+      map.set(key, { s4, s10, cr }); // latest wins
     });
 
-    subjectMap.forEach(item => {
-      semPoints4 += item.score4 * item.credit;
-      semPoints10 += item.score10 * item.credit;
-      semCredits += item.credit;
-    });
-
+    let p4 = 0, p10 = 0, tc = 0;
+    map.forEach(v => { p4 += v.s4 * v.cr; p10 += v.s10 * v.cr; tc += v.cr; });
     return {
-      gpa4: semCredits > 0 ? parseFloat((semPoints4 / semCredits).toFixed(2)) : 0,
-      gpa10: semCredits > 0 ? parseFloat((semPoints10 / semCredits).toFixed(2)) : 0
+      gpa4: tc > 0 ? parseFloat((p4 / tc).toFixed(2)) : 0,
+      gpa10: tc > 0 ? parseFloat((p10 / tc).toFixed(2)) : 0,
     };
+  }
+
+  function calculateCumulativeGPA(student: Student): { gpa4: number, gpa10: number, totalCredits: number, totalPoints4: number, totalPoints10: number } {
+    if (!student.diem || !student.diem.length) return { gpa4: 0, gpa10: 0, totalCredits: 0, totalPoints4: 0, totalPoints10: 0 };
+
+    const map = new Map<string, { s4: number; s10: number; cr: number }>();
+    student.diem.forEach(g => {
+      if (isExcludedFromGPA(g)) return;
+      const { s10, s4 } = cleanScore(g.tong_ket_10, g.tong_ket_4);
+      const cr = toNumber(g.so_tin_chi);
+      if (!cr || cr <= 0 || s10 === null || s4 === null) return;
+      const key = (g.ma_mon || '').trim() || `N_${(g.ten_mon || '').trim().toLowerCase()}`;
+      map.set(key, { s4, s10, cr }); // latest wins
+    });
+
+    let p4 = 0, p10 = 0, tc = 0;
+    map.forEach(v => { p4 += v.s4 * v.cr; p10 += v.s10 * v.cr; tc += v.cr; });
+
+    const gpa4 = tc > 0 ? parseFloat((p4 / tc).toFixed(2)) : 0;
+    const gpa10 = tc > 0 ? parseFloat((p10 / tc).toFixed(2)) : 0;
+
+    return { gpa4, gpa10, totalCredits: tc, totalPoints4: p4, totalPoints10: p10 };
   }
 
   useEffect(() => {
@@ -314,109 +397,78 @@ export default function Home() {
   }
 
   function calculateGPA(student: Student) {
-    if (!student.diem || student.diem.length === 0) {
-      setGpa('N/A');
-      return;
-    }
+    const cum = calculateCumulativeGPA(student);
 
-    const subjectMap = new Map<string, { score4: number, score10: number, credit: number, name: string }>();
+    setTotalCredits(cum.totalCredits);
+    setTotalPoints(cum.totalPoints4); // Simulator expects system 4 points
 
-    student.diem.forEach(g => {
-      const score4 = parseFloat(g.tong_ket_4);
-      const score10 = parseFloat(g.tong_ket_10);
-      const credit = parseInt(g.so_tin_chi);
-      const name = g.ten_mon ? g.ten_mon.trim() : '';
-
-      // 1. Filter out invalid numeric values
-      if (isNaN(score4) || isNaN(score10) || isNaN(credit)) return;
-
-      // 2. Exclude non-GPA subjects (Physical Education, Defense Education, etc.)
-      const lowerName = name.toLowerCase();
-      if (
-        lowerName.includes('giáo dục thể chất') ||
-        lowerName.includes('gdtc') ||
-        lowerName.includes('giáo dục quốc phòng') ||
-        lowerName.includes('gdqp') ||
-        lowerName.includes('thể dục') ||
-        credit === 0
-      ) {
-        return;
-      }
-
-      // 3. Handle Retakes: Keep the highest score for each subject (ma_mon)
-      if (subjectMap.has(g.ma_mon)) {
-        const current = subjectMap.get(g.ma_mon)!;
-        if (score4 > current.score4) {
-          subjectMap.set(g.ma_mon, { score4, score10, credit, name });
-        }
-      } else {
-        subjectMap.set(g.ma_mon, { score4, score10, credit, name });
-      }
-    });
-
-    let tPoints4 = 0;
-    let tPoints10 = 0;
-    let tCredits = 0;
-
-    subjectMap.forEach(item => {
-      tPoints4 += item.score4 * item.credit;
-      tPoints10 += item.score10 * item.credit;
-      tCredits += item.credit;
-    });
-
-    setTotalPoints(sortingScale === '4' ? tPoints4 : tPoints10);
-    setTotalCredits(tCredits);
-
-    const calc4 = tCredits > 0 ? (tPoints4 / tCredits).toFixed(2) : 'N/A';
-    const calc10 = tCredits > 0 ? (tPoints10 / tCredits).toFixed(2) : 'N/A';
-
-    setGpa(sortingScale === '4' ? calc4 : calc10);
+    const val = sortingScale === '4' ? cum.gpa4 : cum.gpa10;
+    setGpa(val > 0 ? val.toFixed(2) : 'N/A');
   }
 
+  useEffect(() => {
+    if (!currentStudent) return;
+    calculateGPA(currentStudent);
+  }, [currentStudent, sortingScale]);
+
   const gradesBySemester = currentStudent?.diem.reduce((acc, grade) => {
-    const hk = grade.hoc_ky || 'Khác';
+    const hk = getNormalizedSemester(grade);
     if (!acc[hk]) acc[hk] = [];
     acc[hk].push(grade);
     return acc;
   }, {} as Record<string, typeof currentStudent.diem>) || {};
 
+  const parseSemester = (s: string) => {
+    const sLower = s.toLowerCase();
+
+    // 1. Year range Detection (e.g. 2023 - 2024)
+    const yearMatch = s.match(/(\d{4})\s*-\s*(\d{4})/);
+    let year = yearMatch ? parseInt(yearMatch[1]) : 0;
+
+    // 2. Fallback Year (if no range, look for any 20xx number)
+    if (year === 0) {
+      const singleYearMatch = s.match(/20\d{2}/);
+      if (singleYearMatch) year = parseInt(singleYearMatch[0]);
+    }
+
+    // 3. Semester Number Detection
+    // Look for standalone 1, 2, 3 (not part of a year)
+    const semMatch = s.match(/(?:^|[^0-9])([123])(?:$|[^0-9])/);
+    let sem = semMatch ? parseInt(semMatch[1]) : 0;
+
+    // 4. Special Labels (Phụ/Hè)
+    if (sLower.includes('phu') || sLower.includes('hé')) sem = 3.5; // Always after 1 and 2
+
+    const isOther = year === 0 && sem === 0;
+    return { year, sem, isOther };
+  };
+
+
   const sortedSemesterKeys = Object.keys(gradesBySemester).sort((a, b) => {
-    const parse = (s: string) => {
-      const match = s.match(/^(.+?) \((\d{4})\s*-\s*(\d{4})\)$/);
-      if (!match) return { year: 0, sem: 0 };
-      const semStr = match[1];
-      const year = parseInt(match[2]);
-      let sem = 0;
-      if (semStr === '1') sem = 1;
-      else if (semStr === '2') sem = 2;
-      else if (semStr.toLowerCase().includes('phu')) sem = 3;
-      return { year, sem };
-    };
+    const pa = parseSemester(a);
+    const pb = parseSemester(b);
 
-    const pa = parse(a);
-    const pb = parse(b);
+    // Standard semesters first, "Other" (e.g. Học vượt) at the bottom
+    if (pa.isOther && !pb.isOther) return 1;
+    if (!pa.isOther && pb.isOther) return -1;
+    if (pa.isOther && pb.isOther) return a.localeCompare(b);
 
+    // Sort descending by year, then descending by semester (3 -> 2 -> 1)
     if (pa.year !== pb.year) return pb.year - pa.year;
     return pb.sem - pa.sem;
   });
 
   // Extract unique semesters from all students for the dropdown
-  const allSemesters = Array.from(new Set(students.flatMap(s => s.diem ? s.diem.map(d => (d.hoc_ky || '').trim()) : [])))
-    .filter(Boolean) // Remove empty strings
+  const allSemesters = Array.from(new Set(students.flatMap(s => s.diem ? s.diem.map(d => getNormalizedSemester(d)) : [])))
+    .filter(Boolean)
     .sort((a, b) => {
-      const parse = (s: string) => {
-        const match = s.match(/^(.+?) \((\d{4})\s*-\s*(\d{4})\)$/);
-        if (!match) return { year: 0, sem: 0 };
-        const semStr = match[1];
-        const year = parseInt(match[2]);
-        let sem = 0;
-        if (semStr === '1') sem = 1;
-        else if (semStr === '2') sem = 2;
-        else if (semStr.toLowerCase().includes('phu')) sem = 3;
-        return { year, sem };
-      };
-      const pa = parse(a);
-      const pb = parse(b);
+      const pa = parseSemester(a);
+      const pb = parseSemester(b);
+
+      if (pa.isOther && !pb.isOther) return 1;
+      if (!pa.isOther && pb.isOther) return -1;
+      if (pa.isOther && pb.isOther) return a.localeCompare(b);
+
       if (pa.year !== pb.year) return pb.year - pa.year;
       return pb.sem - pa.sem;
     });
@@ -427,7 +479,7 @@ export default function Home() {
       console.log(`Debug: Calculating GPA for semester '${selectedSemester}'`);
       const sampleStudent = students[0];
       if (sampleStudent.diem) {
-        const grades = sampleStudent.diem.filter(d => (d.hoc_ky || '').trim().toLowerCase() === selectedSemester.trim().toLowerCase());
+        const grades = sampleStudent.diem.filter(d => getNormalizedSemester(d).toLowerCase() === selectedSemester.trim().toLowerCase());
         console.log(`Debug: Sample student (${sampleStudent.ho_ten}) has ${grades.length} grades for this semester.`);
         console.log('Debug: Sample grades:', grades);
       }
@@ -441,7 +493,8 @@ export default function Home() {
     // Determine the value to sort by for student A
     let valA = 0;
     if (selectedSemester === 'all') {
-      valA = (sortingScale === '4' ? a.gpa : a.gpa10) || 0;
+      const cumGPA = calculateCumulativeGPA(a);
+      valA = sortingScale === '4' ? cumGPA.gpa4 : cumGPA.gpa10;
     } else {
       // Sort by semester GPA
       const semGPA = calculateSemesterGPA(a, selectedSemester);
@@ -451,7 +504,8 @@ export default function Home() {
     // Determine the value to sort by for student B
     let valB = 0;
     if (selectedSemester === 'all') {
-      valB = (sortingScale === '4' ? b.gpa : b.gpa10) || 0;
+      const cumGPA = calculateCumulativeGPA(b);
+      valB = sortingScale === '4' ? cumGPA.gpa4 : cumGPA.gpa10;
     } else {
       const semGPA = calculateSemesterGPA(b, selectedSemester);
       valB = sortingScale === '4' ? semGPA.gpa4 : semGPA.gpa10;
@@ -784,14 +838,20 @@ export default function Home() {
                             {/* GPA Badges Comparison */}
                             <div className="absolute -bottom-2 -right-2 flex gap-1 z-10">
                               {/* Cumulative GPA Badge */}
-                              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-extrabold text-white border-2 border-white dark:border-slate-800 shadow-md ${sortingScale === '4'
-                                ? ((sv.gpa || 0) >= 3.2 ? 'bg-green-500' : (sv.gpa || 0) >= 2.5 ? 'bg-yellow-500' : 'bg-red-500')
-                                : ((sv.gpa10 || 0) >= 8.0 ? 'bg-green-500' : (sv.gpa10 || 0) >= 6.5 ? 'bg-yellow-500' : 'bg-red-500')
-                                }`}
-                                title={`GPA Tích lũy (Hệ ${sortingScale})`}
-                              >
-                                {sortingScale === '4' ? sv.gpa : sv.gpa10}
-                              </div>
+                              {(() => {
+                                const cumGPA = calculateCumulativeGPA(sv);
+                                const val = sortingScale === '4' ? cumGPA.gpa4 : cumGPA.gpa10;
+                                return (
+                                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-extrabold text-white border-2 border-white dark:border-slate-800 shadow-md ${sortingScale === '4'
+                                    ? (val >= 3.2 ? 'bg-green-500' : val >= 2.5 ? 'bg-yellow-500' : 'bg-red-500')
+                                    : (val >= 8.0 ? 'bg-green-500' : val >= 6.5 ? 'bg-yellow-500' : 'bg-red-500')
+                                    }`}
+                                    title={`GPA Tích lũy (Hệ ${sortingScale})`}
+                                  >
+                                    {val.toFixed(2)}
+                                  </div>
+                                );
+                              })()}
 
                               {/* Semester GPA Badge (Only if a specific semester is selected) */}
                               {selectedSemester !== 'all' && (
@@ -876,24 +936,8 @@ export default function Home() {
 
                     {sortedSemesterKeys.map(hk => {
                       const semesterGrades = gradesBySemester[hk];
-
-                      // Calculate Semester GPA
-                      let semPoints4 = 0;
-                      let semPoints10 = 0;
-                      let semCredits = 0;
-                      semesterGrades.forEach(g => {
-                        const score4 = parseFloat(g.tong_ket_4);
-                        const score10 = parseFloat(g.tong_ket_10);
-                        const credit = parseInt(g.so_tin_chi);
-                        if (!isNaN(score4) && !isNaN(score10) && !isNaN(credit) && credit > 0) {
-                          semPoints4 += score4 * credit;
-                          semPoints10 += score10 * credit;
-                          semCredits += credit;
-                        }
-                      });
-                      const computedSemGPA4 = semCredits > 0 ? (semPoints4 / semCredits).toFixed(2) : 'N/A';
-                      const computedSemGPA10 = semCredits > 0 ? (semPoints10 / semCredits).toFixed(2) : 'N/A';
-                      const displayGPA = sortingScale === '4' ? computedSemGPA4 : computedSemGPA10;
+                      const semGPA = calculateSemesterGPA(currentStudent, hk);
+                      const displayGPA = (sortingScale === '4' ? semGPA.gpa4 : semGPA.gpa10).toFixed(2);
 
                       return (
                         <SemesterAccordion

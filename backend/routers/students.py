@@ -5,37 +5,137 @@ import models, database, security
 
 router = APIRouter(prefix="/api")
 
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+# Mã môn cứng không bao giờ tính GPA (TOEIC placement test v.v.)
+_EXCLUDED_MA_MON = {'0101000515', '0101000509', '0101000518'}
+
+# Từ khoá trong tên môn → loại khỏi GPA
+_EXCLUDED_NAME_KEYWORDS = [
+    'giáo dục thể chất', 'gdtc',
+    'giáo dục quốc phòng', 'gdqp',
+    'thể dục',
+    'toeic',
+    'tiếng anh đầu vào', 'tieng anh dau vao',
+    'english placement',
+    'xếp lớp tiếng anh', 'xep lop tieng anh',
+    'kiểm tra đầu vào tiếng anh', 'kiem tra dau vao tieng anh',
+    'điểm test tiếng anh đầu vào', 'diem test tieng anh dau vao',
+]
+
+
+def _to_float(value):
+    """Parse any value to float safely, returns None on failure."""
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    text = str(value).strip().replace(',', '.')
+    if not text:
+        return None
+    try:
+        return float(text)
+    except (TypeError, ValueError):
+        return None
+
+
+def _is_excluded_grade(grade):
+    """Determine if a grade row must be excluded from GPA calculations.
+    
+    Uses 3 layers:
+      1. Hard-coded ma_mon blacklist
+      2. Name keyword matching
+      3. Score sanity (tong_ket_10 > 10 with no diem_chu → non-academic)
+    """
+    ma_mon = (getattr(grade, 'ma_mon', '') or '').strip()
+    if ma_mon in _EXCLUDED_MA_MON:
+        return True
+
+    name = (getattr(grade, 'ten_mon', '') or '').strip().lower()
+    if name and any(kw in name for kw in _EXCLUDED_NAME_KEYWORDS):
+        return True
+
+    # Safety net: score > 10 without letter grade is non-academic
+    s10 = _to_float(getattr(grade, 'tong_ket_10', None))
+    if s10 is not None and s10 > 10:
+        return True
+
+    return False
+
+
+def _clean_score(raw10, raw4):
+    """Parse & clamp scores to valid academic ranges. Returns (s10, s4) or (None, None)."""
+    s10 = _to_float(raw10)
+    s4 = _to_float(raw4)
+
+    if s10 is not None and (s10 < 0 or s10 > 10):
+        s10 = None
+    if s4 is not None and (s4 < 0 or s4 > 4):
+        s4 = None
+
+    if s10 is None and s4 is None:
+        return None, None
+
+    # Fill the missing scale
+    if s4 is None:
+        s4 = (s10 * 4) / 10
+    if s10 is None:
+        s10 = (s4 * 10) / 4
+
+    return s10, s4
+
+
+# ---------------------------------------------------------------------------
+# Student formatter
+# ---------------------------------------------------------------------------
+
 def format_student(sv, hide_details=False):
-    """Format a student record matching the frontend Student interface"""
-    # Calculate GPA from diem (BangDiem records)
-    gpa_10 = 0.0
-    gpa_4 = 0.0
-    valid_scores = []
-    
-    if sv.diem:
-        for d in sv.diem:
-            try:
-                score_10 = float(d.tong_ket_10) if d.tong_ket_10 else None
-                score_4 = float(d.tong_ket_4) if d.tong_ket_4 else None
-                if score_10 is not None and score_4 is not None:
-                    valid_scores.append((score_10, score_4))
-            except (ValueError, TypeError):
-                pass
-    
-    if valid_scores:
-        gpa_10 = round(sum(s[0] for s in valid_scores) / len(valid_scores), 2)
-        gpa_4 = round(sum(s[1] for s in valid_scores) / len(valid_scores), 2)
-    
+    """Format a student record for the frontend."""
+
+    # Sort grades by id (oldest → newest) for consistent retake handling
+    diem_sorted = sorted(
+        sv.diem or [],
+        key=lambda r: (getattr(r, 'id', 0) or 0)
+    )
+
+    # --- Compute GPA from scratch (never trust summary fields) ---
+    subject_map = {}  # key → {score4, score10, credit}
+
+    for d in diem_sorted:
+        if _is_excluded_grade(d):
+            continue
+        try:
+            s10, s4 = _clean_score(d.tong_ket_10, d.tong_ket_4)
+            credit = int(float(str(d.so_tin_chi).replace(',', '.'))) if d.so_tin_chi else 0
+            if credit <= 0 or s10 is None:
+                continue
+
+            key = (d.ma_mon or '').strip() or f"NAME_{(d.ten_mon or '').strip().lower()}"
+            # Latest attempt wins (list is sorted oldest → newest)
+            subject_map[key] = {'s4': s4, 's10': s10, 'credit': credit}
+        except (ValueError, TypeError):
+            pass
+
+    tp4 = sum(v['s4'] * v['credit'] for v in subject_map.values())
+    tp10 = sum(v['s10'] * v['credit'] for v in subject_map.values())
+    tc = sum(v['credit'] for v in subject_map.values())
+
+    gpa_4 = round(tp4 / tc, 2) if tc > 0 else 0.0
+    gpa_10 = round(tp10 / tc, 2) if tc > 0 else 0.0
+
+    # --- Build response ---
     result = {
         "msv": sv.msv,
         "ho_ten": sv.ho_ten,
         "ngay_sinh": str(sv.ngay_sinh) if sv.ngay_sinh else None,
         "ma_lop": sv.ma_lop,
         "noi_sinh": sv.noi_sinh,
-        "gpa10": gpa_10,
         "gpa": gpa_4,
+        "gpa10": gpa_10,
     }
-    
+
     if not hide_details:
         result["diem"] = [
             {
@@ -66,11 +166,24 @@ def format_student(sv, hide_details=False):
                 "tb_hoc_ky_4": d.tb_hoc_ky_4,
                 "tb_tich_luy_10": d.tb_tich_luy_10,
                 "tb_tich_luy_4": d.tb_tich_luy_4,
-            } for d in sv.diem
+                "loai_du_lieu": d.loai_du_lieu,
+                "exclude_from_gpa": _is_excluded_grade(d),
+            } for d in diem_sorted
         ]
     else:
-        result["diem"] = []
-    
+        result["diem"] = [
+            {
+                "ma_mon": d.ma_mon,
+                "ten_mon": d.ten_mon,
+                "hoc_ky": d.hoc_ky,
+                "so_tin_chi": d.so_tin_chi,
+                "tong_ket_10": d.tong_ket_10,
+                "tong_ket_4": d.tong_ket_4,
+                "loai_du_lieu": d.loai_du_lieu,
+                "exclude_from_gpa": _is_excluded_grade(d),
+            } for d in diem_sorted
+        ]
+
     return result
 
 @router.get("/stats/student-count")

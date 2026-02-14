@@ -27,7 +27,9 @@ export default function SemesterAccordion({ semester, grades, gpa }: SemesterAcc
             >
                 <div className="flex items-center gap-3">
                     <div className={`w-1 h-5 rounded-full ${isOpen ? 'bg-blue-600 dark:bg-blue-500' : 'bg-slate-300 dark:bg-slate-600'}`}></div>
-                    <span className="font-bold text-lg text-slate-800 dark:text-slate-100">Học Kỳ {semester}</span>
+                    <span className="font-bold text-lg text-slate-800 dark:text-slate-100">
+                        {/^\d+/.test(semester) ? `Học Kỳ ${semester}` : semester}
+                    </span>
                 </div>
 
                 <div className="flex items-center gap-4">
