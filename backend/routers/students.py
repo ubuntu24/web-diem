@@ -219,8 +219,8 @@ def get_students_by_class(
     
     if not students:
         raise HTTPException(status_code=404, detail=f"No students found for class(es): {ma_lop}")
-        
-    data = {"students": [format_student(sv, hide_details=True, role=current_user.role) for sv in students]}
+    # Trả về chi tiết điểm (hide_details=False) để frontend có thể hiển thị sắp xếp theo từng kỳ (HK1, HK2, ...)
+    data = {"students": [format_student(sv, hide_details=False, role=current_user.role if current_user else 0) for sv in students]}
     return security.obfuscate_payload(data)
 
 @router.get("/student/{msv}")
@@ -238,7 +238,7 @@ def get_student_detail(
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
         
-    data = format_student(student, role=current_user.role)
+    data = format_student(student, role=current_user.role if current_user else 0)
     return security.obfuscate_payload(data)
 
 @router.get("/search")
@@ -254,5 +254,5 @@ def search_students(
         (models.SinhVien.msv.ilike(f"%{query}%"))
     ).limit(50).all()
     
-    data = {"results": [format_student(sv, hide_details=True, role=current_user.role) for sv in students]}
+    data = {"results": [format_student(sv, hide_details=True, role=current_user.role if current_user else 0) for sv in students]}
     return security.obfuscate_payload(data)

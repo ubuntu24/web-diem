@@ -42,11 +42,12 @@ def register(request: schemas.RegisterRequest, db: Session = Depends(database.ge
 
 @router.get("/me")
 def read_users_me(current_user: models.Nick = Depends(security.get_current_user)):
-    # Masked fields for privacy: u=username, r=role, rl=reset_limit_at
+    # Masked fields for privacy: u=username, r=role, rl=reset_limit_at, ca=created_at
     data = {
         "u": current_user.username,
         "r": current_user.role,
-        "rl": current_user.reset_limit_at.isoformat() if current_user.reset_limit_at else None
+        "rl": current_user.reset_limit_at.isoformat() if current_user.reset_limit_at else None,
+        "ca": current_user.created_at.isoformat() if current_user.created_at else None,
     }
     # Return as encrypted string
     return security.obfuscate_payload(data)

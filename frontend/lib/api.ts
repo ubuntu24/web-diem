@@ -137,11 +137,12 @@ export async function getMe(tokenOverride?: string): Promise<User> {
     const res = await fetch(`${API_BASE_URL}/api/me`, { headers: authHeaders(tokenOverride) });
     if (!res.ok) throw new Error('Failed to fetch user info');
     const data: any = await parseResponse(res);
-    // Backend returns short field names: u=username, r=role, rl=reset_limit_at
+    // Backend returns short field names: u=username, r=role, rl=reset_limit_at, ca=created_at
     return {
         username: data.u ?? data.username,
         role: data.r ?? data.role,
         reset_limit_at: data.rl ?? data.reset_limit_at,
+        created_at: data.ca ?? data.created_at,
     };
 }
 

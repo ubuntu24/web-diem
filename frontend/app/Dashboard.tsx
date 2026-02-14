@@ -16,19 +16,11 @@ import HeroSection from '@/components/HeroSection';
 import AdminUserList from '@/components/AdminUserList';
 import ClassPicker from '@/components/ClassPicker';
 
-export default function Dashboard({
-    initialClasses = [],
-    initialStudentCount = 0,
-    initialOnlineUsers = 1
-}: {
-    initialClasses?: string[],
-    initialStudentCount?: number,
-    initialOnlineUsers?: number
-}) {
+export default function Dashboard() {
     const router = useRouter();
     const [view, setView] = useState<'classes' | 'students' | 'grades' | 'search' | 'admin'>('classes');
     const [loading, setLoading] = useState(false);
-    const [classes, setClasses] = useState<string[]>(initialClasses);
+    const [classes, setClasses] = useState<string[]>([]);
     const [students, setStudents] = useState<Student[]>([]);
     const [selectedClass, setSelectedClass] = useState('');
     const [currentStudent, setCurrentStudent] = useState<Student | null>(null);
@@ -40,8 +32,8 @@ export default function Dashboard({
     const [username, setUsername] = useState('User');
     const [totalCredits, setTotalCredits] = useState(0);
     const [totalPoints, setTotalPoints] = useState(0);
-    const [totalStudentCount, setTotalStudentCount] = useState(initialStudentCount);
-    const [onlineUsers, setOnlineUsers] = useState(initialOnlineUsers);
+    const [totalStudentCount, setTotalStudentCount] = useState(0);
+    const [onlineUsers, setOnlineUsers] = useState(1);
     const [showClassPicker, setShowClassPicker] = useState(false);
     const [sortBy, setSortBy] = useState<'cumulative' | 'semester'>('cumulative');
     const [sortingScale, setSortingScale] = useState<'4' | '10'>('4');
@@ -264,23 +256,21 @@ export default function Dashboard({
                     setIsVipLimitReached(true);
                 }
 
-                if (!storedClass) {
-                    setShowClassPicker(true);
-                } else {
+                // Role 0: chỉ hiển thị số SV trong lớp đang chọn, không bao giờ gọi tổng toàn trường
+                if (storedClass) {
+                    getStudentCountAction(storedClass, token).then(c => setTotalStudentCount(c)).catch(console.error);
                     loadStudentsForClass(storedClass);
+                } else {
+                    setTotalStudentCount(0);
+                    setShowClassPicker(true);
                 }
+            } else {
+                // Role 1 (admin): hiển thị tổng sinh viên toàn trường
+                getStudentCountAction(undefined, token).then(c => setTotalStudentCount(c)).catch(console.error);
             }
         });
 
-        // If initial props are missing, fetch them
-        if (initialClasses.length === 0) {
-            loadClasses(token);
-        }
-
-        // Online count is handled by WebSocket but we can also use initial prop or action
-        if (!initialOnlineUsers) {
-            getOnlineCountAction(token).then(count => setOnlineUsers(count));
-        }
+        loadClasses(token);
 
         let socket: WebSocket | null = null;
         let reconnectTimeout: NodeJS.Timeout;
@@ -679,18 +669,19 @@ export default function Dashboard({
                                                 {view === 'search' ? 'Kết quả tìm kiếm' : `Lớp ${selectedClass}`}
                                                 <span className="text-xs font-normal text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-full border border-slate-200 dark:border-slate-600">{filteredStudents.length}</span>
                                             </h3>
-                                            {view === 'students' && (
-                                                <div className="flex items-center gap-2">
+                                            {(view === 'students' || view === 'search') && (
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <span className="text-xs text-slate-500 dark:text-slate-400 font-medium hidden sm:inline">Sắp xếp:</span>
                                                     <button onClick={() => setSortingScale(sortingScale === '4' ? '10' : '4')} className={`h-8 px-3 text-xs font-bold rounded-md border transition-all flex items-center gap-1.5 ${sortingScale === '10' ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}><Sparkles className={`w-3.5 h-3.5 ${sortingScale === '10' ? 'text-indigo-200' : 'text-indigo-500'}`} />Hệ {sortingScale}</button>
-                                                    <select value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className="px-2 py-1 text-xs font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-md outline-none focus:border-blue-500 text-slate-700 dark:text-slate-300 h-8">
+                                                    <select value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className="px-2 py-1 text-xs font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-md outline-none focus:border-blue-500 text-slate-700 dark:text-slate-300 h-8 min-w-[120px]" title="Sắp xếp theo kỳ">
                                                         <option value="all">Tích lũy (All)</option>
-                                                        {allSemesters.map(sem => (<option key={sem} value={sem}>{sem}</option>))}
+                                                        {allSemesters.map(sem => (<option key={sem} value={sem}>{/^\d+/.test(sem) ? `HK ${sem}` : sem}</option>))}
                                                     </select>
                                                 </div>
                                             )}
                                         </div>
-                                        {view === 'students' && (
-                                            <div className="relative max-w-xs w-full"><Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" /><input type="text" placeholder="Tìm trong lớp này..." className="w-full pl-9 pr-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-md text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-slate-900 dark:text-slate-100 font-medium placeholder-slate-400" value={localSearchTerm} onChange={(e) => setLocalSearchTerm(e.target.value)} /></div>
+                                        {(view === 'students' || view === 'search') && (
+                                            <div className="relative max-w-xs w-full"><Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" /><input type="text" placeholder={view === 'search' ? 'Lọc trong kết quả...' : 'Tìm trong lớp này...'} className="w-full pl-9 pr-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-md text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-slate-900 dark:text-slate-100 font-medium placeholder-slate-400" value={localSearchTerm} onChange={(e) => setLocalSearchTerm(e.target.value)} /></div>
                                         )}
                                     </div>
                                     <div className="grid grid-cols-1 divide-y divide-gray-100 dark:divide-slate-700">

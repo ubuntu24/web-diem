@@ -88,7 +88,7 @@ export default function ProfilePage() {
                                 <div>
                                     <p className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider">Ngày tham gia</p>
                                     <p className="font-semibold text-slate-900 dark:text-white">
-                                        {new Date(user.created_at || '').toLocaleDateString('vi-VN')}
+                                        {user.created_at ? new Date(user.created_at).toLocaleDateString('vi-VN') : '—'}
                                     </p>
                                 </div>
                             </div>
