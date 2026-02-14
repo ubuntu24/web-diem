@@ -89,11 +89,17 @@ export async function getOnlineUsers(): Promise<number> {
     return data.count;
 }
 
+export interface AccessHistory {
+    date: string;
+    count: number;
+}
+
 export interface AdminUser {
     id: number;
     username: string;
     role: number;
     allowed_classes: string[];
+    access_history?: AccessHistory[];
 }
 
 export async function getUsers(): Promise<AdminUser[]> {

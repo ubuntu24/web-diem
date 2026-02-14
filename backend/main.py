@@ -65,11 +65,11 @@ class ConnectionManager:
         # Store tuple of (WebSocket, ip_address)
         self.active_connections: List[dict] = []
 
-    async def connect(self, websocket: WebSocket, user_identifier: str):
+    async def connect(self, websocket: WebSocket, user_identifier: str, ip: str):
         await websocket.accept()
         # Store user_identifier (username for logged in, IP for guests)
-        self.active_connections.append({"ws": websocket, "id": user_identifier})
-        print(f"[WS] Connected: {user_identifier}. Total connections: {len(self.active_connections)}")
+        self.active_connections.append({"ws": websocket, "id": user_identifier, "ip": ip})
+        print(f"[WS] Connected: {user_identifier} ({ip}). Total connections: {len(self.active_connections)}")
         await self.broadcast_online_count()
 
     def disconnect(self, websocket: WebSocket):
@@ -130,6 +130,39 @@ async def log_requests(request: Request, call_next):
     # Log the entry with Real IP
     access_logger.info(f"{real_ip} | {username} | {method} {path} | {user_agent}")
     
+    # Track access count if user is authenticated
+    if username != "Anonymous" and username != "InvalidToken":
+        # We need a db session here
+        db = database.SessionLocal()
+        try:
+            user = db.query(models.Nick).filter(models.Nick.username == username).first()
+            if user:
+                # Update last_active in Nick table
+                user.last_active = datetime.now()
+                
+                today = datetime.now().date()
+                access = db.query(models.UserAccess).filter(
+                    models.UserAccess.user_id == user.id,
+                    models.UserAccess.access_date == today
+                ).first()
+                if access:
+                    # Update last_update to track recent activity
+                    access.last_update = datetime.now()
+                else:
+                    # Create entry if it doesn't exist, but with count=0 (login will increment)
+                    new_access = models.UserAccess(
+                        user_id=user.id, 
+                        access_date=today, 
+                        count=0,
+                        last_update=datetime.now()
+                    )
+                    db.add(new_access)
+                db.commit()
+        except Exception as e:
+            print(f"[ERROR] Failed to track user access: {e}")
+        finally:
+            db.close()
+
     response = await call_next(request)
     return response
 
@@ -244,6 +277,26 @@ def login(request: LoginRequest, db: Session = Depends(database.get_db)):
             headers={"WWW-Authenticate": "Bearer"},
         )
     access_token = create_access_token(data={"sub": user.username})
+    
+    # Track login specifically
+    today = datetime.now().date()
+    access = db.query(models.UserAccess).filter(
+        models.UserAccess.user_id == user.id,
+        models.UserAccess.access_date == today
+    ).first()
+    if access:
+        access.count += 1
+        access.last_update = datetime.now()
+    else:
+        new_access = models.UserAccess(
+            user_id=user.id, 
+            access_date=today, 
+            count=1,
+            last_update=datetime.now()
+        )
+        db.add(new_access)
+    db.commit()
+    
     return {"access_token": access_token, "token_type": "bearer", "role": user.role}
 
 class RegisterRequest(BaseModel):
@@ -327,7 +380,8 @@ def get_online_users(
     # Prefer WebSocket count if available, otherwise fallback to active_users
     # Calculate unique IPs from WS manager
     if manager.active_connections:
-        unique_ips = {c["ip"] for c in manager.active_connections}
+        # Filter out connections that might've lost their 'ip' (shouldn't happen with new connect)
+        unique_ips = {c.get("ip", "unknown") for c in manager.active_connections}
         return {"count": max(1, len(unique_ips))}
 
     # Threshold: 5 minutes
@@ -375,7 +429,7 @@ async def websocket_endpoint(websocket: WebSocket):
             pass
 
     print(f"[WS DEBUG] New connection request. ID: {user_identifier} | IP: {real_ip}")
-    await manager.connect(websocket, user_identifier)
+    await manager.connect(websocket, user_identifier, real_ip)
     try:
         while True:
             # Keep connection alive
@@ -555,13 +609,27 @@ def get_all_users(
     
     users = db.query(models.Nick).all()
     result = []
+    
+    # Get last 30 days range
+    thirty_days_ago = datetime.now().date() - timedelta(days=30)
+    
     for u in users:
         perms_str = u.user_permission if u.user_permission is not None else DEFAULT_CLASSES
+        
+        # Fetch access history for this user (last 30 days)
+        history = db.query(models.UserAccess).filter(
+            models.UserAccess.user_id == u.id,
+            models.UserAccess.access_date >= thirty_days_ago
+        ).order_by(models.UserAccess.access_date.desc()).all()
+        
+        access_history = [{"date": str(h.access_date), "count": h.count} for h in history]
+        
         result.append({
             "id": u.id,
             "username": u.username,
             "role": u.role,
-            "allowed_classes": [x.strip() for x in perms_str.split(",") if x.strip()]
+            "allowed_classes": [x.strip() for x in perms_str.split(",") if x.strip()],
+            "access_history": access_history
         })
     return result
 

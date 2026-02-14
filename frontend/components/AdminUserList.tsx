@@ -8,6 +8,7 @@ export default function AdminUserList() {
     const [loading, setLoading] = useState(true);
     const [allClasses, setAllClasses] = useState<string[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
+    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
     // Edit Modal State
     const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
@@ -84,15 +85,26 @@ export default function AdminUserList() {
                     <p className="text-sm text-slate-500 dark:text-slate-400">Phân quyền xem lớp cho tài khoản thường</p>
                 </div>
 
-                <div className="relative w-full md:w-64">
-                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                        type="text"
-                        placeholder="Tìm tài khoản..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 bg-slate-100 dark:bg-slate-900 border-transparent focus:bg-white dark:focus:bg-slate-950 border focus:border-indigo-500 rounded-lg text-sm transition-all outline-none text-slate-900 dark:text-white"
-                    />
+                <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 w-full md:w-auto">
+                    <div className="relative flex-1 md:w-48">
+                        <input
+                            type="date"
+                            value={selectedDate}
+                            onChange={(e) => setSelectedDate(e.target.value)}
+                            max={new Date().toISOString().split('T')[0]}
+                            className="w-full pl-3 pr-3 py-2 bg-slate-100 dark:bg-slate-900 border-transparent focus:bg-white dark:focus:bg-slate-950 border focus:border-indigo-500 rounded-lg text-sm transition-all outline-none text-slate-900 dark:text-white"
+                        />
+                    </div>
+                    <div className="relative flex-1 md:w-64">
+                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                            type="text"
+                            placeholder="Tìm tài khoản..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2 bg-slate-100 dark:bg-slate-900 border-transparent focus:bg-white dark:focus:bg-slate-950 border focus:border-indigo-500 rounded-lg text-sm transition-all outline-none text-slate-900 dark:text-white"
+                        />
+                    </div>
                 </div>
             </div>
 
@@ -110,6 +122,8 @@ export default function AdminUserList() {
                                     <th className="px-6 py-3">Vai trò</th>
                                     <th className="px-6 py-3">Lớp được xem</th>
                                     <th className="px-6 py-3 text-right">Thao tác</th>
+                                    <th className="px-6 py-3">Ngày {selectedDate.split('-').reverse().slice(0, 2).join('/')}</th>
+                                    <th className="px-6 py-3">Lịch sử (30n)</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
@@ -164,6 +178,40 @@ export default function AdminUserList() {
                                                     Cấp quyền
                                                 </button>
                                             )}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className={`font-bold ${(user.access_history?.find(h => h.date === selectedDate)?.count || 0) > 0
+                                                    ? 'text-indigo-600'
+                                                    : 'text-slate-400'
+                                                }`}>
+                                                {user.access_history?.find(h => h.date === selectedDate)?.count || 0} lần
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex flex-col gap-1 w-32">
+                                                {user.access_history && user.access_history.length > 0 ? (
+                                                    <div className="flex gap-0.5 items-end h-8 border-b border-slate-100 dark:border-slate-700">
+                                                        {[...Array(30)].map((_, i) => {
+                                                            const d = new Date();
+                                                            d.setDate(d.getDate() - (29 - i));
+                                                            const dateStr = d.toISOString().split('T')[0];
+                                                            const dayData = user.access_history?.find(h => h.date === dateStr);
+                                                            // If more than 0, show a bar. Max height at 10 or more logins.
+                                                            const height = dayData ? Math.min(100, (dayData.count / 5) * 100) : 0;
+                                                            return (
+                                                                <div
+                                                                    key={i}
+                                                                    title={`${dateStr}: ${dayData?.count || 0} lần`}
+                                                                    className={`flex-1 rounded-t-[1px] transition-all hover:bg-indigo-500 ${dayData ? 'bg-indigo-400' : 'bg-slate-100 dark:bg-slate-800'}`}
+                                                                    style={{ height: dayData ? `${Math.max(15, height)}%` : '2px' }}
+                                                                />
+                                                            );
+                                                        })}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-slate-400 italic text-xs">Không có dữ liệu</span>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}

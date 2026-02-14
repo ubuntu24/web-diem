@@ -68,3 +68,13 @@ class Nick(Base):
     
     # Store permissions as comma-separated string (e.g. "DHMT16A1HN,DHMT16A2HN")
     user_permission = Column(Text, nullable=True)
+    last_active = Column(DateTime, nullable=True)
+
+class UserAccess(Base):
+    __tablename__ = "user_access"
+
+    id = Column(BigInteger, primary_key=True, index=True)
+    user_id = Column(BigInteger, nullable=False) # No hard ForeignKey to avoid composite key error
+    access_date = Column(Date, server_default=func.current_date(), nullable=False)
+    last_update = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    count = Column(Integer, default=1)
