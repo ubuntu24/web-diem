@@ -212,9 +212,16 @@ def get_students_by_class(
     current_user: models.Nick = Depends(security.get_current_user),
     db: Session = Depends(database.get_db)
 ):
+    # Support multiple classes separated by commas (split and clean)
+    class_list = [c.strip() for c in ma_lop.split(",") if c.strip()]
+    
+    if not class_list:
+        raise HTTPException(status_code=400, detail="Invalid class list")
+
     students = db.query(models.SinhVien).options(
         joinedload(models.SinhVien.diem)
-    ).filter(models.SinhVien.ma_lop == ma_lop).all()
+    ).filter(models.SinhVien.ma_lop.in_(class_list)).all()
+    
     if not students:
         raise HTTPException(status_code=404, detail=f"No students found for class(es): {ma_lop}")
         

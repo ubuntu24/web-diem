@@ -243,9 +243,6 @@ export default function Home() {
       if (window.location.port === '3000') {
         const hostname = window.location.hostname;
         wsUrl = `${protocol}//${hostname}:8000/ws/online-count`;
-        console.log("Detected port 3000, switching WS to backend port 8000:", wsUrl);
-      } else {
-        console.log("Using relative WS URL (assuming Nginx/Cloudflare proxy):", wsUrl);
       }
 
       // Append Token for User Identification (Account-based counting)
