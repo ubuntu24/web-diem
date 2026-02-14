@@ -21,11 +21,12 @@ class ConnectionManager:
         self.active_connections = [conn for conn in self.active_connections if conn["ws"] != websocket]
 
     async def broadcast_online_count(self):
-        unique_ips = len(set(conn["ip"] for conn in self.active_connections))
+        # Đếm theo user (username từ JWT) để 2 tài khoản khác nhau = 2 người; cùng IP vẫn tính đúng
+        unique_users = len(set(conn["user"] for conn in self.active_connections))
         
         message = json.dumps({
             "type": "online_count",
-            "count": unique_ips
+            "count": unique_users
         })
         
         for connection in self.active_connections:

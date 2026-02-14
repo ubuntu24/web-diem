@@ -12,9 +12,9 @@ def get_online_users(
     current_user: Optional[models.Nick] = Depends(security.get_optional_user),
     db: Session = Depends(database.get_db)
 ):
-    # Count unique IPs from ConnectionManager
-    unique_ips = len(set(conn["ip"] for conn in manager.active_connections))
-    data = {"count": unique_ips}
+    # Đếm theo user (username từ JWT) để 2 tài khoản khác nhau = 2 người
+    unique_users = len(set(conn["user"] for conn in manager.active_connections))
+    data = {"count": unique_users}
     return security.obfuscate_payload(data)
 
 @router.get("/admin/users")
