@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { User, Calendar, Shield, ArrowLeft, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import { getMe, type User as UserType } from '../../lib/api';
+import { type User as UserType } from '../../lib/api';
+import { getMeAction } from '@/app/actions';
 
 import { ThemeToggle } from '@/components/ThemeToggle';
 
@@ -17,7 +18,9 @@ export default function ProfilePage() {
     useEffect(() => {
         const fetchProfile = async () => {
             try {
-                const userData = await getMe();
+                const token = localStorage.getItem('token') || undefined;
+                const userData = await getMeAction(token);
+                if (!userData) throw new Error('No user data');
                 setUser(userData);
             } catch (error) {
                 console.error("Failed to fetch profile", error);
@@ -68,7 +71,7 @@ export default function ProfilePage() {
                         <div className="absolute -bottom-10 left-1/2 -translate-x-1/2">
                             <div className="w-24 h-24 bg-white dark:bg-slate-800 rounded-full p-1 shadow-lg transition-colors">
                                 <div className="w-full h-full bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-3xl transition-colors">
-                                    {user.username.charAt(0).toUpperCase()}
+                                    {(user.username ?? '?').charAt(0).toUpperCase()}
                                 </div>
                             </div>
                         </div>
@@ -85,7 +88,7 @@ export default function ProfilePage() {
                                 <div>
                                     <p className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider">Ngày tham gia</p>
                                     <p className="font-semibold text-slate-900 dark:text-white">
-                                        {new Date(user.created_at).toLocaleDateString('vi-VN')}
+                                        {new Date(user.created_at || '').toLocaleDateString('vi-VN')}
                                     </p>
                                 </div>
                             </div>

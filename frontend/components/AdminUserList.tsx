@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Search, Shield, Edit, Save, X, Check, Loader2, User as UserIcon, Star, Activity } from 'lucide-react';
-import { AdminUser, getUsers, resetUserLimit, getClasses } from '@/lib/api';
+import { AdminUser } from '@/lib/api';
+import { getUsersAction, resetUserLimitAction } from '@/app/actions';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function AdminUserList() {
@@ -16,7 +17,8 @@ export default function AdminUserList() {
     async function loadData() {
         setLoading(true);
         try {
-            const usersData = await getUsers();
+            const token = localStorage.getItem('token') || undefined;
+            const usersData = await getUsersAction(token);
             setUsers(usersData);
         } catch (error) {
             console.error("Failed to load admin data", error);
@@ -104,9 +106,14 @@ export default function AdminUserList() {
                                                     <button
                                                         onClick={() => {
                                                             if (confirm(`Bạn có chắc muốn reset lượt đổi lớp cho ${user.username}?`)) {
-                                                                resetUserLimit(user.id).then(() => {
-                                                                    alert(`Đã reset lượt đổi lớp cho ${user.username}`);
-                                                                    loadData();
+                                                                const token = localStorage.getItem('token') || undefined;
+                                                                resetUserLimitAction(user.id, token).then((result) => {
+                                                                    if (result.success) {
+                                                                        alert(`Đã reset lượt đổi lớp cho ${user.username}`);
+                                                                        loadData();
+                                                                    } else {
+                                                                        alert(result.error || 'Reset thất bại');
+                                                                    }
                                                                 }).catch(console.error);
                                                             }
                                                         }}

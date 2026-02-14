@@ -29,6 +29,10 @@ export interface Grade {
     tb_hoc_ky_4?: string;
     tb_tich_luy_10?: string;
     tb_tich_luy_4?: string;
+    xeploai_hoc_ky?: string;
+    xeploai_tich_luy?: string;
+    tin_chi_no?: string;
+    xep_loai?: string;
     loai_du_lieu?: string;
     exclude_from_gpa?: boolean;
 }
@@ -39,9 +43,10 @@ export interface Student {
     ngay_sinh: string;
     ma_lop: string;
     noi_sinh: string;
-    diem: Grade[];
+    diem?: Grade[] | null;
     gpa?: number; // Scale 4
     gpa10?: number; // Scale 10
+    total_credits?: number;
 }
 
 export interface ClassListResponse {

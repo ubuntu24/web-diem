@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Loader2, Lock, User, CheckCircle2, AlertCircle } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { loginAction } from '@/app/actions';
 
 export default function LoginPage() {
     const [username, setUsername] = useState('');
@@ -19,26 +20,21 @@ export default function LoginPage() {
         setError('');
 
         try {
-            const res = await fetch('/api/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password }),
-            });
+            const result = await loginAction(username, password);
 
-            if (!res.ok) {
-                throw new Error('Tên đăng nhập hoặc mật khẩu không đúng');
+            if (!result.success) {
+                throw new Error(result.error || 'Tên đăng nhập hoặc mật khẩu không đúng');
             }
 
-            const data = await res.json();
-            if (data.access_token) {
-                localStorage.setItem('token', data.access_token);
+            if (result.access_token) {
+                localStorage.setItem('token', result.access_token);
                 // Default to 1 (Admin) if role is missing, or store provided role
-                const role = data.role !== undefined ? data.role : 1;
+                const role = result.role !== undefined ? result.role : 1;
                 localStorage.setItem('role', role.toString());
 
                 router.push('/');
             } else {
-                // If res.ok but no access_token, something unexpected happened
+                // If success but no access_token, something unexpected happened
                 throw new Error('Đăng nhập không thành công, không nhận được token.');
             }
         } catch (err: any) {

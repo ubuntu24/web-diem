@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
+from typing import Optional
 import models, database, security
 from .websocket import manager
 
@@ -8,12 +9,13 @@ router = APIRouter(prefix="/api")
 
 @router.get("/stats/online-users")
 def get_online_users(
-    current_user: models.Nick = Depends(security.get_current_user),
+    current_user: Optional[models.Nick] = Depends(security.get_optional_user),
     db: Session = Depends(database.get_db)
 ):
     # Count unique IPs from ConnectionManager
     unique_ips = len(set(conn["ip"] for conn in manager.active_connections))
-    return {"count": unique_ips}
+    data = {"count": unique_ips}
+    return security.obfuscate_payload(data)
 
 @router.get("/admin/users")
 def get_all_users(

@@ -12,10 +12,8 @@ class Token(BaseModel):
     role: int
 
 class User(BaseModel):
-    id: int
     username: str
     role: int
-    created_at: datetime
     reset_limit_at: Optional[datetime] = None
 
     class Config:

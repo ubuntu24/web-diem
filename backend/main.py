@@ -82,7 +82,6 @@ async def log_requests(request: Request, call_next):
                 except Exception:
                     pass
     
-    
     return response
 
 # Database Initialization & Admin User

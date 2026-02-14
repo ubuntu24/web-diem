@@ -7,6 +7,7 @@ import { Loader2, Lock, User, UserPlus, AlertCircle, ArrowLeft } from 'lucide-re
 import Link from 'next/link';
 
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { registerAction } from '@/app/actions';
 
 export default function RegisterPage() {
     const [username, setUsername] = useState('');
@@ -27,15 +28,10 @@ export default function RegisterPage() {
         setError('');
 
         try {
-            const res = await fetch('/api/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password }),
-            });
+            const result = await registerAction(username, password);
 
-            if (!res.ok) {
-                const data = await res.json();
-                throw new Error(data.detail || 'Đăng ký thất bại');
+            if (!result.success) {
+                throw new Error(result.error || 'Đăng ký thất bại');
             }
 
             // Redirect to login on success

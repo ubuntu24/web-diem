@@ -91,7 +91,7 @@ def _clean_score(raw10, raw4):
 # Student formatter
 # ---------------------------------------------------------------------------
 
-def format_student(sv, hide_details=False):
+def format_student(sv: models.SinhVien, hide_details=False, role: int = 1):
     """Format a student record for the frontend."""
 
     # Sort grades by id (oldest → newest) for consistent retake handling
@@ -125,91 +125,86 @@ def format_student(sv, hide_details=False):
     gpa_4 = round(tp4 / tc, 2) if tc > 0 else 0.0
     gpa_10 = round(tp10 / tc, 2) if tc > 0 else 0.0
 
-    # --- Build response ---
+    # --- Build response with Masked Fields (Privacy) ---
+    display_msv = security.obfuscate_id(sv.msv) if role == 0 else sv.msv
+
     result = {
-        "msv": sv.msv,
-        "ho_ten": sv.ho_ten,
-        "ngay_sinh": str(sv.ngay_sinh) if sv.ngay_sinh else None,
-        "ma_lop": sv.ma_lop,
-        "noi_sinh": sv.noi_sinh,
-        "gpa": gpa_4,
-        "gpa10": gpa_10,
+        "i": display_msv,    # msv
+        "n": sv.ho_ten,       # ho_ten
+        "b": str(sv.ngay_sinh) if sv.ngay_sinh else None, # ngay_sinh
+        "c": sv.ma_lop,      # ma_lop
+        "p": sv.noi_sinh,    # noi_sinh
+        "g": gpa_4,          # gpa
+        "g10": gpa_10,       # gpa10
+        "tc": tc,            # total_credits
     }
 
     if not hide_details:
-        result["diem"] = [
+        result["d"] = [ # diem
             {
-                "ma_mon": d.ma_mon,
-                "ten_mon": d.ten_mon,
-                "hoc_ky": d.hoc_ky,
-                "so_tin_chi": d.so_tin_chi,
-                "chuyen_can": d.chuyen_can,
-                "he_so_1_l1": d.he_so_1_l1,
-                "he_so_1_l2": d.he_so_1_l2,
-                "he_so_1_l3": d.he_so_1_l3,
-                "he_so_1_l4": d.he_so_1_l4,
-                "he_so_2_l1": d.he_so_2_l1,
-                "he_so_2_l2": d.he_so_2_l2,
-                "he_so_2_l3": d.he_so_2_l3,
-                "he_so_2_l4": d.he_so_2_l4,
-                "thuc_hanh_1": d.thuc_hanh_1,
-                "thuc_hanh_2": d.thuc_hanh_2,
-                "tb_thuong_ky": d.tb_thuong_ky,
-                "dieu_kien_thi": d.dieu_kien_thi,
-                "diem_thi": d.diem_thi,
-                "tong_ket_10": d.tong_ket_10,
-                "tong_ket_4": d.tong_ket_4,
-                "diem_chu": d.diem_chu,
-                "xep_loai": d.xep_loai,
-                "ket_qua": d.ket_qua,
-                "tb_hoc_ky_10": d.tb_hoc_ky_10,
-                "tb_hoc_ky_4": d.tb_hoc_ky_4,
-                "tb_tich_luy_10": d.tb_tich_luy_10,
-                "tb_tich_luy_4": d.tb_tich_luy_4,
-                "loai_du_lieu": d.loai_du_lieu,
-                "exclude_from_gpa": _is_excluded_grade(d),
+                "m": d.ma_mon,
+                "t": d.ten_mon,
+                "h": d.hoc_ky,
+                "s": d.so_tin_chi,
+                "c": d.chuyen_can,
+                "h1_1": d.he_so_1_l1,
+                "h1_2": d.he_so_1_l2,
+                "h1_3": d.he_so_1_l3,
+                "h1_4": d.he_so_1_l4,
+                "h2_1": d.he_so_2_l1,
+                "h2_2": d.he_so_2_l2,
+                "h2_3": d.he_so_2_l3,
+                "h2_4": d.he_so_2_l4,
+                "th1": d.thuc_hanh_1,
+                "th2": d.thuc_hanh_2,
+                "tb_tk": d.tb_thuong_ky,
+                "dk": d.dieu_kien_thi,
+                "dt": d.diem_thi,
+                "s10": d.tong_ket_10,
+                "s4": d.tong_ket_4,
+                "chu": d.diem_chu,
+                "xl": d.xep_loai,
+                "kq": d.ket_qua,
+                "hk10": d.tb_hoc_ky_10,
+                "hk4": d.tb_hoc_ky_4,
+                "tl10": d.tb_tich_luy_10,
+                "tl4": d.tb_tich_luy_4,
+                "ldl": d.loai_du_lieu,
+                "e": _is_excluded_grade(d),
             } for d in diem_sorted
         ]
     else:
-        result["diem"] = [
-            {
-                "ma_mon": d.ma_mon,
-                "ten_mon": d.ten_mon,
-                "hoc_ky": d.hoc_ky,
-                "so_tin_chi": d.so_tin_chi,
-                "tong_ket_10": d.tong_ket_10,
-                "tong_ket_4": d.tong_ket_4,
-                "loai_du_lieu": d.loai_du_lieu,
-                "exclude_from_gpa": _is_excluded_grade(d),
-            } for d in diem_sorted
-        ]
+        # Hide detailed grades completely in summary views (search, class list)
+        result["d"] = None
 
     return result
 
 @router.get("/stats/student-count")
 def get_student_count(
     class_name: Optional[str] = None,
-    current_user: models.Nick = Depends(security.get_current_user),
+    current_user: Optional[models.Nick] = Depends(security.get_optional_user),
     db: Session = Depends(database.get_db)
 ):
     from sqlalchemy import func
     query = db.query(func.count(models.SinhVien.msv))
     if class_name:
         query = query.filter(models.SinhVien.ma_lop == class_name)
-    return {"count": query.scalar()}
+    data = {"count": query.scalar()}
+    return security.obfuscate_payload(data)
 
 @router.get("/classes")
 def get_classes(
-    current_user: models.Nick = Depends(security.get_current_user),
+    current_user: Optional[models.Nick] = Depends(security.get_optional_user),
     db: Session = Depends(database.get_db)
 ):
     classes = db.query(models.SinhVien.ma_lop).distinct().order_by(models.SinhVien.ma_lop).all()
-    return {"classes": [c[0] for c in classes if c[0]]}
+    data = {"classes": [c[0] for c in classes if c[0]]}
+    return security.obfuscate_payload(data)
 
 @router.get("/class/{ma_lop}/students")
 def get_students_by_class(
     ma_lop: str, 
-    current_user: models.Nick = Depends(security.get_current_user),
+    current_user: Optional[models.Nick] = Depends(security.get_optional_user),
     db: Session = Depends(database.get_db)
 ):
     # Support multiple classes separated by commas (split and clean)
@@ -225,26 +220,31 @@ def get_students_by_class(
     if not students:
         raise HTTPException(status_code=404, detail=f"No students found for class(es): {ma_lop}")
         
-    return {"students": [format_student(sv, hide_details=True) for sv in students]}
+    data = {"students": [format_student(sv, hide_details=True, role=current_user.role) for sv in students]}
+    return security.obfuscate_payload(data)
 
 @router.get("/student/{msv}")
 def get_student_detail(
     msv: str,
-    current_user: models.Nick = Depends(security.get_current_user),
+    current_user: Optional[models.Nick] = Depends(security.get_optional_user),
     db: Session = Depends(database.get_db)
 ):
+    # Resolve identifier (Guest tokens or real MSVs)
+    real_msv = security.deobfuscate_id(msv)
+    
     student = db.query(models.SinhVien).options(
         joinedload(models.SinhVien.diem)
-    ).filter(models.SinhVien.msv == msv).first()
+    ).filter(models.SinhVien.msv == real_msv).first()
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
         
-    return format_student(student)
+    data = format_student(student, role=current_user.role)
+    return security.obfuscate_payload(data)
 
 @router.get("/search")
 def search_students(
-    query: str = Query(..., min_length=1),
-    current_user: models.Nick = Depends(security.get_current_user),
+    query: str,
+    current_user: Optional[models.Nick] = Depends(security.get_optional_user),
     db: Session = Depends(database.get_db)
 ):
     students = db.query(models.SinhVien).options(
@@ -254,4 +254,5 @@ def search_students(
         (models.SinhVien.msv.ilike(f"%{query}%"))
     ).limit(50).all()
     
-    return {"results": [format_student(sv, hide_details=True) for sv in students]}
+    data = {"results": [format_student(sv, hide_details=True, role=current_user.role) for sv in students]}
+    return security.obfuscate_payload(data)

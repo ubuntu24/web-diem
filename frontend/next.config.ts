@@ -56,17 +56,15 @@ const nextConfig: NextConfig = {
   },
   async rewrites() {
     return [
-      {
-        source: '/api/:path*',
-        destination: `${apiBase}/api/:path*`, // Proxy to Backend
-      },
+      // API proxy removed — all API calls go through Server Actions now
+      // Only keep static files and WebSocket with obfuscated paths
       {
         source: '/static/:path*',
         destination: `${apiBase}/static/:path*`, // Proxy static files
       },
       {
-        source: '/ws/:path*',
-        destination: `${apiBase}/ws/:path*`, // Proxy WebSockets
+        source: '/_s/:path*',
+        destination: `${apiBase}/ws/:path*`, // Proxy WebSockets (obfuscated path)
       },
     ]
   },
