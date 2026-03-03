@@ -16,6 +16,9 @@ services:
     volumes:
       - ./backend/students.db:/app/students.db
       - ./backend/static:/app/static
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     restart: always
 
   frontend:
