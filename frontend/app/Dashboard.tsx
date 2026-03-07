@@ -62,7 +62,9 @@ export default function Dashboard() {
     function toNumber(value: unknown): number | null {
         if (value === null || value === undefined) return null;
         if (typeof value === 'number') return Number.isFinite(value) ? value : null;
-        const n = Number(String(value).trim().replace(',', '.'));
+        const text = String(value).trim().replace(',', '.');
+        if (!text) return null;
+        const n = Number(text);
         return Number.isFinite(n) ? n : null;
     }
 
@@ -173,8 +175,19 @@ export default function Dashboard() {
             const { s10, s4 } = cleanScore(g.tong_ket_10, g.tong_ket_4);
             const cr = toNumber(g.so_tin_chi);
             if (!cr || cr <= 0 || s10 === null || s4 === null) return;
-            const key = (g.ma_mon || '').trim() || `N_${(g.ten_mon || '').trim().toLowerCase()}`;
-            map.set(key, { s4, s10, cr });
+            let rawName = (g.ten_mon || '').trim().toLowerCase();
+            const suffixes = ['_ hv', '_hv', '(hoc vuot)', '(hv)'];
+            for (const suffix of suffixes) {
+                if (rawName.endsWith(suffix)) {
+                    rawName = rawName.slice(0, -suffix.length).trim();
+                }
+            }
+            const key = (g.ma_mon || '').trim() || `N_${rawName}`;
+
+            const existing = map.get(key);
+            if (!existing || s10 > existing.s10) {
+                map.set(key, { s4, s10, cr });
+            }
         });
 
         let p4 = 0, p10 = 0, tc = 0;
@@ -203,12 +216,27 @@ export default function Dashboard() {
             const { s10, s4 } = cleanScore(g.tong_ket_10, g.tong_ket_4);
             const cr = toNumber(g.so_tin_chi);
             if (!cr || cr <= 0 || s10 === null || s4 === null) return;
-            const key = (g.ma_mon || '').trim() || `N_${(g.ten_mon || '').trim().toLowerCase()}`;
-            map.set(key, { s4, s10, cr });
+            let rawName = (g.ten_mon || '').trim().toLowerCase();
+            const suffixes = ['_ hv', '_hv', '(hoc vuot)', '(hv)'];
+            for (const suffix of suffixes) {
+                if (rawName.endsWith(suffix)) {
+                    rawName = rawName.slice(0, -suffix.length).trim();
+                }
+            }
+            const key = (g.ma_mon || '').trim() || `N_${rawName}`;
+
+            const existing = map.get(key);
+            if (!existing || s10 > existing.s10) {
+                map.set(key, { s4, s10, cr });
+            }
         });
 
         let p4 = 0, p10 = 0, tc = 0;
-        map.forEach(v => { p4 += v.s4 * v.cr; p10 += v.s10 * v.cr; tc += v.cr; });
+        map.forEach(v => {
+            if (v.s10 >= 4.0) {
+                p4 += v.s4 * v.cr; p10 += v.s10 * v.cr; tc += v.cr;
+            }
+        });
 
         const gpa4 = tc > 0 ? parseFloat((p4 / tc).toFixed(2)) : 0;
         const gpa10 = tc > 0 ? parseFloat((p10 / tc).toFixed(2)) : 0;

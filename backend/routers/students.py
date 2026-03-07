@@ -112,15 +112,23 @@ def format_student(sv: models.SinhVien, hide_details=False, role: int = 1):
             if credit <= 0 or s10 is None:
                 continue
 
-            key = (d.ma_mon or '').strip() or f"NAME_{(d.ten_mon or '').strip().lower()}"
-            # Latest attempt wins (list is sorted oldest → newest)
-            subject_map[key] = {'s4': s4, 's10': s10, 'credit': credit}
+            # Normalize name
+            raw_name = (d.ten_mon or '').strip().lower()
+            for suffix in ['_ hv', '_hv', '(hoc vuot)', '(hv)']:
+                if raw_name.endswith(suffix):
+                    raw_name = raw_name[:-len(suffix)].strip()
+            
+            key = (d.ma_mon or '').strip() or f"NAME_{raw_name}"
+            
+            # HIGHEST attempt wins for Cumulative GPA
+            if key not in subject_map or s10 > subject_map[key]['s10']:
+                subject_map[key] = {'s4': s4, 's10': s10, 'credit': credit}
         except (ValueError, TypeError):
             pass
 
-    tp4 = sum(v['s4'] * v['credit'] for v in subject_map.values())
-    tp10 = sum(v['s10'] * v['credit'] for v in subject_map.values())
-    tc = sum(v['credit'] for v in subject_map.values())
+    tp4 = sum(v['s4'] * v['credit'] for v in subject_map.values() if v['s10'] >= 4.0)
+    tp10 = sum(v['s10'] * v['credit'] for v in subject_map.values() if v['s10'] >= 4.0)
+    tc = sum(v['credit'] for v in subject_map.values() if v['s10'] >= 4.0)
 
     gpa_4 = round(tp4 / tc, 2) if tc > 0 else 0.0
     gpa_10 = round(tp10 / tc, 2) if tc > 0 else 0.0
