@@ -28,6 +28,13 @@ export default function Dashboard() {
     const [localSearchTerm, setLocalSearchTerm] = useState('');
     const [gpa, setGpa] = useState('N/A');
 
+    // Push browser history when view changes so back button works
+    function navigateView(newView: typeof view, extra?: Record<string, string>) {
+        setView(newView);
+        const state = { view: newView, ...extra };
+        window.history.pushState(state, '', window.location.pathname);
+    }
+
     const [role, setRole] = useState<number>(0);
     const [username, setUsername] = useState('User');
     const [totalCredits, setTotalCredits] = useState(0);
@@ -373,6 +380,48 @@ export default function Dashboard() {
         };
     }, []);
 
+    // Set initial history state & handle browser back button
+    useEffect(() => {
+        window.history.replaceState({ view: 'classes' }, '', window.location.pathname);
+
+        const handlePopState = (e: PopStateEvent) => {
+            const state = e.state;
+            if (!state || !state.view) {
+                // No state → go to classes view
+                setView('classes');
+                return;
+            }
+            const v = state.view as typeof view;
+            if (v === 'students' && state.cls) {
+                // Reload students list for the class
+                const token = localStorage.getItem('token') || '';
+                setSelectedClass(state.cls);
+                getStudentsAction(state.cls, token).then(data => {
+                    setStudents((data || []).map(mapStudent));
+                    setView('students');
+                }).catch(() => setView('classes'));
+            } else if (v === 'grades' && state.msv) {
+                // Reload grade detail
+                const token = localStorage.getItem('token') || '';
+                getStudentAction(state.msv, token).then(data => {
+                    if (data) {
+                        const mapped = mapStudent(data);
+                        setCurrentStudent(mapped);
+                        calculateGPA(mapped);
+                        setView('grades');
+                    } else {
+                        setView('classes');
+                    }
+                }).catch(() => setView('classes'));
+            } else {
+                setView(v);
+            }
+        };
+
+        window.addEventListener('popstate', handlePopState);
+        return () => window.removeEventListener('popstate', handlePopState);
+    }, []);
+
     const handleLogout = () => {
         localStorage.removeItem('token');
         localStorage.removeItem('role');
@@ -389,7 +438,7 @@ export default function Dashboard() {
             // Use Server Action to hide API call
             const data = await getClassesAction(token);
             setClasses(data);
-            setView('classes');
+            navigateView('classes');
         } catch (error) {
             console.error(error);
         } finally {
@@ -405,7 +454,7 @@ export default function Dashboard() {
             const token = localStorage.getItem('token') || '';
             const data = await getStudentsAction(cls, token);
             setStudents((data || []).map(mapStudent));
-            setView('students');
+            navigateView('students', { cls });
             getStudentCountAction(cls, token).then(count => setTotalStudentCount(count)).catch(console.error);
         } catch (error) {
             console.error(error);
@@ -436,7 +485,7 @@ export default function Dashboard() {
             }
 
             setStudents((data || []).map(mapStudent));
-            setView('students');
+            navigateView('students', { cls: maLopStr });
         } catch (error) {
             console.error(`[loadStudents] Crash:`, error);
             alert('Lỗi hệ thống khi tải danh sách sinh viên.');
@@ -458,7 +507,7 @@ export default function Dashboard() {
                 const mapped = mapStudent(data);
                 setCurrentStudent(mapped);
                 calculateGPA(mapped);
-                setView('grades');
+                navigateView('grades', { msv });
             } else {
                 console.error('[loadGrade] No data returned for msv:', msv);
                 alert('Không thể tải thông tin sinh viên. Vui lòng thử lại.');
@@ -479,7 +528,7 @@ export default function Dashboard() {
             const token = localStorage.getItem('token') || '';
             const results = await searchStudentsAction(searchQuery, token);
             setStudents((results || []).map(mapStudent));
-            setView('search');
+            navigateView('search');
         } catch (error) {
             console.error(error);
         } finally {
@@ -629,7 +678,7 @@ export default function Dashboard() {
                         {role === 1 && (
                             <div className="flex items-center gap-2">
                                 <button
-                                    onClick={() => setView('admin')}
+                                    onClick={() => navigateView('admin')}
                                     className={`p-2 rounded-lg transition-colors ${view === 'admin' ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-300' : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400'}`}
                                     title="Quản lý người dùng"
                                 >
