@@ -87,6 +87,19 @@ def _clean_score(raw10, raw4):
     return s10, s4
 
 
+def _detect_thi_lai(grade):
+    """Detect if a grade row is a retake (thi lại).
+    
+    Thi lại = tổng kết lần 1 < 4 (trượt lần đầu, thi lại trong kỳ).
+    CHỈ dựa vào tong_ket_1, không dùng da_thi_lai_trong_ky từ DB.
+    """
+    tk1 = _to_float(getattr(grade, 'tong_ket_1', None))
+    if tk1 is not None and tk1 < 4:
+        return True
+
+    return False
+
+
 # ---------------------------------------------------------------------------
 # Student formatter
 # ---------------------------------------------------------------------------
@@ -148,8 +161,83 @@ def format_student(sv: models.SinhVien, hide_details=False, role: int = 1):
     }
 
     if not hide_details:
-        result["d"] = [ # diem
-            {
+        # --- Deduplicate grades per semester: keep best score, mark cải thiện ---
+        def _normalize_name(name):
+            n = (name or '').strip().lower()
+            for sfx in ['_ hv', '_hv', '(hoc vuot)', '(hv)']:
+                if n.endswith(sfx):
+                    n = n[:-len(sfx)].strip()
+            return n
+
+        def _get_semester(d):
+            """Determine real semester for grouping."""
+            hk = (getattr(d, 'hoc_ky', '') or '').strip()
+            hk_up = hk.upper()
+            # If hoc_ky is a real semester (not HV, not empty), use it
+            if hk and hk_up != 'HV' and 'hoc vuot' not in hk.lower():
+                return hk
+            return '__OTHER__'
+
+        # Group by (semester, subject_key) → keep best
+        # Use normalized name as PRIMARY key to catch same-subject with different ma_mon
+        # (e.g. "Tiếng anh 4_ HV" appearing twice with different codes)
+        from collections import defaultdict
+
+        def _subj_key(d):
+            ma_mon = (getattr(d, 'ma_mon', '') or '').strip()
+            norm = _normalize_name(getattr(d, 'ten_mon', ''))
+            return (f"N_{norm}" if norm else '') or ma_mon
+
+        sem_subject = {}  # (semester, subject_key) → best grade row
+
+        for d in diem_sorted:
+            sem = _get_semester(d)
+            subj_key = _subj_key(d)
+            if not subj_key:
+                continue
+            
+            group_key = (sem, subj_key)
+            s10 = _to_float(getattr(d, 'tong_ket_10', None))
+            existing = sem_subject.get(group_key)
+            if existing is None:
+                sem_subject[group_key] = d
+            else:
+                exist_s10 = _to_float(getattr(existing, 'tong_ket_10', None))
+                if s10 is not None and (exist_s10 is None or s10 > exist_s10):
+                    sem_subject[group_key] = d
+
+        # Build the set of winning row IDs for dedup
+        best_ids = set()
+        for group_key, best_row in sem_subject.items():
+            row_id = getattr(best_row, 'id', None)
+            if row_id is not None:
+                best_ids.add(row_id)
+
+        # Also track subject keys we've already output (for rows without proper id)
+        seen_keys = set()
+
+        result["d"] = []
+        for d in diem_sorted:
+            row_id = getattr(d, 'id', None)
+            sem = _get_semester(d)
+            subj_key = _subj_key(d)
+            group_key = (sem, subj_key)
+
+            # If this row has a subject key, only keep the best one
+            if subj_key:
+                if row_id is not None and row_id in best_ids:
+                    if group_key in seen_keys:
+                        continue
+                    seen_keys.add(group_key)
+                elif row_id is not None:
+                    # Not a winner → skip
+                    continue
+                else:
+                    if group_key in seen_keys:
+                        continue
+                    seen_keys.add(group_key)
+
+            result["d"].append({
                 "m": d.ma_mon,
                 "t": d.ten_mon,
                 "h": d.hoc_ky,
@@ -159,28 +247,50 @@ def format_student(sv: models.SinhVien, hide_details=False, role: int = 1):
                 "h1_2": d.he_so_1_l2,
                 "h1_3": d.he_so_1_l3,
                 "h1_4": d.he_so_1_l4,
+                "h1_5": d.he_so_1_l5,
+                "h1_6": d.he_so_1_l6,
+                "h1_7": d.he_so_1_l7,
+                "h1_8": d.he_so_1_l8,
+                "h1_9": d.he_so_1_l9,
                 "h2_1": d.he_so_2_l1,
                 "h2_2": d.he_so_2_l2,
                 "h2_3": d.he_so_2_l3,
                 "h2_4": d.he_so_2_l4,
+                "h2_5": d.he_so_2_l5,
+                "h2_6": d.he_so_2_l6,
+                "h2_7": d.he_so_2_l7,
+                "h2_8": d.he_so_2_l8,
+                "h2_9": d.he_so_2_l9,
                 "th1": d.thuc_hanh_1,
                 "th2": d.thuc_hanh_2,
+                "tk1": d.thuong_ky_1,
+                "tk2": d.thuong_ky_2,
+                "tk3": d.thuong_ky_3,
                 "tb_tk": d.tb_thuong_ky,
                 "dk": d.dieu_kien_thi,
                 "dt": d.diem_thi,
+                "vt": d.vang_thi,
+                "s10_1": d.tong_ket_1,
                 "s10": d.tong_ket_10,
                 "s4": d.tong_ket_4,
                 "chu": d.diem_chu,
                 "xl": d.xep_loai,
                 "kq": d.ket_qua,
+                "kn1": d.diem_thi_kn_1,
+                "kn2": d.diem_thi_kn_2,
+                "kn3": d.diem_thi_kn_3,
+                "kn4": d.diem_thi_kn_4,
+                "tl_flag": _detect_thi_lai(d),
                 "hk10": d.tb_hoc_ky_10,
                 "hk4": d.tb_hoc_ky_4,
                 "tl10": d.tb_tich_luy_10,
                 "tl4": d.tb_tich_luy_4,
+                "tc_dk": d.tin_chi_dang_ky,
+                "tc_tl": d.tin_chi_tich_luy,
+                "xlhv": d.xu_ly_hoc_vu,
                 "ldl": d.loai_du_lieu,
                 "e": _is_excluded_grade(d),
-            } for d in diem_sorted
-        ]
+            })
     else:
         # Hide detailed grades completely in summary views (search, class list)
         result["d"] = None

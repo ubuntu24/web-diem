@@ -54,6 +54,31 @@ class BangDiem(Base):
     tin_chi_no = Column(Text)
     loai_du_lieu = Column(Text)
 
+    # New columns
+    thuong_ky_1 = Column(Text)
+    thuong_ky_2 = Column(Text)
+    thuong_ky_3 = Column(Text)
+    tong_ket_1 = Column(Text)
+    vang_thi = Column(Text)
+    he_so_1_l5 = Column(Text)
+    he_so_1_l6 = Column(Text)
+    he_so_1_l7 = Column(Text)
+    he_so_1_l8 = Column(Text)
+    he_so_1_l9 = Column(Text)
+    he_so_2_l5 = Column(Text)
+    he_so_2_l6 = Column(Text)
+    he_so_2_l7 = Column(Text)
+    he_so_2_l8 = Column(Text)
+    he_so_2_l9 = Column(Text)
+    diem_thi_kn_1 = Column(Text)
+    diem_thi_kn_2 = Column(Text)
+    diem_thi_kn_3 = Column(Text)
+    diem_thi_kn_4 = Column(Text)
+    da_thi_lai_trong_ky = Column(Boolean, default=False)
+    tin_chi_dang_ky = Column(Text)
+    tin_chi_tich_luy = Column(Text)
+    xu_ly_hoc_vu = Column(Text)
+
     # Relationship to SinhVien
     sinh_vien = relationship("SinhVien", back_populates="diem")
 

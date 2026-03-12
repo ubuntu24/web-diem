@@ -2,10 +2,38 @@
 
 import { useState } from 'react';
 import { Grade } from '@/lib/types';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, RotateCcw, BookX } from 'lucide-react';
 
 interface GradeTableProps {
     grades: Grade[];
+}
+
+/** Có điểm thi KN (thi lần 2) */
+function _hasRetakeExam(grade: Grade): boolean {
+    return !!(grade.diem_thi_kn_1 || grade.diem_thi_kn_2 || grade.diem_thi_kn_3 || grade.diem_thi_kn_4);
+}
+
+/**
+ * Thi lại: phát hiện bằng 1 trong 3 cách:
+ * 1. DB đánh dấu da_thi_lai_trong_ky = true
+ * 2. Có điểm thi KN (diem_thi_kn_*)
+ * 3. tong_ket_1 < 4 nhưng tong_ket_10 >= 4 (trượt lần 1, qua lần cuối)
+ * → Và tổng kết >= 4 (đã qua, nếu trượt hẳn thì là học lại)
+ */
+function _isRetake(grade: Grade): boolean {
+    const tk10 = parseFloat(grade.tong_ket_10 || '');
+    if (isNaN(tk10) || tk10 < 4) return false; // trượt hẳn → học lại, không phải thi lại
+
+    const tk1 = parseFloat(grade.tong_ket_1 || '');
+    const failedFirst = !isNaN(tk1) && tk1 < 4;
+
+    return !!grade.da_thi_lai_trong_ky || _hasRetakeExam(grade) || failedFirst;
+}
+
+/** Học lại: tổng kết < 4 (trượt hẳn, kể cả đã thi lại vẫn trượt) */
+function _isRelearn(grade: Grade): boolean {
+    const tk10 = parseFloat(grade.tong_ket_10 || '');
+    return !isNaN(tk10) && tk10 < 4;
 }
 
 export default function GradeTable({ grades }: GradeTableProps) {
@@ -50,28 +78,49 @@ function GradeRow({ grade, isPass, isHigh }: { grade: Grade; isPass: boolean; is
             case 'C': return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800';
             case 'D': return 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-800';
             case 'F': return 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800';
-            case 'P': return 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800'; // Added P for Pass
+            case 'P': return 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800';
             default: return 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700';
         }
     };
 
     const details = [
         { label: 'Chuyên Cần', value: grade.chuyen_can },
+        { label: 'Thường Kỳ 1', value: grade.thuong_ky_1 },
+        { label: 'Thường Kỳ 2', value: grade.thuong_ky_2 },
+        { label: 'Thường Kỳ 3', value: grade.thuong_ky_3 },
         { label: 'HS1 (L1)', value: grade.he_so_1_l1 },
         { label: 'HS1 (L2)', value: grade.he_so_1_l2 },
         { label: 'HS1 (L3)', value: grade.he_so_1_l3 },
         { label: 'HS1 (L4)', value: grade.he_so_1_l4 },
+        { label: 'HS1 (L5)', value: grade.he_so_1_l5 },
+        { label: 'HS1 (L6)', value: grade.he_so_1_l6 },
+        { label: 'HS1 (L7)', value: grade.he_so_1_l7 },
+        { label: 'HS1 (L8)', value: grade.he_so_1_l8 },
+        { label: 'HS1 (L9)', value: grade.he_so_1_l9 },
         { label: 'HS2 (L1)', value: grade.he_so_2_l1 },
         { label: 'HS2 (L2)', value: grade.he_so_2_l2 },
         { label: 'HS2 (L3)', value: grade.he_so_2_l3 },
         { label: 'HS2 (L4)', value: grade.he_so_2_l4 },
+        { label: 'HS2 (L5)', value: grade.he_so_2_l5 },
+        { label: 'HS2 (L6)', value: grade.he_so_2_l6 },
+        { label: 'HS2 (L7)', value: grade.he_so_2_l7 },
+        { label: 'HS2 (L8)', value: grade.he_so_2_l8 },
+        { label: 'HS2 (L9)', value: grade.he_so_2_l9 },
         { label: 'Thực Hành 1', value: grade.thuc_hanh_1 },
         { label: 'Thực Hành 2', value: grade.thuc_hanh_2 },
         { label: 'TB Thường Kỳ', value: grade.tb_thuong_ky },
         { label: 'Điều Kiện Thi', value: grade.dieu_kien_thi },
+        { label: 'Vắng Thi', value: grade.vang_thi },
+        { label: 'Thi KN 1', value: grade.diem_thi_kn_1 },
+        { label: 'Thi KN 2', value: grade.diem_thi_kn_2 },
+        { label: 'Thi KN 3', value: grade.diem_thi_kn_3 },
+        { label: 'Thi KN 4', value: grade.diem_thi_kn_4 },
+        { label: 'TK Lần 1', value: grade.tong_ket_1, highlight: _isRetake(grade) || _isRelearn(grade) },
     ].filter(d => d.value);
 
     const hasDetails = details.length > 0;
+    const isRetake = _isRetake(grade);
+    const isRelearn = _isRelearn(grade);
 
     return (
         <>
@@ -82,6 +131,19 @@ function GradeRow({ grade, isPass, isHigh }: { grade: Grade; isPass: boolean; is
                 <td className="px-3 md:px-6 py-3 md:py-4 font-medium text-slate-900 dark:text-slate-200 min-w-[150px]">
                     <div className="flex items-start gap-2">
                         <span className="break-words">{grade.ten_mon}</span>
+                        {isRetake && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-tight bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800 shrink-0 mt-0.5">
+                                <RotateCcw className="w-2.5 h-2.5" />
+                                Thi lại
+                            </span>
+                        )}
+                        {isRelearn && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-tight bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 shrink-0 mt-0.5">
+                                <BookX className="w-2.5 h-2.5" />
+                                Học lại
+                            </span>
+                        )}
+
                         {hasDetails && (
                             <ChevronDown className={`w-4 h-4 text-slate-400 shrink-0 transition-transform duration-300 mt-0.5 ${isOpen ? 'rotate-180' : ''}`} />
                         )}
@@ -103,9 +165,15 @@ function GradeRow({ grade, isPass, isHigh }: { grade: Grade; isPass: boolean; is
                     <td colSpan={5} className="px-6 py-6 bg-slate-50/50 dark:bg-slate-900/30 border-b border-slate-100 dark:border-slate-800 shadow-inner">
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
                             {details.map((item, i) => (
-                                <div key={i} className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-[0_2px_4px_rgba(0,0,0,0.02)] flex flex-col items-center text-center">
+                                <div key={i} className={`p-3 rounded-xl border shadow-[0_2px_4px_rgba(0,0,0,0.02)] flex flex-col items-center text-center ${(item as any).highlight
+                                        ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+                                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'
+                                    }`}>
                                     <div className="text-[9px] uppercase tracking-wider font-extrabold text-slate-400 dark:text-slate-500 mb-1">{item.label}</div>
-                                    <div className="text-base font-bold text-blue-600 dark:text-blue-400 font-mono">{item.value}</div>
+                                    <div className={`text-base font-bold font-mono ${(item as any).highlight
+                                            ? 'text-red-500 dark:text-red-400'
+                                            : 'text-blue-600 dark:text-blue-400'
+                                        }`}>{item.value}</div>
                                 </div>
                             ))}
                         </div>

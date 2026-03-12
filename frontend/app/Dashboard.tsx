@@ -98,10 +98,16 @@ export default function Dashboard() {
         const ldl = (grade.loai_du_lieu || '').trim();
         const tenMon = (grade.ten_mon || '').trim().toLowerCase();
 
+        const hkUpper = hk.toUpperCase();
+        // If hoc_ky is a real semester (not empty, not "HV"), always use it
+        // This prevents subjects like "Tiếng Anh HV" from being pulled out of their semester
+        const hasRealSemester = hk && hkUpper !== 'HV' && !hk.toLowerCase().includes('hoc vuot');
+        if (hasRealSemester) return hk;
+
         const isHocVuot =
-            hk.toUpperCase() === 'HV' ||
-            ldl.toUpperCase() === 'HV' ||
+            hkUpper === 'HV' ||
             hk.toLowerCase().includes('hoc vuot') ||
+            ldl.toUpperCase() === 'HV' ||
             ldl.toLowerCase().includes('hoc vuot') ||
             tenMon.includes('_ hv') ||
             tenMon.includes('(hoc vuot)') ||
@@ -126,26 +132,50 @@ export default function Dashboard() {
             he_so_1_l2: g.h1_2,
             he_so_1_l3: g.h1_3,
             he_so_1_l4: g.h1_4,
+            he_so_1_l5: g.h1_5,
+            he_so_1_l6: g.h1_6,
+            he_so_1_l7: g.h1_7,
+            he_so_1_l8: g.h1_8,
+            he_so_1_l9: g.h1_9,
             he_so_2_l1: g.h2_1,
             he_so_2_l2: g.h2_2,
             he_so_2_l3: g.h2_3,
             he_so_2_l4: g.h2_4,
+            he_so_2_l5: g.h2_5,
+            he_so_2_l6: g.h2_6,
+            he_so_2_l7: g.h2_7,
+            he_so_2_l8: g.h2_8,
+            he_so_2_l9: g.h2_9,
             thuc_hanh_1: g.th1,
             thuc_hanh_2: g.th2,
+            thuong_ky_1: g.tk1,
+            thuong_ky_2: g.tk2,
+            thuong_ky_3: g.tk3,
             tb_thuong_ky: g.tb_tk,
             dieu_kien_thi: g.dk,
             diem_thi: g.dt,
+            vang_thi: g.vt,
+            tong_ket_1: g.s10_1,
             tong_ket_10: g.s10,
             tong_ket_4: g.s4,
             diem_chu: g.chu,
             xep_loai: g.xl,
             ket_qua: g.kq,
+            diem_thi_kn_1: g.kn1,
+            diem_thi_kn_2: g.kn2,
+            diem_thi_kn_3: g.kn3,
+            diem_thi_kn_4: g.kn4,
+            da_thi_lai_trong_ky: g.tl_flag,
             tb_hoc_ky_10: g.hk10,
             tb_hoc_ky_4: g.hk4,
             tb_tich_luy_10: g.tl10,
             tb_tich_luy_4: g.tl4,
+            tin_chi_dang_ky: g.tc_dk,
+            tin_chi_tich_luy: g.tc_tl,
+            xu_ly_hoc_vu: g.xlhv,
             loai_du_lieu: g.ldl,
-            exclude_from_gpa: g.e
+            exclude_from_gpa: g.e,
+            // cai_thien removed
         };
     }
 
@@ -182,7 +212,7 @@ export default function Dashboard() {
                     rawName = rawName.slice(0, -suffix.length).trim();
                 }
             }
-            const key = (g.ma_mon || '').trim() || `N_${rawName}`;
+            const key = (rawName ? `N_${rawName}` : '') || (g.ma_mon || '').trim();
 
             const existing = map.get(key);
             if (!existing || s10 > existing.s10) {
@@ -223,7 +253,7 @@ export default function Dashboard() {
                     rawName = rawName.slice(0, -suffix.length).trim();
                 }
             }
-            const key = (g.ma_mon || '').trim() || `N_${rawName}`;
+            const key = (rawName ? `N_${rawName}` : '') || (g.ma_mon || '').trim();
 
             const existing = map.get(key);
             if (!existing || s10 > existing.s10) {
@@ -470,12 +500,59 @@ export default function Dashboard() {
         calculateGPA(currentStudent);
     }, [currentStudent, sortingScale]);
 
-    const gradesBySemester = (currentStudent?.diem || []).reduce((acc, grade) => {
-        const hk = getNormalizedSemester(grade);
-        if (!acc[hk]) acc[hk] = [];
-        acc[hk].push(grade);
-        return acc;
-    }, {} as Record<string, Grade[]>) || {};
+    const gradesBySemester = (() => {
+        // Step 1: Group grades by semester
+        const grouped = (currentStudent?.diem || []).reduce((acc, grade) => {
+            const hk = getNormalizedSemester(grade);
+            if (!acc[hk]) acc[hk] = [];
+            acc[hk].push(grade);
+            return acc;
+        }, {} as Record<string, Grade[]>);
+
+        // Step 2: Deduplicate within each semester (keep highest score)
+        // Use normalized name as key to catch HV variants (e.g. "Tiếng anh 2" vs "Tiếng anh 2_ HV")
+        const normalizeSubjectName = (name: string) => {
+            let n = (name || '').trim().toLowerCase();
+            for (const suffix of ['_ hv', '_hv', '(hoc vuot)', '(hv)']) {
+                if (n.endsWith(suffix)) n = n.slice(0, -suffix.length).trim();
+            }
+            return n;
+        };
+
+        for (const hk of Object.keys(grouped)) {
+            const grades = grouped[hk];
+            const seen = new Map<string, Grade>();
+            for (const g of grades) {
+                const normName = normalizeSubjectName(g.ten_mon || '');
+                const maMon = (g.ma_mon || '').trim();
+                // Use normalized name as primary key to catch same-subject with different ma_mon
+                // (e.g. "Tiếng anh 4_ HV" with different codes)
+                const key = (normName ? `N_${normName}` : '') || maMon;
+                if (!key) continue; // No identifiable key → always keep
+
+                const existing = seen.get(key);
+                if (!existing) {
+                    seen.set(key, g);
+                } else {
+                    const curScore = toNumber(g.tong_ket_10);
+                    const existScore = toNumber(existing.tong_ket_10);
+                    if (curScore !== null && (existScore === null || curScore > existScore)) {
+                        seen.set(key, g);
+                    }
+                }
+            }
+            // Keep entries without key + deduplicated entries
+            grouped[hk] = grades.filter(g => {
+                const normName = normalizeSubjectName(g.ten_mon || '');
+                const maMon = (g.ma_mon || '').trim();
+                const key = (normName ? `N_${normName}` : '') || maMon;
+                if (!key) return true;
+                return seen.get(key) === g;
+            });
+        }
+
+        return grouped;
+    })();
 
     const parseSemester = (s: string) => {
         const sLower = s.toLowerCase();
