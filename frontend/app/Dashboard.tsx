@@ -475,10 +475,8 @@ export default function Dashboard() {
         if (!Array.isArray(maLop)) setSelectedClass(maLop);
         setLocalSearchTerm('');
         try {
-            console.log(`[loadStudents] Fetching for: ${maLopStr}`);
             const token = localStorage.getItem('token') || '';
             const data = await getStudentsAction(maLopStr, token);
-            console.log(`[loadStudents] Received data:`, data);
 
             if (!data || data.length === 0) {
                 console.warn(`[loadStudents] No students returned or fetch failed.`);
