@@ -53,17 +53,14 @@ function decryptPayload(cipher: string): any {
 
 async function parseResponse<T>(res: Response): Promise<T> {
     const text = await res.text();
-    console.log(`[API] Raw response (first 50 chars): ${text.substring(0, 50)}...`);
 
     // If it's a simple JSON object/array (errors or legacy), return it
     if (text.startsWith('{') || text.startsWith('[')) {
         try {
             const parsed = JSON.parse(text);
-            console.log(`[API] Parsed as raw JSON:`, parsed);
             return parsed;
         } catch (e) {
-            console.error(`[API] Failed to parse JSON text that started with { or [`);
-        }
+            }
     }
 
     // FastAPI JSON-serializes strings with quotes: "base64..." → strip them first
@@ -73,10 +70,8 @@ async function parseResponse<T>(res: Response): Promise<T> {
     }
 
     // Attempt decryption on the unquoted payload
-    console.log(`[API] Attempting decryption...`);
     const decrypted = decryptPayload(payload);
     if (decrypted) {
-        console.log(`[API] Successfully decrypted payload.`);
         return decrypted;
     }
 
@@ -94,7 +89,6 @@ export async function getClasses(tokenOverride?: string): Promise<string[]> {
 
 export async function getStudentsByClass(maLop: string, tokenOverride?: string): Promise<Student[]> {
     const url = `${API_BASE_URL}/api/class/${encodeURIComponent(maLop)}/students`;
-    console.log(`[API] Fetching students: ${url}`);
     const res = await fetch(url, { headers: authHeaders(tokenOverride) });
     if (!res.ok) {
         console.error(`[API] Students fetch failed: ${res.status}`);
@@ -106,7 +100,6 @@ export async function getStudentsByClass(maLop: string, tokenOverride?: string):
 
 export async function getStudent(msv: string, tokenOverride?: string): Promise<Student> {
     const url = `${API_BASE_URL}/api/student/${encodeURIComponent(msv)}`;
-    console.log(`[API] Fetching student detail: ${url}`);
     const res = await fetch(url, { headers: authHeaders(tokenOverride) });
     if (!res.ok) {
         const text = await res.text().catch(() => '');
@@ -118,7 +111,6 @@ export async function getStudent(msv: string, tokenOverride?: string): Promise<S
 
 export async function searchStudents(query: string, tokenOverride?: string): Promise<Student[]> {
     const url = `${API_BASE_URL}/api/search?query=${encodeURIComponent(query)}`;
-    console.log(`[API] Searching students: ${url}`);
     const res = await fetch(url, { headers: authHeaders(tokenOverride) });
     if (!res.ok) throw new Error('Failed to search students');
     const data: any = await parseResponse(res);
@@ -151,7 +143,6 @@ export async function getStudentCount(className?: string, tokenOverride?: string
         ? `${API_BASE_URL}/api/stats/student-count?class_name=${encodeURIComponent(className)}`
         : `${API_BASE_URL}/api/stats/student-count`;
 
-    console.log(`[API] Student count: ${url}`);
     const res = await fetch(url, { headers: authHeaders(tokenOverride) });
     if (!res.ok) throw new Error('Failed to fetch student count');
     const data: any = await parseResponse(res);
