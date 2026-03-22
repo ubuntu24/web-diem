@@ -23,7 +23,7 @@ export default function ProfilePage() {
                 if (!userData) throw new Error('No user data');
                 setUser(userData);
             } catch (error) {
-                console.error("Failed to fetch profile", error);
+                // silenced
                 router.push('/login');
             } finally {
                 setLoading(false);

@@ -140,3 +140,44 @@ export async function resetUserLimitAction(userId: number, token?: string): Prom
         return { success: false, error: error.message || 'Reset thất bại' };
     }
 }
+
+/**
+ * Server Action to send feedback to Telegram bot.
+ * This hides the Telegram API call from the browser Network tab.
+ */
+export async function sendFeedbackAction(message: string, username?: string): Promise<{ success: boolean; error?: string }> {
+    try {
+        const botToken = process.env.TELEGRAM_BOT_TOKEN;
+        const chatId = process.env.TELEGRAM_CHAT_ID;
+
+        if (!botToken || !chatId) {
+            console.error('Telegram config missing: TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID');
+            return { success: false, error: 'Telegram chưa được cấu hình' };
+        }
+
+        const now = new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+        const sender = username || 'Ẩn danh';
+        const text = `💬 *MEOMEOW*\n\n👤 *Người gửi:* ${sender}\n📝 ${message}\n\n🕐 ${now}`;
+
+        const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chat_id: chatId,
+                text,
+                parse_mode: 'Markdown',
+            }),
+        });
+
+        if (!res.ok) {
+            const err = await res.text();
+            console.error('Telegram API error:', err);
+            return { success: false, error: 'Gửi tin nhắn Telegram thất bại' };
+        }
+
+        return { success: true };
+    } catch (error: any) {
+        console.error('Error in sendFeedbackAction:', error);
+        return { success: false, error: error.message || 'Gửi ý kiến thất bại' };
+    }
+}

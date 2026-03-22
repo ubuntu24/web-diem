@@ -15,6 +15,7 @@ import UserMenu from '@/components/UserMenu';
 import HeroSection from '@/components/HeroSection';
 import AdminUserList from '@/components/AdminUserList';
 import ClassPicker from '@/components/ClassPicker';
+import FeedbackButton from '@/components/FeedbackButton';
 
 export default function Dashboard() {
     const router = useRouter();
@@ -323,7 +324,7 @@ export default function Dashboard() {
 
                 // Role 0: chỉ hiển thị số SV trong lớp đang chọn, không bao giờ gọi tổng toàn trường
                 if (storedClass) {
-                    getStudentCountAction(storedClass, token).then(c => setTotalStudentCount(c)).catch(console.error);
+                    getStudentCountAction(storedClass, token).then(c => setTotalStudentCount(c)).catch(() => {});
                     loadStudentsForClass(storedClass);
                 } else {
                     setTotalStudentCount(0);
@@ -331,7 +332,7 @@ export default function Dashboard() {
                 }
             } else {
                 // Role 1 (admin): hiển thị tổng sinh viên toàn trường
-                getStudentCountAction(undefined, token).then(c => setTotalStudentCount(c)).catch(console.error);
+                getStudentCountAction(undefined, token).then(c => setTotalStudentCount(c)).catch(() => {});
             }
         });
 
@@ -440,7 +441,7 @@ export default function Dashboard() {
             setClasses(data);
             navigateView('classes');
         } catch (error) {
-            console.error(error);
+            // silenced
         } finally {
             setLoading(false);
         }
@@ -455,9 +456,9 @@ export default function Dashboard() {
             const data = await getStudentsAction(cls, token);
             setStudents((data || []).map(mapStudent));
             navigateView('students', { cls });
-            getStudentCountAction(cls, token).then(count => setTotalStudentCount(count)).catch(console.error);
+            getStudentCountAction(cls, token).then(count => setTotalStudentCount(count)).catch(() => {});
         } catch (error) {
-            console.error(error);
+            // silenced
         } finally {
             setLoading(false);
         }
@@ -467,7 +468,7 @@ export default function Dashboard() {
         if (role === 0 && typeof maLop === 'string') {
             localStorage.setItem('selectedClass', maLop);
             const token = localStorage.getItem('token') || '';
-            getStudentCountAction(maLop, token).then(count => setTotalStudentCount(count)).catch(console.error);
+            getStudentCountAction(maLop, token).then(count => setTotalStudentCount(count)).catch(() => {});
         }
 
         setLoading(true);
@@ -479,13 +480,13 @@ export default function Dashboard() {
             const data = await getStudentsAction(maLopStr, token);
 
             if (!data || data.length === 0) {
-                console.warn(`[loadStudents] No students returned or fetch failed.`);
+                // silenced
             }
 
             setStudents((data || []).map(mapStudent));
             navigateView('students', { cls: maLopStr });
         } catch (error) {
-            console.error(`[loadStudents] Crash:`, error);
+            // silenced
             alert('Lỗi hệ thống khi tải danh sách sinh viên.');
         } finally {
             setLoading(false);
@@ -507,11 +508,11 @@ export default function Dashboard() {
                 calculateGPA(mapped);
                 navigateView('grades', { msv });
             } else {
-                console.error('[loadGrade] No data returned for msv:', msv);
+                // silenced
                 alert('Không thể tải thông tin sinh viên. Vui lòng thử lại.');
             }
         } catch (error) {
-            console.error('[loadGrade] Error:', error);
+            // silenced
             alert('Lỗi khi tải điểm. Vui lòng thử lại.');
         } finally {
             setLoading(false);
@@ -528,7 +529,7 @@ export default function Dashboard() {
             setStudents((results || []).map(mapStudent));
             navigateView('search');
         } catch (error) {
-            console.error(error);
+            // silenced
         } finally {
             setLoading(false);
         }
@@ -918,6 +919,7 @@ export default function Dashboard() {
             {view === 'grades' && currentStudent && (
                 <div id="gpa-simulator-container" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20"><div className="mt-12 border-t border-slate-200 pt-8"><h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2"><Sparkles className="w-6 h-6 text-indigo-500" />Mô phỏng Điểm Tích Lũy</h2><GPASimulator currentCredits={totalCredits} currentPoints={totalPoints} /></div></div>
             )}
+            <FeedbackButton username={username} />
         </div >
     );
 }

@@ -75,7 +75,7 @@ async function parseResponse<T>(res: Response): Promise<T> {
         return decrypted;
     }
 
-    console.error(`[API] Decryption failed or returned null.`);
+    // silenced
     // Last resort fallback
     try { return JSON.parse(text); } catch { return text as any; }
 }
@@ -91,7 +91,7 @@ export async function getStudentsByClass(maLop: string, tokenOverride?: string):
     const url = `${API_BASE_URL}/api/class/${encodeURIComponent(maLop)}/students`;
     const res = await fetch(url, { headers: authHeaders(tokenOverride) });
     if (!res.ok) {
-        console.error(`[API] Students fetch failed: ${res.status}`);
+        // silenced
         throw new Error('Failed to fetch students');
     }
     const data: any = await parseResponse(res);
@@ -103,7 +103,7 @@ export async function getStudent(msv: string, tokenOverride?: string): Promise<S
     const res = await fetch(url, { headers: authHeaders(tokenOverride) });
     if (!res.ok) {
         const text = await res.text().catch(() => '');
-        console.error(`[getStudent] Failed: ${res.status} ${text}`);
+        // silenced
         throw new Error('Failed to fetch student');
     }
     return parseResponse(res);

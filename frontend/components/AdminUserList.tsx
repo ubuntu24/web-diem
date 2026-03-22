@@ -21,7 +21,7 @@ export default function AdminUserList() {
             const usersData = await getUsersAction(token);
             setUsers(usersData);
         } catch (error) {
-            console.error("Failed to load admin data", error);
+            // silenced
         } finally {
             setLoading(false);
         }
@@ -114,7 +114,7 @@ export default function AdminUserList() {
                                                                     } else {
                                                                         alert(result.error || 'Reset thất bại');
                                                                     }
-                                                                }).catch(console.error);
+                                                                }).catch(() => {});
                                                             }
                                                         }}
                                                         className="p-1.5 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-md transition-colors"

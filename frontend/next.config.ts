@@ -11,9 +11,7 @@ const getApiBase = () => {
 
 const apiBase = getApiBase();
 
-console.log('--------------------------------------------------');
-console.log(`[CONFIG] Frontend API Target: ${apiBase}`);
-console.log('--------------------------------------------------');
+// API config loaded silently
 
 const nextConfig: NextConfig = {
   // Security Headers
