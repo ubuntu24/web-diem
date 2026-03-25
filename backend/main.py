@@ -91,6 +91,15 @@ def startup_event():
     
     # Ensure admin user exists
     db = database.SessionLocal()
+    
+    # Migration: Add class_change_limit column if doesn't exist
+    try:
+        from sqlalchemy import text
+        db.execute(text("ALTER TABLE nick ADD COLUMN class_change_limit INTEGER DEFAULT 5"))
+        db.commit()
+    except Exception:
+        db.rollback()
+        
     admin_user = db.query(models.Nick).filter(models.Nick.username == "admin").first()
     if not admin_user:
         admin_pass = os.getenv("ADMIN_PASSWORD", "admin123")

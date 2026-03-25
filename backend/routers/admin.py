@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from typing import Optional
-import models, database, security
+import models, database, security, schemas
 from .websocket import manager
 
 router = APIRouter(prefix="/api")
@@ -43,7 +43,8 @@ def get_all_users(
             "username": u.username,
             "role": u.role,
             "access_history": access_history,
-            "reset_limit_at": u.reset_limit_at.isoformat() if u.reset_limit_at else None
+            "reset_limit_at": u.reset_limit_at.isoformat() if u.reset_limit_at else None,
+            "class_change_limit": u.class_change_limit
         })
     return result
 
@@ -71,3 +72,28 @@ async def reset_user_limit(
     })
     
     return {"message": f"Limit reset for user {user.username}"}
+
+@router.post("/admin/user/{user_id}/class-change-limit")
+async def update_user_class_change_limit(
+    user_id: int,
+    request: schemas.UpdateLimitRequest,
+    current_user: models.Nick = Depends(security.get_current_user),
+    db: Session = Depends(database.get_db)
+):
+    if current_user.role != 1:
+        raise HTTPException(status_code=403, detail="Not authorized")
+        
+    user = db.query(models.Nick).filter(models.Nick.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    user.class_change_limit = request.limit
+    db.commit()
+    
+    # Notify user via WebSocket
+    await manager.send_personal_message(user.username, {
+        "type": "update_limit",
+        "limit": request.limit
+    })
+    
+    return {"message": f"Class change limit updated for user {user.username}"}

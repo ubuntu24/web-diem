@@ -9,12 +9,12 @@ interface ClassPickerProps {
     classes: string[];
     onClassSelected: (className: string) => void;
     currentClass?: string;
+    maxChanges?: number;
     onClose?: () => void;
 }
 
 const CLASS_CHANGE_KEY = 'classChanges';
 const CLASS_CHANGE_DATE_KEY = 'classChangeDate';
-const MAX_CHANGES = 3;
 
 function getClassChangeCount(): number {
     const today = new Date().toISOString().slice(0, 10);
@@ -38,6 +38,7 @@ export default function ClassPicker({
     classes,
     onClassSelected,
     currentClass,
+    maxChanges = 5,
     onClose
 }: ClassPickerProps) {
     const [searchQuery, setSearchQuery] = useState('');
@@ -48,8 +49,8 @@ export default function ClassPicker({
     );
 
     const classChangeCount = getClassChangeCount();
-    const remainingChanges = Math.max(0, MAX_CHANGES - classChangeCount);
-    const isLimitReached = classChangeCount >= MAX_CHANGES;
+    const remainingChanges = maxChanges === -1 ? '∞' : Math.max(0, maxChanges - classChangeCount);
+    const isLimitReached = maxChanges === -1 ? false : classChangeCount >= maxChanges;
 
     const handleSelect = (className: string) => {
         if (className === currentClass) {
@@ -90,7 +91,7 @@ export default function ClassPicker({
                             : 'bg-slate-50 border-slate-200 text-slate-600 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300'
                             }`}>
                             <Star className={`w-4 h-4 ${isLimitReached ? 'text-red-500' : 'text-slate-400'}`} />
-                            Còn {remainingChanges}/{MAX_CHANGES} lượt đổi
+                            Còn {remainingChanges}{maxChanges !== -1 ? `/${maxChanges}` : ''} lượt đổi
                         </div>
                     </div>
 

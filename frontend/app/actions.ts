@@ -1,6 +1,6 @@
 'use server';
 
-import { getStudentsByClass, searchStudents, getClasses, getOnlineUsers, getStudent, getMe, getStudentCount, loginUser, registerUser, getUsers, resetUserLimit, type LoginResponse, type AdminUser } from '@/lib/api';
+import { getStudentsByClass, searchStudents, getClasses, getOnlineUsers, getStudent, getMe, getStudentCount, loginUser, registerUser, getUsers, resetUserLimit, updateUserLimit, type LoginResponse, type AdminUser } from '@/lib/api';
 import { Student } from '@/lib/types';
 
 /**
@@ -138,6 +138,18 @@ export async function resetUserLimitAction(userId: number, token?: string): Prom
         return { success: true };
     } catch (error: any) {
         return { success: false, error: error.message || 'Reset thất bại' };
+    }
+}
+
+/**
+ * Server Action to update user limit (admin).
+ */
+export async function updateUserLimitAction(userId: number, limit: number, token?: string): Promise<{ success: boolean; error?: string }> {
+    try {
+        await updateUserLimit(userId, limit, token);
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message || 'Cập nhật giới hạn thất bại' };
     }
 }
 

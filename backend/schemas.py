@@ -15,6 +15,7 @@ class User(BaseModel):
     username: str
     role: int
     reset_limit_at: Optional[datetime] = None
+    class_change_limit: Optional[int] = 5
 
     class Config:
         from_attributes = True
@@ -22,3 +23,6 @@ class User(BaseModel):
 class RegisterRequest(BaseModel):
     username: str
     password: str
+
+class UpdateLimitRequest(BaseModel):
+    limit: int

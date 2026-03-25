@@ -49,6 +49,7 @@ export default function Dashboard() {
     const [compareMode, setCompareMode] = useState(false);
     const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
     const [isVipLimitReached, setIsVipLimitReached] = useState(false);
+    const [classChangeLimit, setClassChangeLimit] = useState(5);
 
     // ---------------------------------------------------------------------------
     // GPA helpers (clean version)
@@ -305,6 +306,9 @@ export default function Dashboard() {
             if (user.role !== undefined) localStorage.setItem('role', user.role.toString());
 
             if (user.role === 0) {
+                const limit = user.class_change_limit ?? 5;
+                setClassChangeLimit(limit);
+
                 if (user.reset_limit_at) {
                     const lastApplied = localStorage.getItem('lastResetApplied');
                     if (!lastApplied || new Date(user.reset_limit_at) > new Date(lastApplied)) {
@@ -315,11 +319,15 @@ export default function Dashboard() {
                     }
                 }
 
-                const count = parseInt(localStorage.getItem('classChanges') || '0');
-                const today = new Date().toISOString().slice(0, 10);
-                const storedDate = localStorage.getItem('classChangeDate');
-                if (storedDate === today && count >= 3) {
-                    setIsVipLimitReached(true);
+                if (limit === -1) {
+                    setIsVipLimitReached(false);
+                } else {
+                    const count = parseInt(localStorage.getItem('classChanges') || '0');
+                    const today = new Date().toISOString().slice(0, 10);
+                    const storedDate = localStorage.getItem('classChangeDate');
+                    if (storedDate === today && count >= limit) {
+                        setIsVipLimitReached(true);
+                    }
                 }
 
                 // Role 0: chỉ hiển thị số SV trong lớp đang chọn, không bao giờ gọi tổng toàn trường
@@ -359,6 +367,22 @@ export default function Dashboard() {
                         localStorage.removeItem('classChanges');
                         localStorage.removeItem('classChangeDate');
                         setIsVipLimitReached(false);
+                    }
+                    if (data && data.type === 'update_limit') {
+                        const newLimit = data.limit;
+                        setClassChangeLimit(newLimit);
+                        if (newLimit === -1) {
+                            setIsVipLimitReached(false);
+                        } else {
+                            const count = parseInt(localStorage.getItem('classChanges') || '0');
+                            const today = new Date().toISOString().slice(0, 10);
+                            const storedDate = localStorage.getItem('classChangeDate');
+                            if (storedDate === today && count >= newLimit) {
+                                setIsVipLimitReached(true);
+                            } else {
+                                setIsVipLimitReached(false);
+                            }
+                        }
                     }
                 } catch (error) { }
             };
@@ -896,11 +920,16 @@ export default function Dashboard() {
                         <ClassPicker
                             classes={classes}
                             currentClass={selectedClass}
+                            maxChanges={classChangeLimit}
                             onClassSelected={(cls) => {
                                 setSelectedClass(cls);
                                 loadStudents(cls);
-                                const count = parseInt(localStorage.getItem('classChanges') || '0');
-                                if (count >= 3) setIsVipLimitReached(true);
+                                if (classChangeLimit === -1) {
+                                    setIsVipLimitReached(false);
+                                } else {
+                                    const count = parseInt(localStorage.getItem('classChanges') || '0');
+                                    if (count >= classChangeLimit) setIsVipLimitReached(true);
+                                }
                             }}
                             onClose={selectedClass ? () => setShowClassPicker(false) : undefined}
                         />

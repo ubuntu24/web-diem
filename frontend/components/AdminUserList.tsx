@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Search, Shield, Edit, Save, X, Check, Loader2, User as UserIcon, Star, Activity } from 'lucide-react';
 import { AdminUser } from '@/lib/api';
-import { getUsersAction, resetUserLimitAction } from '@/app/actions';
+import { getUsersAction, resetUserLimitAction, updateUserLimitAction } from '@/app/actions';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function AdminUserList() {
@@ -97,12 +97,44 @@ export default function AdminUserList() {
                                             {user.role === 1 ? (
                                                 <span className="px-2 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-md text-xs font-bold">Admin</span>
                                             ) : (
-                                                <span className="px-2 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-md text-xs font-medium">User</span>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="px-2 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-md text-xs font-medium">User</span>
+                                                    <span className={`px-2 py-1 rounded-md text-xs font-bold ${user.class_change_limit === -1 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'}`}>
+                                                        {user.class_change_limit === -1 ? '∞ lượt đổi' : `${user.class_change_limit ?? 5} lượt đổi`}
+                                                    </span>
+                                                </div>
                                             )}
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             {user.role !== 1 && (
                                                 <div className="flex items-center justify-end gap-2">
+                                                    <button
+                                                        onClick={() => {
+                                                            const currentLimit = user.class_change_limit ?? 5;
+                                                            const promptMsg = `Nhập số lượt đổi lớp mới cho ${user.username}\n(Nhập -1 để không giới hạn):`;
+                                                            const newLimitStr = prompt(promptMsg, currentLimit.toString());
+                                                            if (newLimitStr !== null) {
+                                                                const newLimit = parseInt(newLimitStr);
+                                                                if (!isNaN(newLimit)) {
+                                                                    const token = localStorage.getItem('token') || undefined;
+                                                                    updateUserLimitAction(user.id, newLimit, token).then((result) => {
+                                                                        if (result.success) {
+                                                                            alert(`Đã cập nhật lượt đổi lớp cho ${user.username}`);
+                                                                            loadData();
+                                                                        } else {
+                                                                            alert(result.error || 'Cập nhật thất bại');
+                                                                        }
+                                                                    }).catch(() => {});
+                                                                } else {
+                                                                    alert('Giá trị không hợp lệ');
+                                                                }
+                                                            }
+                                                        }}
+                                                        className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-md transition-colors"
+                                                        title={`Sửa lượt đổi (hiện tại: ${user.class_change_limit === -1 ? '∞' : (user.class_change_limit ?? 5)})`}
+                                                    >
+                                                        <Edit className="w-4 h-4" />
+                                                    </button>
                                                     <button
                                                         onClick={() => {
                                                             if (confirm(`Bạn có chắc muốn reset lượt đổi lớp cho ${user.username}?`)) {

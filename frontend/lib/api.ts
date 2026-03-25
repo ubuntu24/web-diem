@@ -123,18 +123,20 @@ export interface User {
     role?: number;
     created_at?: string;
     reset_limit_at?: string | null;
+    class_change_limit?: number;
 }
 
 export async function getMe(tokenOverride?: string): Promise<User> {
     const res = await fetch(`${API_BASE_URL}/api/me`, { headers: authHeaders(tokenOverride) });
     if (!res.ok) throw new Error('Failed to fetch user info');
     const data: any = await parseResponse(res);
-    // Backend returns short field names: u=username, r=role, rl=reset_limit_at, ca=created_at
+    // Backend returns short field names: u=username, r=role, rl=reset_limit_at, ca=created_at, cl=class_change_limit
     return {
         username: data.u ?? data.username,
         role: data.r ?? data.role,
         reset_limit_at: data.rl ?? data.reset_limit_at,
         created_at: data.ca ?? data.created_at,
+        class_change_limit: data.cl ?? data.class_change_limit,
     };
 }
 
@@ -167,6 +169,7 @@ export interface AdminUser {
     role: number;
     access_history?: AccessHistory[];
     reset_limit_at?: string | null;
+    class_change_limit?: number;
 }
 
 export async function resetUserLimit(userId: number, tokenOverride?: string): Promise<void> {
@@ -175,6 +178,23 @@ export async function resetUserLimit(userId: number, tokenOverride?: string): Pr
         headers: authHeaders(tokenOverride)
     });
     if (!res.ok) throw new Error('Failed to reset user limit');
+}
+
+export async function updateUserLimit(userId: number, limit: number, tokenOverride?: string): Promise<void> {
+    const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+    };
+    const authH = authHeaders(tokenOverride) as Record<string, string>;
+    if (authH['Authorization']) {
+        headers['Authorization'] = authH['Authorization'];
+    }
+
+    const res = await fetch(`${API_BASE_URL}/api/admin/user/${userId}/class-change-limit`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ limit })
+    });
+    if (!res.ok) throw new Error('Failed to update user limit');
 }
 
 export async function getUsers(tokenOverride?: string): Promise<AdminUser[]> {
@@ -186,6 +206,7 @@ export async function getUsers(tokenOverride?: string): Promise<AdminUser[]> {
 export interface LoginResponse {
     access_token: string;
     role?: number;
+    class_change_limit?: number;
 }
 
 export async function loginUser(username: string, password: string): Promise<LoginResponse> {

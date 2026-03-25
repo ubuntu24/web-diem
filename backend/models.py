@@ -95,6 +95,7 @@ class Nick(Base):
     # Role 1: Admin, Role 0: Regular User
     last_active = Column(DateTime, nullable=True)
     reset_limit_at = Column(DateTime, nullable=True)
+    class_change_limit = Column(Integer, default=5, nullable=True)
 
 class UserAccess(Base):
     __tablename__ = "user_access"
