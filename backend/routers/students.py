@@ -1,7 +1,21 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+import re
+import time
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 import models, database, security
+import cache as _cache
+import json, logging
+
+logger = logging.getLogger(__name__)
+
+# Cache TTLs (seconds)
+_TTL_STUDENT   = 3600   # 1 hour  — student detail + grades
+_TTL_CLASS     = 1800   # 30 min  — class student list
+_TTL_CLASSES   = 3600   # 1 hour  — full class name list
+_TTL_COUNT     = 3600   # 1 hour  — student count
+_TTL_SEARCH    = 300    # 5 min   — search results
+
 
 router = APIRouter(prefix="/api")
 
@@ -100,6 +114,35 @@ def _detect_thi_lai(grade):
     return False
 
 
+_SEARCH_BLOCK_PATTERN = re.compile(r"(;|--|/\*|\*/|\x00)")
+
+
+def _sanitize_search_query(query: str) -> str:
+    q = (query or '').strip()
+    if len(q) < 2 or len(q) > 80:
+        raise HTTPException(status_code=400, detail="Invalid search query length")
+    if _SEARCH_BLOCK_PATTERN.search(q):
+        raise HTTPException(status_code=400, detail="Invalid search query")
+    # Prevent uncontrolled wildcards from causing full-scan behavior.
+    q = q.replace('%', '').replace('_', '')
+    if not q:
+        raise HTTPException(status_code=400, detail="Invalid search query")
+    return q
+
+
+def _allow_search(identity: str, limit: int = 90, window_seconds: int = 60) -> bool:
+    now = time.time()
+    key = f"rl:search:{identity}"
+    hits = _cache.get(key) or []
+    hits = [t for t in hits if now - t < window_seconds]
+    if len(hits) >= limit:
+        _cache.set(key, hits, ttl=window_seconds)
+        return False
+    hits.append(now)
+    _cache.set(key, hits, ttl=window_seconds)
+    return True
+
+
 # ---------------------------------------------------------------------------
 # Student formatter
 # ---------------------------------------------------------------------------
@@ -131,7 +174,7 @@ def format_student(sv: models.SinhVien, hide_details=False, role: int = 1):
                 if raw_name.endswith(suffix):
                     raw_name = raw_name[:-len(suffix)].strip()
             
-            key = (d.ma_mon or '').strip() or f"NAME_{raw_name}"
+            key = (f"N_{raw_name}" if raw_name else '') or (d.ma_mon or '').strip()
             
             # HIGHEST attempt wins for Cumulative GPA
             if key not in subject_map or s10 > subject_map[key]['s10']:
@@ -149,12 +192,14 @@ def format_student(sv: models.SinhVien, hide_details=False, role: int = 1):
     # --- Build response with Masked Fields (Privacy) ---
     display_msv = security.obfuscate_id(sv.msv) if role == 0 else sv.msv
 
+    display_name = sv.ho_ten or ''
+
     result = {
         "i": display_msv,    # msv
-        "n": sv.ho_ten,       # ho_ten
-        "b": str(sv.ngay_sinh) if sv.ngay_sinh else None, # ngay_sinh
-        "c": sv.ma_lop,      # ma_lop
-        "p": sv.noi_sinh,    # noi_sinh
+        "n": display_name,       # ho_ten (masked for role 0)
+        "b": str(sv.ngay_sinh) if (sv.ngay_sinh and role != 0) else None, # ngay_sinh
+        "c": sv.ma_lop if role != 0 else None,      # ma_lop
+        "p": sv.noi_sinh if role != 0 else None,    # noi_sinh
         "g": gpa_4,          # gpa
         "g10": gpa_10,       # gpa10
         "tc": tc,            # total_credits
@@ -294,6 +339,81 @@ def format_student(sv: models.SinhVien, hide_details=False, role: int = 1):
     else:
         # Hide detailed grades completely in summary views (search, class list)
         result["d"] = None
+        # Keep semester-level aggregates so UI can still show/filter by semester.
+        sem_map = {}  # semester -> {p4, p10, tc}
+        all_semesters = set()
+
+        def _normalized_semester_for_summary(row):
+            hk = (getattr(row, 'hoc_ky', '') or '').strip()
+            ldl = (getattr(row, 'loai_du_lieu', '') or '').strip()
+            ten = (getattr(row, 'ten_mon', '') or '').strip().lower()
+
+            hk_up = hk.upper()
+            if hk and hk_up != 'HV' and 'hoc vuot' not in hk.lower():
+                return hk
+
+            is_hv = (
+                hk_up == 'HV' or
+                'hoc vuot' in hk.lower() or
+                ldl.upper() == 'HV' or
+                'hoc vuot' in ldl.lower() or
+                '_ hv' in ten or
+                '(hoc vuot)' in ten or
+                '(hv)' in ten
+            )
+            if is_hv:
+                return 'Học vượt'
+            if not hk and ldl:
+                return ldl
+            return hk or 'Khác'
+
+        sem_subject = {}  # (semester, subject_key) -> {s4, s10, cr}
+        for d in diem_sorted:
+            sem = _normalized_semester_for_summary(d)
+            if sem:
+                all_semesters.add(sem)
+
+            if _is_excluded_grade(d):
+                continue
+            try:
+                s10, s4 = _clean_score(d.tong_ket_10, d.tong_ket_4)
+                credit = int(float(str(d.so_tin_chi).replace(',', '.'))) if d.so_tin_chi else 0
+                if credit <= 0 or s10 is None or s4 is None:
+                    continue
+
+                raw_name = (d.ten_mon or '').strip().lower()
+                for suffix in ['_ hv', '_hv', '(hoc vuot)', '(hv)']:
+                    if raw_name.endswith(suffix):
+                        raw_name = raw_name[:-len(suffix)].strip()
+                subject_key = (f"N_{raw_name}" if raw_name else '') or (d.ma_mon or '').strip()
+                if not subject_key:
+                    continue
+
+                key = (sem, subject_key)
+                existing = sem_subject.get(key)
+                if existing is None or s10 > existing['s10']:
+                    sem_subject[key] = {'s4': s4, 's10': s10, 'cr': credit}
+            except (ValueError, TypeError):
+                continue
+
+        for (sem, _), v in sem_subject.items():
+            bucket = sem_map.get(sem)
+            if bucket is None:
+                bucket = {'p4': 0.0, 'p10': 0.0, 'tc': 0}
+                sem_map[sem] = bucket
+            bucket['p4'] += v['s4'] * v['cr']
+            bucket['p10'] += v['s10'] * v['cr']
+            bucket['tc'] += v['cr']
+
+        # Always include available semesters, even when no rows qualify for GPA.
+        result['hs'] = list(all_semesters)
+        result['hg'] = {
+            sem: {
+                'g4': round(vals['p4'] / vals['tc'], 2) if vals['tc'] > 0 else 0.0,
+                'g10': round(vals['p10'] / vals['tc'], 2) if vals['tc'] > 0 else 0.0,
+            }
+            for sem, vals in sem_map.items()
+        }
 
     return result
 
@@ -303,21 +423,37 @@ def get_student_count(
     current_user: Optional[models.Nick] = Depends(security.get_optional_user),
     db: Session = Depends(database.get_db)
 ):
+    cache_key = f"student_count:{class_name or '__all__'}"
+    cached = _cache.get(cache_key)
+    if cached is not None:
+        logger.debug(f"[CACHE HIT] {cache_key}")
+        return cached
+
     from sqlalchemy import func
     query = db.query(func.count(models.SinhVien.msv))
     if class_name:
         query = query.filter(models.SinhVien.ma_lop == class_name)
     data = {"count": query.scalar()}
-    return security.obfuscate_payload(data)
+    result = security.obfuscate_payload(data)
+    _cache.set(cache_key, result, ttl=_TTL_COUNT)
+    return result
 
 @router.get("/classes")
 def get_classes(
     current_user: Optional[models.Nick] = Depends(security.get_optional_user),
     db: Session = Depends(database.get_db)
 ):
+    cache_key = "classes:list"
+    cached = _cache.get(cache_key)
+    if cached is not None:
+        logger.debug("[CACHE HIT] classes:list")
+        return cached
+
     classes = db.query(models.SinhVien.ma_lop).distinct().order_by(models.SinhVien.ma_lop).all()
     data = {"classes": [c[0] for c in classes if c[0]]}
-    return security.obfuscate_payload(data)
+    result = security.obfuscate_payload(data)
+    _cache.set(cache_key, result, ttl=_TTL_CLASSES)
+    return result
 
 @router.get("/class/{ma_lop}/students")
 def get_students_by_class(
@@ -326,20 +462,32 @@ def get_students_by_class(
     db: Session = Depends(database.get_db)
 ):
     # Support multiple classes separated by commas (split and clean)
-    class_list = [c.strip() for c in ma_lop.split(",") if c.strip()]
-    
+    class_list = sorted([c.strip() for c in ma_lop.split(",") if c.strip()])
     if not class_list:
         raise HTTPException(status_code=400, detail="Invalid class list")
+
+    # Role affects obfuscation — include in cache key
+    role = current_user.role if current_user else 0
+    cache_key = f"class:v5:{','.join(class_list)}:role{role}"
+    cached = _cache.get(cache_key)
+    if cached is not None:
+        logger.debug(f"[CACHE HIT] {cache_key}")
+        return cached
 
     students = db.query(models.SinhVien).options(
         joinedload(models.SinhVien.diem)
     ).filter(models.SinhVien.ma_lop.in_(class_list)).all()
-    
+
     if not students:
         raise HTTPException(status_code=404, detail=f"No students found for class(es): {ma_lop}")
-    # Trả về chi tiết điểm (hide_details=False) để frontend có thể hiển thị sắp xếp theo từng kỳ (HK1, HK2, ...)
-    data = {"students": [format_student(sv, hide_details=False, role=current_user.role if current_user else 0) for sv in students]}
-    return security.obfuscate_payload(data)
+
+    # Role 0: return lightweight list (no full grade table) for privacy + performance.
+    # Role 1: keep full details as before.
+    hide_details = role == 0
+    data = {"students": [format_student(sv, hide_details=hide_details, role=role) for sv in students]}
+    result = security.obfuscate_payload(data)
+    _cache.set(cache_key, result, ttl=_TTL_CLASS)
+    return result
 
 @router.get("/student/{msv}")
 def get_student_detail(
@@ -347,30 +495,53 @@ def get_student_detail(
     current_user: Optional[models.Nick] = Depends(security.get_optional_user),
     db: Session = Depends(database.get_db)
 ):
-    # Resolve identifier (Guest tokens or real MSVs)
     real_msv = security.deobfuscate_id(msv)
-    
+    role = current_user.role if current_user else 0
+
+    cache_key = f"student:{real_msv}:role{role}"
+    cached = _cache.get(cache_key)
+    if cached is not None:
+        logger.debug(f"[CACHE HIT] {cache_key}")
+        return cached
+
     student = db.query(models.SinhVien).options(
         joinedload(models.SinhVien.diem)
     ).filter(models.SinhVien.msv == real_msv).first()
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
-        
-    data = format_student(student, role=current_user.role if current_user else 0)
-    return security.obfuscate_payload(data)
+
+    data = format_student(student, role=role)
+    result = security.obfuscate_payload(data)
+    _cache.set(cache_key, result, ttl=_TTL_STUDENT)
+    return result
 
 @router.get("/search")
 def search_students(
     query: str,
+    request: Request,
     current_user: Optional[models.Nick] = Depends(security.get_optional_user),
     db: Session = Depends(database.get_db)
 ):
+    identity = (current_user.username if current_user else (request.client.host if request.client else "anon"))
+    if not _allow_search(identity):
+        raise HTTPException(status_code=429, detail="Too many search requests")
+
+    clean_query = _sanitize_search_query(query)
+    role = current_user.role if current_user else 0
+    cache_key = f"search:v4:{clean_query.lower().strip()}:role{role}"
+    cached = _cache.get(cache_key)
+    if cached is not None:
+        logger.debug(f"[CACHE HIT] {cache_key}")
+        return cached
+
     students = db.query(models.SinhVien).options(
         joinedload(models.SinhVien.diem)
     ).filter(
-        (models.SinhVien.ho_ten.ilike(f"%{query}%")) |
-        (models.SinhVien.msv.ilike(f"%{query}%"))
+        (models.SinhVien.ho_ten.ilike(f"%{clean_query}%")) |
+        (models.SinhVien.msv.ilike(f"%{clean_query}%"))
     ).limit(50).all()
-    
-    data = {"results": [format_student(sv, hide_details=True, role=current_user.role if current_user else 0) for sv in students]}
-    return security.obfuscate_payload(data)
+
+    data = {"results": [format_student(sv, hide_details=True, role=role) for sv in students]}
+    result = security.obfuscate_payload(data)
+    _cache.set(cache_key, result, ttl=_TTL_SEARCH)
+    return result

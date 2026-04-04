@@ -3,12 +3,22 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-// Import Server Actions to hide direct API endpoints
-import { getStudentsAction, searchStudentsAction, getClassesAction, getOnlineCountAction, getStudentAction, getMeAction, getStudentCountAction } from '@/app/actions';
+import {
+    decryptPayload,
+    getClassesBffRaw,
+    getStudentsByClassBffRaw,
+    getStudentBffRaw,
+    searchStudentsBffRaw,
+    getMeBff,
+    getStudentCountBff,
+    getWebSocketTicketBff,
+    logoutUserBff,
+} from '@/lib/api';
 import { Student, Grade } from '@/lib/types';
 import Sidebar from '@/components/Sidebar';
 import SemesterAccordion from '@/components/SemesterAccordion';
 import GPASimulator from '@/components/GPASimulator';
+import { compareSemesterKeys } from '@/lib/utils';
 import { Search, Loader2, Skull, ChevronRight, Home as HomeIcon, Sparkles, ChevronLeft, Users, Award, Shield, MapPin, Star } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import UserMenu from '@/components/UserMenu';
@@ -189,16 +199,30 @@ export default function Dashboard() {
     }
 
     function mapStudent(s: any): Student {
+        const maskedId = String(s?.i || '').trim();
+        const fallbackName = maskedId ? `Sinh vien ${maskedId.slice(-6)}` : 'Sinh vien an danh';
+        const semesterGpaRaw = s.hg && typeof s.hg === 'object' ? s.hg : {};
+        const semesterGpa = Object.fromEntries(
+            Object.entries(semesterGpaRaw).map(([k, v]: [string, any]) => [
+                k,
+                {
+                    gpa4: Number(v?.g4 || 0),
+                    gpa10: Number(v?.g10 || 0),
+                }
+            ])
+        );
         return {
             msv: s.i,
-            ho_ten: s.n,
+            ho_ten: s.n || fallbackName,
             ngay_sinh: s.b,
             ma_lop: s.c,
             noi_sinh: s.p,
             gpa: s.g,
             gpa10: s.g10,
             total_credits: s.tc,
-            diem: s.d ? s.d.map(mapGrade) : null
+            diem: s.d ? s.d.map(mapGrade) : null,
+            semesters: Array.isArray(s.hs) ? s.hs : [],
+            semester_gpa: semesterGpa,
         };
     }
     function calculateSemesterGPA(student: Student, semester: string): { gpa4: number, gpa10: number } {
@@ -284,37 +308,36 @@ export default function Dashboard() {
     }
 
     useEffect(() => {
-        const token = localStorage.getItem('token');
         const roleStored = localStorage.getItem('role');
-        if (!token) {
-            router.push('/login');
-            return;
-        }
         setRole(roleStored ? parseInt(roleStored) : 0);
 
-        getMeAction(token).then(user => {
+        getMeBff().then(user => {
             if (!user) {
-                localStorage.removeItem('token');
                 router.push('/login');
                 return;
             }
-            if (user.username) setUsername(user.username);
-            if (user.role !== undefined) setRole(user.role);
+            const username = user.username;
+            const role = user.role;
+            const classChangeLimit = user.class_change_limit;
+            const resetLimitAt = user.reset_limit_at;
+
+            if (username) setUsername(username);
+            if (role !== undefined) setRole(role);
 
             const storedClass = localStorage.getItem('selectedClass') || '';
             setSelectedClass(storedClass);
-            if (user.role !== undefined) localStorage.setItem('role', user.role.toString());
+            if (role !== undefined) localStorage.setItem('role', role.toString());
 
-            if (user.role === 0) {
-                const limit = user.class_change_limit ?? 5;
+            if (role === 0) {
+                const limit = classChangeLimit ?? 5;
                 setClassChangeLimit(limit);
 
-                if (user.reset_limit_at) {
+                if (resetLimitAt) {
                     const lastApplied = localStorage.getItem('lastResetApplied');
-                    if (!lastApplied || new Date(user.reset_limit_at) > new Date(lastApplied)) {
+                    if (!lastApplied || new Date(resetLimitAt) > new Date(lastApplied)) {
                         localStorage.removeItem('classChanges');
                         localStorage.removeItem('classChangeDate');
-                        localStorage.setItem('lastResetApplied', user.reset_limit_at);
+                        localStorage.setItem('lastResetApplied', resetLimitAt);
                         setIsVipLimitReached(false);
                     }
                 }
@@ -332,7 +355,7 @@ export default function Dashboard() {
 
                 // Role 0: chỉ hiển thị số SV trong lớp đang chọn, không bao giờ gọi tổng toàn trường
                 if (storedClass) {
-                    getStudentCountAction(storedClass, token).then(c => setTotalStudentCount(c)).catch(() => {});
+                    getStudentCountBff(storedClass).then(c => setTotalStudentCount(c)).catch(() => { });
                     loadStudentsForClass(storedClass);
                 } else {
                     setTotalStudentCount(0);
@@ -340,11 +363,11 @@ export default function Dashboard() {
                 }
             } else {
                 // Role 1 (admin): hiển thị tổng sinh viên toàn trường
-                getStudentCountAction(undefined, token).then(c => setTotalStudentCount(c)).catch(() => {});
+                getStudentCountBff(undefined).then(c => setTotalStudentCount(c)).catch(() => { });
             }
         });
 
-        loadClasses(token);
+        loadClasses();
 
         let socket: WebSocket | null = null;
         let reconnectTimeout: NodeJS.Timeout;
@@ -356,9 +379,15 @@ export default function Dashboard() {
                 const hostname = window.location.hostname;
                 wsUrl = `${protocol}//${hostname}:8000/ws/online-count`;
             }
-            const token = localStorage.getItem('token');
-            if (token) wsUrl += `?token=${token}`;
+            // SECURITY: không gửi JWT trực tiếp qua WebSocket message.
+            // Dùng one-time ticket ngắn hạn để xác thực kết nối.
             socket = new WebSocket(wsUrl);
+            socket.onopen = async () => {
+                const ticket = await getWebSocketTicketBff();
+                if (ticket) {
+                    socket?.send(JSON.stringify({ type: 'auth_ticket', ticket }));
+                }
+            };
             socket.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
@@ -419,16 +448,16 @@ export default function Dashboard() {
             const v = state.view as typeof view;
             if (v === 'students' && state.cls) {
                 // Reload students list for the class
-                const token = localStorage.getItem('token') || '';
                 setSelectedClass(state.cls);
-                getStudentsAction(state.cls, token).then(data => {
-                    setStudents((data || []).map(mapStudent));
+                getStudentsByClassBffRaw(state.cls).then(encrypted => {
+                    const data = encrypted ? decryptPayload(encrypted) : null;
+                    setStudents((data?.students || []).map(mapStudent));
                     setView('students');
                 }).catch(() => setView('classes'));
             } else if (v === 'grades' && state.msv) {
                 // Reload grade detail
-                const token = localStorage.getItem('token') || '';
-                getStudentAction(state.msv, token).then(data => {
+                getStudentBffRaw(state.msv).then(encrypted => {
+                    const data = encrypted ? decryptPayload(encrypted) : null;
                     if (data) {
                         const mapped = mapStudent(data);
                         setCurrentStudent(mapped);
@@ -448,7 +477,7 @@ export default function Dashboard() {
     }, []);
 
     const handleLogout = () => {
-        localStorage.removeItem('token');
+        logoutUserBff().catch(() => { });
         localStorage.removeItem('role');
         localStorage.removeItem('selectedClass');
         localStorage.removeItem('classChanges');
@@ -456,13 +485,12 @@ export default function Dashboard() {
         router.push('/login');
     };
 
-    async function loadClasses(tokenOverride?: string) {
+    async function loadClasses() {
         setLoading(true);
         try {
-            const token = tokenOverride || localStorage.getItem('token') || '';
-            // Use Server Action to hide API call
-            const data = await getClassesAction(token);
-            setClasses(data);
+            const encrypted = await getClassesBffRaw();
+            const data = encrypted ? decryptPayload(encrypted) : null;
+            setClasses(data?.classes || []);
             navigateView('classes');
         } catch (error) {
             // silenced
@@ -475,12 +503,11 @@ export default function Dashboard() {
         setLoading(true);
         setSelectedClass(cls);
         try {
-            // Use Server Action to hide API call
-            const token = localStorage.getItem('token') || '';
-            const data = await getStudentsAction(cls, token);
-            setStudents((data || []).map(mapStudent));
+            const encrypted = await getStudentsByClassBffRaw(cls);
+            const data = encrypted ? decryptPayload(encrypted) : null;
+            setStudents((data?.students || []).map(mapStudent));
             navigateView('students', { cls });
-            getStudentCountAction(cls, token).then(count => setTotalStudentCount(count)).catch(() => {});
+            getStudentCountBff(cls).then(count => setTotalStudentCount(count)).catch(() => { });
         } catch (error) {
             // silenced
         } finally {
@@ -491,8 +518,7 @@ export default function Dashboard() {
     async function loadStudents(maLop: string | string[]) {
         if (role === 0 && typeof maLop === 'string') {
             localStorage.setItem('selectedClass', maLop);
-            const token = localStorage.getItem('token') || '';
-            getStudentCountAction(maLop, token).then(count => setTotalStudentCount(count)).catch(() => {});
+            getStudentCountBff(maLop).then(count => setTotalStudentCount(count)).catch(() => { });
         }
 
         setLoading(true);
@@ -500,14 +526,10 @@ export default function Dashboard() {
         if (!Array.isArray(maLop)) setSelectedClass(maLop);
         setLocalSearchTerm('');
         try {
-            const token = localStorage.getItem('token') || '';
-            const data = await getStudentsAction(maLopStr, token);
+            const encrypted = await getStudentsByClassBffRaw(maLopStr);
+            const data = encrypted ? decryptPayload(encrypted) : null;
 
-            if (!data || data.length === 0) {
-                // silenced
-            }
-
-            setStudents((data || []).map(mapStudent));
+            setStudents((data?.students || []).map(mapStudent));
             navigateView('students', { cls: maLopStr });
         } catch (error) {
             // silenced
@@ -524,8 +546,8 @@ export default function Dashboard() {
     async function loadGrade(msv: string) {
         setLoading(true);
         try {
-            const token = localStorage.getItem('token') || '';
-            const data = await getStudentAction(msv, token);
+            const encrypted = await getStudentBffRaw(msv);
+            const data = encrypted ? decryptPayload(encrypted) : null;
             if (data) {
                 const mapped = mapStudent(data);
                 setCurrentStudent(mapped);
@@ -547,10 +569,9 @@ export default function Dashboard() {
         if (!searchQuery.trim()) return;
         setLoading(true);
         try {
-            // Use Server Action
-            const token = localStorage.getItem('token') || '';
-            const results = await searchStudentsAction(searchQuery, token);
-            setStudents((results || []).map(mapStudent));
+            const encrypted = await searchStudentsBffRaw(searchQuery);
+            const data = encrypted ? decryptPayload(encrypted) : null;
+            setStudents((data?.results || []).map(mapStudent));
             navigateView('search');
         } catch (error) {
             // silenced
@@ -626,42 +647,24 @@ export default function Dashboard() {
         return grouped;
     })();
 
-    const parseSemester = (s: string) => {
-        const sLower = s.toLowerCase();
-        const yearMatch = s.match(/(\d{4})\s*-\s*(\d{4})/);
-        let year = yearMatch ? parseInt(yearMatch[1]) : 0;
-        if (year === 0) {
-            const singleYearMatch = s.match(/20\d{2}/);
-            if (singleYearMatch) year = parseInt(singleYearMatch[0]);
-        }
-        const semMatch = s.match(/(?:^|[^0-9])([123])(?:$|[^0-9])/);
-        let sem = semMatch ? parseInt(semMatch[1]) : 0;
-        if (sLower.includes('phu') || sLower.includes('hé')) sem = 3.5;
-        const isOther = year === 0 && sem === 0;
-        return { year, sem, isOther };
-    };
+    const sortedSemesterKeys = Object.keys(gradesBySemester).sort(compareSemesterKeys);
 
-    const sortedSemesterKeys = Object.keys(gradesBySemester).sort((a, b) => {
-        const pa = parseSemester(a);
-        const pb = parseSemester(b);
-        if (pa.isOther && !pb.isOther) return 1;
-        if (!pa.isOther && pb.isOther) return -1;
-        if (pa.isOther && pb.isOther) return a.localeCompare(b);
-        if (pa.year !== pb.year) return pb.year - pa.year;
-        return pb.sem - pa.sem;
-    });
-
-    const allSemesters = Array.from(new Set(students.flatMap(s => s.diem ? s.diem.map(d => getNormalizedSemester(d)) : [])))
+    const allSemesters = Array.from(new Set(students.flatMap(s => ([
+        ...(s.diem ? s.diem.map(d => getNormalizedSemester(d)) : []),
+        ...((s.semesters || [])),
+        ...Object.keys(s.semester_gpa || {})
+    ]))))
         .filter(Boolean)
-        .sort((a, b) => {
-            const pa = parseSemester(a);
-            const pb = parseSemester(b);
-            if (pa.isOther && !pb.isOther) return 1;
-            if (!pa.isOther && pb.isOther) return -1;
-            if (pa.isOther && pb.isOther) return a.localeCompare(b);
-            if (pa.year !== pb.year) return pb.year - pa.year;
-            return pb.sem - pa.sem;
-        });
+        .sort(compareSemesterKeys);
+
+    const getSemesterValue = (student: Student, semester: string, scale: '4' | '10') => {
+        const semGPA = calculateSemesterGPA(student, semester);
+        const direct = scale === '4' ? semGPA.gpa4 : semGPA.gpa10;
+        if (direct > 0) return direct;
+        const fallback = student.semester_gpa?.[semester];
+        if (!fallback) return 0;
+        return scale === '4' ? fallback.gpa4 : fallback.gpa10;
+    };
 
     const filteredStudents = students.filter(sv =>
         sv.ho_ten.toLowerCase().includes(localSearchTerm.toLowerCase()) ||
@@ -672,16 +675,14 @@ export default function Dashboard() {
             const cumGPA = calculateCumulativeGPA(a);
             valA = sortingScale === '4' ? cumGPA.gpa4 : cumGPA.gpa10;
         } else {
-            const semGPA = calculateSemesterGPA(a, selectedSemester);
-            valA = sortingScale === '4' ? semGPA.gpa4 : semGPA.gpa10;
+            valA = getSemesterValue(a, selectedSemester, sortingScale);
         }
         let valB = 0;
         if (selectedSemester === 'all') {
             const cumGPA = calculateCumulativeGPA(b);
             valB = sortingScale === '4' ? cumGPA.gpa4 : cumGPA.gpa10;
         } else {
-            const semGPA = calculateSemesterGPA(b, selectedSemester);
-            valB = sortingScale === '4' ? semGPA.gpa4 : semGPA.gpa10;
+            valB = getSemesterValue(b, selectedSemester, sortingScale);
         }
         return valB - valA;
     });
@@ -875,12 +876,17 @@ export default function Dashboard() {
                                                                 const val = sortingScale === '4' ? cumGPA.gpa4 : cumGPA.gpa10;
                                                                 return (<div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-extrabold text-white border-2 border-white dark:border-slate-800 shadow-md ${sortingScale === '4' ? (val >= 3.2 ? 'bg-green-500' : val >= 2.5 ? 'bg-yellow-500' : 'bg-red-500') : (val >= 8.0 ? 'bg-green-500' : val >= 6.5 ? 'bg-yellow-500' : 'bg-red-500')}`} title={`GPA Tích lũy (Hệ ${sortingScale})`}>{val.toFixed(2)}</div>);
                                                             })()}
-                                                            {selectedSemester !== 'all' && (<div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-extrabold text-white border-2 border-white dark:border-slate-800 shadow-md ${sortingScale === '4' ? (calculateSemesterGPA(sv, selectedSemester).gpa4 >= 3.2 ? 'bg-green-500' : calculateSemesterGPA(sv, selectedSemester).gpa4 >= 2.5 ? 'bg-yellow-500' : 'bg-red-500') : (calculateSemesterGPA(sv, selectedSemester).gpa10 >= 8.0 ? 'bg-green-500' : calculateSemesterGPA(sv, selectedSemester).gpa10 >= 6.5 ? 'bg-yellow-500' : 'bg-red-500')}`} title={`GPA Học kỳ (Hệ ${sortingScale})`}>{sortingScale === '4' ? calculateSemesterGPA(sv, selectedSemester).gpa4 : calculateSemesterGPA(sv, selectedSemester).gpa10}</div>)}
+                                                            {selectedSemester !== 'all' && (() => {
+                                                                const semVal = getSemesterValue(sv, selectedSemester, sortingScale);
+                                                                return (
+                                                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-extrabold text-white border-2 border-white dark:border-slate-800 shadow-md ${sortingScale === '4' ? (semVal >= 3.2 ? 'bg-green-500' : semVal >= 2.5 ? 'bg-yellow-500' : 'bg-red-500') : (semVal >= 8.0 ? 'bg-green-500' : semVal >= 6.5 ? 'bg-yellow-500' : 'bg-red-500')}`} title={`GPA Học kỳ (Hệ ${sortingScale})`}>{semVal.toFixed(2)}</div>
+                                                                );
+                                                            })()}
                                                         </div>
                                                     </div>
                                                     <div className="flex-1 min-w-0">
                                                         <div className="font-bold text-base md:text-lg text-slate-900 dark:text-white group-hover:text-blue-700 dark:group-hover:text-blue-400 break-words">{sv.ho_ten}</div>
-                                                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-1">{role !== 0 && (<><span className="font-mono">{sv.msv}</span><span className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600"></span></>)}<span>{sv.ngay_sinh}</span></div>
+                                                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-1">{role !== 0 && (<><span className="font-mono">{sv.msv}</span><span className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600"></span></>)}{role !== 0 && sv.ngay_sinh && <span>{sv.ngay_sinh}</span>}</div>
                                                     </div>
                                                     {sv.ma_lop && (<div className="px-3 py-1.5 bg-slate-100 dark:bg-slate-700 rounded-md text-sm font-medium text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600">{sv.ma_lop}</div>)}
                                                     <ChevronRight className="w-5 h-5 text-slate-300 dark:text-slate-600 group-hover:text-blue-400 group-hover:translate-x-1 transition-all" />

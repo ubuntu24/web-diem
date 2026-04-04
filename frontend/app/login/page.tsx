@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Loader2, Lock, User, CheckCircle2, AlertCircle } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { loginAction } from '@/app/actions';
+import { loginUserBff } from '@/lib/api';
 
 export default function LoginPage() {
     const [username, setUsername] = useState('');
@@ -20,21 +20,13 @@ export default function LoginPage() {
         setError('');
 
         try {
-            const result = await loginAction(username, password);
+            const result = await loginUserBff(username, password);
 
-            if (!result.success) {
-                throw new Error(result.error || 'Tên đăng nhập hoặc mật khẩu không đúng');
-            }
-
-            if (result.access_token) {
-                localStorage.setItem('token', result.access_token);
-                // Default to 1 (Admin) if role is missing, or store provided role
-                const role = result.role !== undefined ? result.role : 1;
-                localStorage.setItem('role', role.toString());
-
-                router.push('/');
+            if (result?.access_token) {
+                localStorage.setItem('role', String(result.role ?? 0));
+                // Full navigation guarantees new cookies are used immediately by RSC routes.
+                window.location.href = '/dashboard';
             } else {
-                // If success but no access_token, something unexpected happened
                 throw new Error('Đăng nhập không thành công, không nhận được token.');
             }
         } catch (err: any) {

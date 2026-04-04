@@ -7,7 +7,7 @@ import { Loader2, Lock, User, UserPlus, AlertCircle, ArrowLeft } from 'lucide-re
 import Link from 'next/link';
 
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { registerAction } from '@/app/actions';
+import { registerUserBff } from '@/lib/api';
 
 export default function RegisterPage() {
     const [username, setUsername] = useState('');
@@ -28,11 +28,7 @@ export default function RegisterPage() {
         setError('');
 
         try {
-            const result = await registerAction(username, password);
-
-            if (!result.success) {
-                throw new Error(result.error || 'Đăng ký thất bại');
-            }
+            await registerUserBff(username, password);
 
             // Redirect to login on success
             router.push('/login');

@@ -2,7 +2,10 @@ import os
 import logging
 from datetime import datetime, date
 from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 from sqlalchemy.orm import Session
 from jose import JWTError, jwt
 from dotenv import load_dotenv
@@ -14,6 +17,10 @@ from routers import auth, students, admin, websocket
 load_dotenv()
 
 app = FastAPI(title="Uneti Grade API")
+
+allowed_hosts = [h.strip() for h in os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if h.strip()]
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 # Configure CORS
 origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
@@ -31,23 +38,43 @@ _last_access_update = {}  # username -> datetime
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
+    max_body_bytes = int(os.getenv("MAX_REQUEST_BYTES", "1048576"))
+    content_length = request.headers.get("content-length")
+    if content_length:
+        try:
+            if int(content_length) > max_body_bytes:
+                return JSONResponse(status_code=413, content={"detail": "Payload too large"})
+        except ValueError:
+            pass
+
     client_ip = request.client.host if request.client else "unknown"
     
     response = await call_next(request)
+
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+    response.headers["Cross-Origin-Resource-Policy"] = "same-site"
     
-    # Determine user identity from token
+    # Determine user identity — try Authorization header first, then cookie
     username = "guest"
     auth_header = request.headers.get("Authorization")
+    token = None
     if auth_header and auth_header.startswith("Bearer "):
         token = auth_header.split(" ")[1]
+    elif not token:
+        # Fallback: read from httpOnly cookie (used by RSC server-side fetches)
+        token = request.cookies.get("stoken")
+
+    if token:
         try:
             payload = jwt.decode(token, security.SECRET_KEY, algorithms=[security.ALGORITHM])
             username = payload.get("sub", "guest")
         except (JWTError, Exception):
             pass
         
-        # Only track access for actual API calls (not OPTIONS, not static files)
-        # and throttle to once per minute per user to reduce DB load
         if (username != "guest" 
             and request.method not in ("OPTIONS", "HEAD")
             and request.url.path.startswith("/api/")):
@@ -57,6 +84,7 @@ async def log_requests(request: Request, call_next):
             
             if not last_update or (now - last_update).total_seconds() > 60:
                 _last_access_update[username] = now
+                db = None
                 try:
                     db = database.SessionLocal()
                     user = db.query(models.Nick).filter(models.Nick.username == username).first()
@@ -78,9 +106,11 @@ async def log_requests(request: Request, call_next):
                             )
                             db.add(access_record)
                         db.commit()
-                    db.close()
                 except Exception:
                     pass
+                finally:
+                    if db:
+                        db.close()
     
     return response
 
@@ -100,9 +130,13 @@ def startup_event():
     except Exception:
         db.rollback()
         
-    admin_user = db.query(models.Nick).filter(models.Nick.username == "admin").first()
-    if not admin_user:
-        admin_pass = os.getenv("ADMIN_PASSWORD", "admin123")
+    admin_pass = os.getenv("ADMIN_PASSWORD")
+    admin_users = db.query(models.Nick).filter(models.Nick.username == "admin").all()
+    if not admin_users:
+        if not admin_pass:
+            raise RuntimeError("ADMIN_PASSWORD must be set before first startup")
+        if len(admin_pass) < 8:
+            raise RuntimeError("ADMIN_PASSWORD must be at least 8 characters")
         new_admin = models.Nick(
             username="admin",
             password=security.get_password_hash(admin_pass),
@@ -111,6 +145,14 @@ def startup_event():
         )
         db.add(new_admin)
         db.commit()
+    else:
+        updated = False
+        for admin_user in admin_users:
+            if admin_user.role != 1:
+                admin_user.role = 1
+                updated = True
+        if updated:
+            db.commit()
     db.close()
 
 # Include Routers

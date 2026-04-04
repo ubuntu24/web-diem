@@ -1,7 +1,8 @@
+'use client';
+
 import { useState, useEffect } from 'react';
 import { Search, Shield, Edit, Save, X, Check, Loader2, User as UserIcon, Star, Activity } from 'lucide-react';
-import { AdminUser } from '@/lib/api';
-import { getUsersAction, resetUserLimitAction, updateUserLimitAction } from '@/app/actions';
+import { AdminUser, getUsersBff, resetUserLimitBff, updateUserLimitBff } from '@/lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function AdminUserList() {
@@ -17,8 +18,7 @@ export default function AdminUserList() {
     async function loadData() {
         setLoading(true);
         try {
-            const token = localStorage.getItem('token') || undefined;
-            const usersData = await getUsersAction(token);
+            const usersData = await getUsersBff();
             setUsers(usersData);
         } catch (error) {
             // silenced
@@ -116,15 +116,12 @@ export default function AdminUserList() {
                                                             if (newLimitStr !== null) {
                                                                 const newLimit = parseInt(newLimitStr);
                                                                 if (!isNaN(newLimit)) {
-                                                                    const token = localStorage.getItem('token') || undefined;
-                                                                    updateUserLimitAction(user.id, newLimit, token).then((result) => {
-                                                                        if (result.success) {
-                                                                            alert(`Đã cập nhật lượt đổi lớp cho ${user.username}`);
-                                                                            loadData();
-                                                                        } else {
-                                                                            alert(result.error || 'Cập nhật thất bại');
-                                                                        }
-                                                                    }).catch(() => {});
+                                                                    updateUserLimitBff(user.id, newLimit).then(() => {
+                                                                        alert(`Đã cập nhật lượt đổi lớp cho ${user.username}`);
+                                                                        loadData();
+                                                                    }).catch(() => {
+                                                                        alert('Cập nhật thất bại');
+                                                                    });
                                                                 } else {
                                                                     alert('Giá trị không hợp lệ');
                                                                 }
@@ -138,15 +135,12 @@ export default function AdminUserList() {
                                                     <button
                                                         onClick={() => {
                                                             if (confirm(`Bạn có chắc muốn reset lượt đổi lớp cho ${user.username}?`)) {
-                                                                const token = localStorage.getItem('token') || undefined;
-                                                                resetUserLimitAction(user.id, token).then((result) => {
-                                                                    if (result.success) {
-                                                                        alert(`Đã reset lượt đổi lớp cho ${user.username}`);
-                                                                        loadData();
-                                                                    } else {
-                                                                        alert(result.error || 'Reset thất bại');
-                                                                    }
-                                                                }).catch(() => {});
+                                                                resetUserLimitBff(user.id).then(() => {
+                                                                    alert(`Đã reset lượt đổi lớp cho ${user.username}`);
+                                                                    loadData();
+                                                                }).catch(() => {
+                                                                    alert('Reset thất bại');
+                                                                });
                                                             }
                                                         }}
                                                         className="p-1.5 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-md transition-colors"

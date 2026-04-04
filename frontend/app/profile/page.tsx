@@ -5,8 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { User, Calendar, Shield, ArrowLeft, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import { type User as UserType } from '../../lib/api';
-import { getMeAction } from '@/app/actions';
+import { type User as UserType, getProfileBff } from '../../lib/api';
 
 import { ThemeToggle } from '@/components/ThemeToggle';
 
@@ -18,10 +17,9 @@ export default function ProfilePage() {
     useEffect(() => {
         const fetchProfile = async () => {
             try {
-                const token = localStorage.getItem('token') || undefined;
-                const userData = await getMeAction(token);
+                const userData = await getProfileBff();
                 if (!userData) throw new Error('No user data');
-                setUser(userData);
+                setUser({ username: userData.username, created_at: userData.created_at ?? undefined });
             } catch (error) {
                 // silenced
                 router.push('/login');

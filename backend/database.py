@@ -38,8 +38,8 @@ else:
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
-    pool_size=5,
-    max_overflow=10,
+    pool_size=10,       # tăng từ 5 → 10 concurrent DB connections
+    max_overflow=20,    # tăng từ 10 → 20 overflow connections
     pool_pre_ping=True,
     pool_recycle=1800,
 )

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MessageSquarePlus, Send, X, Loader2, CheckCircle } from "lucide-react";
-import { sendFeedbackAction } from "@/app/actions";
+import { sendFeedbackBff } from "@/lib/api";
 
 export default function FeedbackButton({ username }: { username: string }) {
     const [open, setOpen] = useState(false);
@@ -15,7 +15,7 @@ export default function FeedbackButton({ username }: { username: string }) {
         if (!message.trim() || sending) return;
         setSending(true);
         try {
-            const result = await sendFeedbackAction(message.trim(), username);
+            const result = await sendFeedbackBff(message.trim(), username);
             if (result.success) {
                 setSent(true);
                 setMessage("");

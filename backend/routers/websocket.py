@@ -21,14 +21,8 @@ class ConnectionManager:
         self.active_connections = [conn for conn in self.active_connections if conn["ws"] != websocket]
 
     async def broadcast_online_count(self):
-        # Đếm theo user (username từ JWT) để 2 tài khoản khác nhau = 2 người; cùng IP vẫn tính đúng
         unique_users = len(set(conn["user"] for conn in self.active_connections))
-        
-        message = json.dumps({
-            "type": "online_count",
-            "count": unique_users
-        })
-        
+        message = json.dumps({"type": "online_count", "count": unique_users})
         for connection in self.active_connections:
             try:
                 await connection["ws"].send_text(message)
@@ -48,11 +42,17 @@ manager = ConnectionManager()
 router = APIRouter()
 
 @router.websocket("/ws/online-count")
-async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = Query(None)):
+async def websocket_endpoint(websocket: WebSocket):
+    """
+    WebSocket endpoint — KHÔNG nhận token qua URL query string để tránh lộ thông tin trong F12.
+    Client phải gửi auth message sau khi kết nối:
+      { "type": "auth", "token": "<JWT>" }
+    """
     client_ip = websocket.client.host if websocket.client else "unknown"
-    user_id = client_ip  # Default to IP
+    user_id = client_ip  # Default: track by IP
     
-    # Try to decode token to get username
+    # Extract token from cookies
+    token = websocket.cookies.get("stoken")
     if token:
         try:
             payload = jwt.decode(token, security.SECRET_KEY, algorithms=[security.ALGORITHM])
@@ -61,21 +61,50 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = Query(
                 user_id = username
         except JWTError:
             pass
-    
+
     await manager.connect(websocket, user_id, client_ip)
-    
+
     try:
         while True:
             data = await websocket.receive_text()
             try:
                 msg = json.loads(data)
-                if msg.get("type") == "auth" and msg.get("username"):
-                    for conn in manager.active_connections:
-                        if conn["ws"] == websocket:
-                            conn["user"] = msg["username"]
-                            break
-            except:
+
+                # Auth via one-time ticket (preferred) or JWT fallback
+                if msg.get("type") == "auth_ticket" and msg.get("ticket"):
+                    username = security.consume_websocket_ticket(msg.get("ticket"))
+                    if username:
+                        old_user = None
+                        for conn in manager.active_connections:
+                            if conn["ws"] == websocket:
+                                old_user = conn["user"]
+                                conn["user"] = username
+                                break
+                        if old_user != username:
+                            await manager.broadcast_online_count()
+
+                if msg.get("type") == "auth" and msg.get("token"):
+                    raw_token = msg["token"]
+                    try:
+                        payload = jwt.decode(raw_token, security.SECRET_KEY, algorithms=[security.ALGORITHM])
+                        username = payload.get("sub")
+                        if username:
+                            # Update this connection's user identity
+                            old_user = None
+                            for conn in manager.active_connections:
+                                if conn["ws"] == websocket:
+                                    old_user = conn["user"]
+                                    conn["user"] = username
+                                    break
+                            # Rebroadcast count (may change if previous IP was duplicate)
+                            if old_user != username:
+                                await manager.broadcast_online_count()
+                    except JWTError:
+                        pass  # Invalid token → keep IP-based identity
+
+            except (json.JSONDecodeError, Exception):
                 pass
+
     except WebSocketDisconnect:
         manager.disconnect(websocket)
         await manager.broadcast_online_count()

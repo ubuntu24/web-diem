@@ -71,6 +71,8 @@ export interface Student {
     gpa?: number; // Scale 4
     gpa10?: number; // Scale 10
     total_credits?: number;
+    semesters?: string[];
+    semester_gpa?: Record<string, { gpa4: number; gpa10: number }>;
 }
 
 export interface ClassListResponse {

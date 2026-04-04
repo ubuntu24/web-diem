@@ -1,10 +1,10 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, constr
 from typing import List, Optional
 from datetime import datetime
 
 class LoginRequest(BaseModel):
-    username: str
-    password: str
+    username: constr(strip_whitespace=True, min_length=3, max_length=32, pattern=r"^[A-Za-z0-9_.-]+$")
+    password: constr(min_length=1, max_length=4096)
 
 class Token(BaseModel):
     access_token: str
@@ -21,8 +21,8 @@ class User(BaseModel):
         from_attributes = True
 
 class RegisterRequest(BaseModel):
-    username: str
-    password: str
+    username: constr(strip_whitespace=True, min_length=3, max_length=32, pattern=r"^[A-Za-z0-9_.-]+$")
+    password: constr(min_length=8, max_length=4096)
 
 class UpdateLimitRequest(BaseModel):
-    limit: int
+    limit: int = Field(ge=-1, le=100)
