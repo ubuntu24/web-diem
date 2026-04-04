@@ -11,6 +11,7 @@ import {
     searchStudentsBffRaw,
     getMeBff,
     getStudentCountBff,
+    getOnlineUsersBff,
     getWebSocketTicketBff,
     logoutUserBff,
 } from '@/lib/api';
@@ -371,8 +372,57 @@ export default function Dashboard() {
 
         let socket: WebSocket | null = null;
         let reconnectTimeout: NodeJS.Timeout;
+        let onlinePollInterval: NodeJS.Timeout | null = null;
+        let reconnectAttempts = 0;
+        let stopped = false;
+
+        const startOnlinePolling = () => {
+            if (onlinePollInterval) return;
+            const poll = () => {
+                getOnlineUsersBff().then((count) => {
+                    if (typeof count === 'number' && Number.isFinite(count)) {
+                        setOnlineUsers(count);
+                    }
+                }).catch(() => { });
+            };
+            poll();
+            onlinePollInterval = setInterval(poll, 15000);
+        };
+
+        const stopOnlinePolling = () => {
+            if (!onlinePollInterval) return;
+            clearInterval(onlinePollInterval);
+            onlinePollInterval = null;
+        };
+
+        const normalizeWsUrl = (rawUrl: string): string => {
+            const pageProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            let wsUrl = (rawUrl || '').trim();
+
+            if (!wsUrl) {
+                return `${pageProtocol}//${window.location.host}/_s/online-count`;
+            }
+
+            if (wsUrl.startsWith('/')) {
+                wsUrl = `${pageProtocol}//${window.location.host}${wsUrl}`;
+            }
+
+            if (wsUrl.startsWith('http://')) {
+                wsUrl = `ws://${wsUrl.slice('http://'.length)}`;
+            } else if (wsUrl.startsWith('https://')) {
+                wsUrl = `wss://${wsUrl.slice('https://'.length)}`;
+            } else if (!wsUrl.startsWith('ws://') && !wsUrl.startsWith('wss://')) {
+                wsUrl = `${pageProtocol}//${wsUrl.replace(/^\/+/, '')}`;
+            }
+
+            if (window.location.protocol === 'https:' && wsUrl.startsWith('ws://')) {
+                wsUrl = `wss://${wsUrl.slice('ws://'.length)}`;
+            }
+            return wsUrl;
+        };
 
         const connectWebSocket = () => {
+            if (stopped) return;
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             const envWsUrl = (process.env.NEXT_PUBLIC_WS_URL || '').trim();
             let wsUrl = envWsUrl || `${protocol}//${window.location.host}/_s/online-count`;
@@ -380,10 +430,13 @@ export default function Dashboard() {
                 const hostname = window.location.hostname;
                 wsUrl = `${protocol}//${hostname}:8000/ws/online-count`;
             }
+            wsUrl = normalizeWsUrl(wsUrl);
             // SECURITY: không gửi JWT trực tiếp qua WebSocket message.
             // Dùng one-time ticket ngắn hạn để xác thực kết nối.
             socket = new WebSocket(wsUrl);
             socket.onopen = async () => {
+                reconnectAttempts = 0;
+                stopOnlinePolling();
                 const ticket = await getWebSocketTicketBff();
                 if (ticket) {
                     socket?.send(JSON.stringify({ type: 'auth_ticket', ticket }));
@@ -417,7 +470,16 @@ export default function Dashboard() {
                 } catch (error) { }
             };
             socket.onclose = () => {
-                reconnectTimeout = setTimeout(connectWebSocket, 5000);
+                if (stopped) return;
+                reconnectAttempts += 1;
+
+                if (reconnectAttempts >= 4) {
+                    // Fallback to polling so online counter still updates without WS.
+                    startOnlinePolling();
+                }
+
+                const backoffMs = Math.min(20000, 3000 * reconnectAttempts);
+                reconnectTimeout = setTimeout(connectWebSocket, backoffMs);
             };
             socket.onerror = () => {
                 socket?.close();
@@ -427,11 +489,13 @@ export default function Dashboard() {
         connectWebSocket();
 
         return () => {
+            stopped = true;
             if (socket) {
                 socket.onclose = null;
                 socket.close();
             }
             clearTimeout(reconnectTimeout);
+            stopOnlinePolling();
         };
     }, []);
 
