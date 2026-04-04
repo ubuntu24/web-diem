@@ -374,7 +374,8 @@ export default function Dashboard() {
 
         const connectWebSocket = () => {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            let wsUrl = `${protocol}//${window.location.host}/_s/online-count`;
+            const envWsUrl = (process.env.NEXT_PUBLIC_WS_URL || '').trim();
+            let wsUrl = envWsUrl || `${protocol}//${window.location.host}/_s/online-count`;
             if (window.location.port === '3000') {
                 const hostname = window.location.hostname;
                 wsUrl = `${protocol}//${hostname}:8000/ws/online-count`;

@@ -1,6 +1,7 @@
 import os
 import logging
 from datetime import datetime, date
+from urllib.parse import urlparse
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -18,7 +19,51 @@ load_dotenv()
 
 app = FastAPI(title="Uneti Grade API")
 
-allowed_hosts = [h.strip() for h in os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if h.strip()]
+def _build_allowed_hosts() -> list[str]:
+    """
+    Build TrustedHost allowlist with safe defaults for local and Docker deployments.
+    ALLOWED_HOSTS env still has highest priority when explicitly set.
+    """
+    explicit = os.getenv("ALLOWED_HOSTS", "").strip()
+    explicit_hosts = [h.strip() for h in explicit.split(",") if h.strip()] if explicit else []
+    if "*" in explicit_hosts:
+        return ["*"]
+
+    hosts: list[str] = [
+        "localhost",
+        "127.0.0.1",
+        "backend",
+        "web-diem-backend",
+        "frontend",
+        "web-diem-frontend",
+    ]
+    hosts.extend(explicit_hosts)
+
+    origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000")
+    for raw in origins.split(","):
+        raw = raw.strip()
+        if not raw:
+            continue
+        parsed = urlparse(raw if "://" in raw else f"http://{raw}")
+        if parsed.hostname:
+            hosts.append(parsed.hostname)
+
+    api_url = os.getenv("API_URL", "").strip()
+    if api_url:
+        parsed = urlparse(api_url if "://" in api_url else f"http://{api_url}")
+        if parsed.hostname:
+            hosts.append(parsed.hostname)
+
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for host in hosts:
+        if host not in seen:
+            seen.add(host)
+            deduped.append(host)
+    return deduped or ["*"]
+
+
+allowed_hosts = _build_allowed_hosts()
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
 app.add_middleware(GZipMiddleware, minimum_size=1024)
 
