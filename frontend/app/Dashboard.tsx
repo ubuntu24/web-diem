@@ -1,29 +1,26 @@
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-
-    getClassesBff,
-    getStudentsByClassBff,
-    getStudentBff,
-    searchStudentsBff,
+    decryptPayload,
+    getClassesBffRaw,
+    getStudentsByClassBffRaw,
+    getStudentBffRaw,
+    searchStudentsBffRaw,
     getMeBff,
     getStudentCountBff,
     getOnlineUsersBff,
     getWebSocketTicketBff,
-    getDeviceFingerprint,
     logoutUserBff,
-    User as UserType,
 } from '@/lib/api';
-import PublicChat from './PublicChat';
 import { Student, Grade } from '@/lib/types';
 import Sidebar from '@/components/Sidebar';
 import SemesterAccordion from '@/components/SemesterAccordion';
 import GPASimulator from '@/components/GPASimulator';
 import { compareSemesterKeys } from '@/lib/utils';
-import { Search, Loader2, Skull, ChevronRight, Home as HomeIcon, Sparkles, ChevronLeft, Users, Award, Shield, MapPin, Star, MessageCircle, MessageSquare } from 'lucide-react';
+import { Search, Loader2, Skull, ChevronRight, Home as HomeIcon, Sparkles, ChevronLeft, Users, Award, Shield, MapPin, Star } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import UserMenu from '@/components/UserMenu';
 import HeroSection from '@/components/HeroSection';
@@ -55,7 +52,7 @@ export default function Dashboard() {
     const [totalCredits, setTotalCredits] = useState(0);
     const [totalPoints, setTotalPoints] = useState(0);
     const [totalStudentCount, setTotalStudentCount] = useState(0);
-    const [onlineUsers, setOnlineUsers] = useState(0);
+    const [onlineUsers, setOnlineUsers] = useState(1);
     const [showClassPicker, setShowClassPicker] = useState(false);
     const [sortBy, setSortBy] = useState<'cumulative' | 'semester'>('cumulative');
     const [sortingScale, setSortingScale] = useState<'4' | '10'>('4');
@@ -64,9 +61,6 @@ export default function Dashboard() {
     const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
     const [isVipLimitReached, setIsVipLimitReached] = useState(false);
     const [classChangeLimit, setClassChangeLimit] = useState(5);
-    const [isChatOpen, setIsChatOpen] = useState(false);
-    const [currentSocket, setCurrentSocket] = useState<WebSocket | null>(null);
-    const [lastError, setLastError] = useState<string | null>(null);
 
     // ---------------------------------------------------------------------------
     // GPA helpers (clean version)
@@ -410,7 +404,7 @@ export default function Dashboard() {
             }
 
             if (wsUrl.startsWith('/')) {
-                return `${pageProtocol}//${window.location.host}${wsUrl}`;
+                wsUrl = `${pageProtocol}//${window.location.host}${wsUrl}`;
             }
 
             if (wsUrl.startsWith('http://')) {
@@ -427,59 +421,31 @@ export default function Dashboard() {
             return wsUrl;
         };
 
-        const resolveWsUrl = () => {
-            const envWsUrl = (process.env.NEXT_PUBLIC_WS_URL || '').trim();
-            if (envWsUrl) return normalizeWsUrl(envWsUrl);
-
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const hostname = window.location.hostname;
-
-            // Local dev: connect directly to backend port 8000
-            if (window.location.port === '3000') {
-                return `${protocol}//${hostname}:8000/ws/online-count`;
-            }
-
-            // Production & Docker: always use custom server WebSocket proxy path /_s/
-            // server.js intercepts HTTP Upgrade on /_s/* and forwards to backend /ws/*
-            // Cloudflare Tunnel only exposes the frontend (port 3000) — backend is internal only.
-            return `${protocol}//${window.location.host}/_s/online-count`;
-        };
-
         const connectWebSocket = () => {
             if (stopped) return;
-
-            const wsUrl = resolveWsUrl();
-            console.log(`[WebSocket] Connecting to: ${wsUrl}`);
-
-            const ws = new WebSocket(wsUrl);
-            socket = ws;
-
-            ws.onopen = async () => {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const envWsUrl = (process.env.NEXT_PUBLIC_WS_URL || '').trim();
+            let wsUrl = envWsUrl || `${protocol}//${window.location.host}/_s/online-count`;
+            if (window.location.port === '3000') {
+                const hostname = window.location.hostname;
+                wsUrl = `${protocol}//${hostname}:8000/ws/online-count`;
+            }
+            wsUrl = normalizeWsUrl(wsUrl);
+            // SECURITY: không gửi JWT trực tiếp qua WebSocket message.
+            // Dùng one-time ticket ngắn hạn để xác thực kết nối.
+            socket = new WebSocket(wsUrl);
+            socket.onopen = async () => {
                 reconnectAttempts = 0;
-                setLastError(null);
                 stopOnlinePolling();
-
-                const fp = await getDeviceFingerprint();
-                let ticket = null;
-                try {
-                    ticket = await getWebSocketTicketBff();
-                } catch (authErr) {
-                    console.warn("[WebSocket] Direct ticket failed, falling back to basic auth", authErr);
+                const ticket = await getWebSocketTicketBff();
+                if (ticket) {
+                    socket?.send(JSON.stringify({ type: 'auth_ticket', ticket }));
                 }
-
-                ws.send(JSON.stringify({ type: 'auth_ticket', ticket, fp }));
-                setCurrentSocket(ws);
             };
-
-            ws.onmessage = (event) => {
+            socket.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    if (data && typeof data.count === 'number') {
-                        setOnlineUsers(data.count);
-                    }
-                    if (data && data.type === 'error') {
-                        setLastError(data.message);
-                    }
+                    if (data && typeof data.count === 'number') setOnlineUsers(data.count);
                     if (data && data.type === 'reset_limit') {
                         localStorage.removeItem('classChanges');
                         localStorage.removeItem('classChangeDate');
@@ -494,33 +460,29 @@ export default function Dashboard() {
                             const count = parseInt(localStorage.getItem('classChanges') || '0');
                             const today = new Date().toISOString().slice(0, 10);
                             const storedDate = localStorage.getItem('classChangeDate');
-                            if (storedDate === today && count >= (newLimit as number)) {
+                            if (storedDate === today && count >= newLimit) {
                                 setIsVipLimitReached(true);
                             } else {
                                 setIsVipLimitReached(false);
                             }
                         }
                     }
-                } catch (error) {
-                    console.error("[WebSocket] Parse error:", error);
-                }
+                } catch (error) { }
             };
-
-            ws.onclose = () => {
+            socket.onclose = () => {
                 if (stopped) return;
                 reconnectAttempts += 1;
 
                 if (reconnectAttempts >= 4) {
+                    // Fallback to polling so online counter still updates without WS.
                     startOnlinePolling();
                 }
 
                 const backoffMs = Math.min(20000, 3000 * reconnectAttempts);
                 reconnectTimeout = setTimeout(connectWebSocket, backoffMs);
-                setCurrentSocket(null);
             };
-
-            ws.onerror = () => {
-                ws.close();
+            socket.onerror = () => {
+                socket?.close();
             };
         };
 
@@ -552,13 +514,15 @@ export default function Dashboard() {
             if (v === 'students' && state.cls) {
                 // Reload students list for the class
                 setSelectedClass(state.cls);
-                getStudentsByClassBff(state.cls).then(data => {
+                getStudentsByClassBffRaw(state.cls).then(encrypted => {
+                    const data = encrypted ? decryptPayload(encrypted) : null;
                     setStudents((data?.students || []).map(mapStudent));
                     setView('students');
                 }).catch(() => setView('classes'));
             } else if (v === 'grades' && state.msv) {
                 // Reload grade detail
-                getStudentBff(state.msv).then(data => {
+                getStudentBffRaw(state.msv).then(encrypted => {
+                    const data = encrypted ? decryptPayload(encrypted) : null;
                     if (data) {
                         const mapped = mapStudent(data);
                         setCurrentStudent(mapped);
@@ -589,7 +553,8 @@ export default function Dashboard() {
     async function loadClasses() {
         setLoading(true);
         try {
-            const data = await getClassesBff();
+            const encrypted = await getClassesBffRaw();
+            const data = encrypted ? decryptPayload(encrypted) : null;
             setClasses(data?.classes || []);
             navigateView('classes');
         } catch (error) {
@@ -603,7 +568,8 @@ export default function Dashboard() {
         setLoading(true);
         setSelectedClass(cls);
         try {
-            const data = await getStudentsByClassBff(cls);
+            const encrypted = await getStudentsByClassBffRaw(cls);
+            const data = encrypted ? decryptPayload(encrypted) : null;
             setStudents((data?.students || []).map(mapStudent));
             navigateView('students', { cls });
             getStudentCountBff(cls).then(count => setTotalStudentCount(count)).catch(() => { });
@@ -625,7 +591,8 @@ export default function Dashboard() {
         if (!Array.isArray(maLop)) setSelectedClass(maLop);
         setLocalSearchTerm('');
         try {
-            const data = await getStudentsByClassBff(maLopStr);
+            const encrypted = await getStudentsByClassBffRaw(maLopStr);
+            const data = encrypted ? decryptPayload(encrypted) : null;
 
             setStudents((data?.students || []).map(mapStudent));
             navigateView('students', { cls: maLopStr });
@@ -644,7 +611,8 @@ export default function Dashboard() {
     async function loadGrade(msv: string) {
         setLoading(true);
         try {
-            const data = await getStudentBff(msv);
+            const encrypted = await getStudentBffRaw(msv);
+            const data = encrypted ? decryptPayload(encrypted) : null;
             if (data) {
                 const mapped = mapStudent(data);
                 setCurrentStudent(mapped);
@@ -666,7 +634,8 @@ export default function Dashboard() {
         if (!searchQuery.trim()) return;
         setLoading(true);
         try {
-            const data = await searchStudentsBff(searchQuery);
+            const encrypted = await searchStudentsBffRaw(searchQuery);
+            const data = encrypted ? decryptPayload(encrypted) : null;
             setStudents((data?.results || []).map(mapStudent));
             navigateView('search');
         } catch (error) {
@@ -689,7 +658,7 @@ export default function Dashboard() {
         calculateGPA(currentStudent);
     }, [currentStudent, sortingScale]);
 
-    const gradesBySemester = useMemo(() => {
+    const gradesBySemester = (() => {
         // Step 1: Group grades by semester
         const grouped = (currentStudent?.diem || []).reduce((acc, grade) => {
             const hk = getNormalizedSemester(grade);
@@ -741,17 +710,17 @@ export default function Dashboard() {
         }
 
         return grouped;
-    }, [currentStudent]);
+    })();
 
-    const sortedSemesterKeys = useMemo(() => Object.keys(gradesBySemester).sort(compareSemesterKeys), [gradesBySemester]);
+    const sortedSemesterKeys = Object.keys(gradesBySemester).sort(compareSemesterKeys);
 
-    const allSemesters = useMemo(() => Array.from(new Set(students.flatMap(s => ([
+    const allSemesters = Array.from(new Set(students.flatMap(s => ([
         ...(s.diem ? s.diem.map(d => getNormalizedSemester(d)) : []),
         ...((s.semesters || [])),
         ...Object.keys(s.semester_gpa || {})
     ]))))
         .filter(Boolean)
-        .sort(compareSemesterKeys), [students]);
+        .sort(compareSemesterKeys);
 
     const getSemesterValue = (student: Student, semester: string, scale: '4' | '10') => {
         const semGPA = calculateSemesterGPA(student, semester);
@@ -762,28 +731,26 @@ export default function Dashboard() {
         return scale === '4' ? fallback.gpa4 : fallback.gpa10;
     };
 
-    const filteredStudents = useMemo(() => {
-        return students.filter(sv =>
-            sv.ho_ten.toLowerCase().includes(localSearchTerm.toLowerCase()) ||
-            sv.msv.toLowerCase().includes(localSearchTerm.toLowerCase())
-        ).sort((a, b) => {
-            let valA = 0;
-            if (selectedSemester === 'all') {
-                const cumGPA = calculateCumulativeGPA(a);
-                valA = sortingScale === '4' ? cumGPA.gpa4 : cumGPA.gpa10;
-            } else {
-                valA = getSemesterValue(a, selectedSemester, sortingScale);
-            }
-            let valB = 0;
-            if (selectedSemester === 'all') {
-                const cumGPA = calculateCumulativeGPA(b);
-                valB = sortingScale === '4' ? cumGPA.gpa4 : cumGPA.gpa10;
-            } else {
-                valB = getSemesterValue(b, selectedSemester, sortingScale);
-            }
-            return valB - valA;
-        });
-    }, [students, localSearchTerm, selectedSemester, sortingScale]);
+    const filteredStudents = students.filter(sv =>
+        sv.ho_ten.toLowerCase().includes(localSearchTerm.toLowerCase()) ||
+        sv.msv.toLowerCase().includes(localSearchTerm.toLowerCase())
+    ).sort((a, b) => {
+        let valA = 0;
+        if (selectedSemester === 'all') {
+            const cumGPA = calculateCumulativeGPA(a);
+            valA = sortingScale === '4' ? cumGPA.gpa4 : cumGPA.gpa10;
+        } else {
+            valA = getSemesterValue(a, selectedSemester, sortingScale);
+        }
+        let valB = 0;
+        if (selectedSemester === 'all') {
+            const cumGPA = calculateCumulativeGPA(b);
+            valB = sortingScale === '4' ? cumGPA.gpa4 : cumGPA.gpa10;
+        } else {
+            valB = getSemesterValue(b, selectedSemester, sortingScale);
+        }
+        return valB - valA;
+    });
 
     return (
         <div className="min-h-screen bg-white dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-100 transition-colors">
@@ -1053,30 +1020,6 @@ export default function Dashboard() {
                 <div id="gpa-simulator-container" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20"><div className="mt-12 border-t border-slate-200 pt-8"><h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2"><Sparkles className="w-6 h-6 text-indigo-500" />Mô phỏng Điểm Tích Lũy</h2><GPASimulator currentCredits={totalCredits} currentPoints={totalPoints} /></div></div>
             )}
             <FeedbackButton username={username} />
-
-            <PublicChat
-                user={{ username, role }}
-                socket={currentSocket}
-                isOpen={isChatOpen}
-                onClose={() => setIsChatOpen(false)}
-            />
-
-            {!isChatOpen && (
-                <motion.button
-                    onClick={() => setIsChatOpen(true)}
-                    className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-300/40 dark:shadow-violet-900/40 flex items-center justify-center hover:scale-110 active:scale-95 transition-transform"
-                    whileHover={{ rotate: [0, 10, -10, 0] }}
-                    title="Chat Công Cộng"
-                >
-                    <MessageCircle className="w-6 h-6" />
-                </motion.button>
-            )}
-
-            {lastError && (
-                <div className="fixed top-4 left-1/2 -translate-x-1/2 px-6 py-3 bg-red-600 text-white text-sm font-bold rounded-full shadow-2xl z-[100] animate-bounce">
-                    {lastError}
-                </div>
-            )}
         </div >
     );
 }

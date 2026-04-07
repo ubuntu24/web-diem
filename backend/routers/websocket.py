@@ -1,17 +1,19 @@
 import json
+import ipaddress
 import security
 import models
 from database import SessionLocal
 from datetime import datetime
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from typing import List
+from typing import List, Optional
 from jose import jwt, JWTError
+from sqlalchemy import or_
 
 class ConnectionManager:
     def __init__(self):
         self.active_connections: List[dict] = []
 
-    async def connect(self, websocket: WebSocket, user_identifier: str, ip: str, fp: str = None):
+    async def connect(self, websocket: WebSocket, user_identifier: str, ip: Optional[str], fp: Optional[str] = None):
         await websocket.accept()
         self.active_connections.append({
             "ws": websocket,
@@ -57,7 +59,10 @@ class ConnectionManager:
                 pass
 
     async def broadcast_online_count(self):
-        unique_users = len(set(conn["user"] for conn in self.active_connections))
+        unique_users = len(set(
+            conn["user"] if conn.get("user") not in (None, "Guest") else f"guest:{id(conn['ws'])}"
+            for conn in self.active_connections
+        ))
         message = json.dumps({"type": "online_count", "count": unique_users})
         for connection in self.active_connections:
             try:
@@ -77,6 +82,87 @@ class ConnectionManager:
 manager = ConnectionManager()
 router = APIRouter()
 
+
+def _parse_ip_candidate(raw: Optional[str]) -> Optional[str]:
+    if not raw:
+        return None
+
+    value = raw.strip().strip('"')
+    if not value:
+        return None
+
+    # RFC 7239 Forwarded header token style: for=<ip>
+    if value.lower().startswith("for="):
+        value = value[4:].strip().strip('"')
+
+    # IPv6 with optional port: [2001:db8::1]:443
+    if value.startswith("["):
+        end = value.find("]")
+        if end > 0:
+            value = value[1:end]
+
+    # IPv4 with optional port: 1.2.3.4:443
+    if value.count(":") == 1:
+        host, port = value.rsplit(":", 1)
+        if port.isdigit():
+            value = host
+
+    try:
+        ipaddress.ip_address(value)
+        return value
+    except ValueError:
+        return None
+
+
+def _is_public_ip(ip: Optional[str]) -> bool:
+    if not ip:
+        return False
+    try:
+        addr = ipaddress.ip_address(ip)
+        return not (
+            addr.is_private
+            or addr.is_loopback
+            or addr.is_link_local
+            or addr.is_multicast
+            or addr.is_reserved
+            or addr.is_unspecified
+        )
+    except ValueError:
+        return False
+
+
+def _extract_client_ip(websocket: WebSocket) -> Optional[str]:
+    candidates: List[str] = []
+
+    # Prefer real-client headers commonly set by Cloudflare/proxies.
+    for header_name in ("cf-connecting-ip", "true-client-ip", "x-real-ip", "x-forwarded-for"):
+        raw = websocket.headers.get(header_name)
+        if raw:
+            candidates.extend(raw.split(","))
+
+    # RFC 7239 fallback.
+    forwarded = websocket.headers.get("forwarded")
+    if forwarded:
+        parts = [p.strip() for p in forwarded.split(";")]
+        for part in parts:
+            if part.lower().startswith("for="):
+                candidates.append(part)
+
+    if websocket.client and websocket.client.host:
+        candidates.append(websocket.client.host)
+
+    valid_ips: List[str] = []
+    for candidate in candidates:
+        parsed = _parse_ip_candidate(candidate)
+        if parsed and parsed not in valid_ips:
+            valid_ips.append(parsed)
+
+    for ip in valid_ips:
+        if _is_public_ip(ip):
+            return ip
+
+    return valid_ips[0] if valid_ips else None
+
 @router.websocket("/ws/online-count")
 async def websocket_endpoint(websocket: WebSocket):
     """
@@ -84,14 +170,13 @@ async def websocket_endpoint(websocket: WebSocket):
     Client phải gửi auth message sau khi kết nối:
       { "type": "auth", "token": "<JWT>" }
     """
-    # Recover client IP behind proxy (Cloudflare/Next.js)
-    client_ip = websocket.headers.get("x-forwarded-for") or \
-                websocket.headers.get("x-real-ip") or \
-                (websocket.client.host if websocket.client else "unknown")
-    # x-forwarded-for may contain a chain: "client, proxy1, proxy2"
-    if "," in client_ip:
-        client_ip = client_ip.split(",")[0].strip()
-    user_id = client_ip  # Default: track by IP
+    # Recover client IP behind proxy (Cloudflare/Next.js).
+    client_ip = _extract_client_ip(websocket) or "unknown"
+    # Only use public-routable IP for ban policy to avoid proxy/internal-IP collateral bans.
+    policy_ip = client_ip if _is_public_ip(client_ip) else None
+
+    # Start as Guest; upgrade to username after JWT/ticket auth succeeds.
+    user_id = "Guest"
     device_fp = None
     
     # Extract token from cookies
@@ -108,22 +193,26 @@ async def websocket_endpoint(websocket: WebSocket):
     # Initial Ban Check (by IP)
     db = SessionLocal()
     try:
-        is_banned = db.query(models.BanRecord).filter(
-            (models.BanRecord.ip_address == client_ip) | 
-            (models.BanRecord.username == user_id)
-        ).first()
-        if is_banned:
-            await websocket.accept()
-            await websocket.send_text(json.dumps({"type": "error", "message": "Bạn đã bị cấm khỏi hệ thống chat."}))
-            await websocket.close()
-            return
+        ban_filters = []
+        if policy_ip:
+            ban_filters.append(models.BanRecord.ip_address == policy_ip)
+        if user_id != "Guest":
+            ban_filters.append(models.BanRecord.username == user_id)
+
+        if ban_filters:
+            is_banned = db.query(models.BanRecord).filter(or_(*ban_filters)).first()
+            if is_banned:
+                await websocket.accept()
+                await websocket.send_text(json.dumps({"type": "error", "message": "Bạn đã bị cấm khỏi hệ thống chat."}))
+                await websocket.close()
+                return
     finally:
         db.close()
 
     # Rate limiting state
     last_chat_time = datetime.min
     
-    await manager.connect(websocket, user_id, client_ip)
+    await manager.connect(websocket, user_id, policy_ip)
 
     try:
         while True:
@@ -150,10 +239,13 @@ async def websocket_endpoint(websocket: WebSocket):
                         # Ban Check again with username/FP
                         db = SessionLocal()
                         try:
-                            check = db.query(models.BanRecord).filter(
-                                (models.BanRecord.username == username) |
-                                (models.BanRecord.device_fingerprint == device_fp)
-                            ).first()
+                            ban_filters = [models.BanRecord.username == username]
+                            if policy_ip:
+                                ban_filters.append(models.BanRecord.ip_address == policy_ip)
+                            if device_fp:
+                                ban_filters.append(models.BanRecord.device_fingerprint == device_fp)
+
+                            check = db.query(models.BanRecord).filter(or_(*ban_filters)).first()
                             if check:
                                 await websocket.send_text(json.dumps({"type": "error", "message": "Tài khoản hoặc thiết bị này đã bị cấm."}))
                                 await websocket.close()
@@ -188,12 +280,14 @@ async def websocket_endpoint(websocket: WebSocket):
                     if content:
                         # Get current user details from manager
                         sender = "Guest"
-                        sender_ip = client_ip
+                        sender_ip = policy_ip
                         sender_fp = device_fp
                         for conn in manager.active_connections:
                             if conn["ws"] == websocket:
-                                sender = conn["user"]
-                                sender_ip = conn.get("ip", client_ip)
+                                conn_user = conn.get("user")
+                                if conn_user and conn_user != "Guest":
+                                    sender = conn_user
+                                sender_ip = conn.get("ip", policy_ip)
                                 sender_fp = conn.get("fp", device_fp)
                                 break
                         
@@ -201,11 +295,17 @@ async def websocket_endpoint(websocket: WebSocket):
                         db = SessionLocal()
                         try:
                             # Verify ban before storing (in case they were banned while online)
-                            check = db.query(models.BanRecord).filter(
-                                (models.BanRecord.username == sender) |
-                                (models.BanRecord.ip_address == sender_ip) |
-                                (models.BanRecord.device_fingerprint == sender_fp)
-                            ).first()
+                            ban_filters = []
+                            if sender and sender != "Guest":
+                                ban_filters.append(models.BanRecord.username == sender)
+                            if sender_ip:
+                                ban_filters.append(models.BanRecord.ip_address == sender_ip)
+                            if sender_fp:
+                                ban_filters.append(models.BanRecord.device_fingerprint == sender_fp)
+
+                            check = None
+                            if ban_filters:
+                                check = db.query(models.BanRecord).filter(or_(*ban_filters)).first()
                             
                             if check:
                                 await websocket.send_text(json.dumps({"type": "error", "message": "Tài khoản hoặc thiết bị này đã bị cấm."}))

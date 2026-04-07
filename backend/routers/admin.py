@@ -159,14 +159,8 @@ async def ban_user(
         ).order_by(models.ChatMessage.id.desc()).first()
         
         if last_msg:
-            # Note: models.ChatMessage now includes these columns in the SQLAlchemy model
-            # We use getattr to safely handle cases where the DB column might be missing
-            try:
-                if res:
-                    target_ip = target_ip or res[0]
-                    target_fp = target_fp or res[1]
-            except:
-                pass
+            target_ip = target_ip or getattr(last_msg, "ip_address", None)
+            target_fp = target_fp or getattr(last_msg, "device_fingerprint", None)
 
     # 🛡️ SECURITY: Prevent duplicate bans
     existing_ban = db.query(models.BanRecord).filter(
