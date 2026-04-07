@@ -15,12 +15,13 @@ import {
     getWebSocketTicketBff,
     logoutUserBff,
 } from '@/lib/api';
+import PublicChat from './PublicChat';
 import { Student, Grade } from '@/lib/types';
 import Sidebar from '@/components/Sidebar';
 import SemesterAccordion from '@/components/SemesterAccordion';
 import GPASimulator from '@/components/GPASimulator';
 import { compareSemesterKeys } from '@/lib/utils';
-import { Search, Loader2, Skull, ChevronRight, Home as HomeIcon, Sparkles, ChevronLeft, Users, Award, Shield, MapPin, Star } from 'lucide-react';
+import { Search, Loader2, Skull, ChevronRight, Home as HomeIcon, Sparkles, ChevronLeft, Users, Award, Shield, MapPin, Star, MessageCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import UserMenu from '@/components/UserMenu';
 import HeroSection from '@/components/HeroSection';
@@ -61,6 +62,8 @@ export default function Dashboard() {
     const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
     const [isVipLimitReached, setIsVipLimitReached] = useState(false);
     const [classChangeLimit, setClassChangeLimit] = useState(5);
+    const [isChatOpen, setIsChatOpen] = useState(false);
+    const [chatSocket, setChatSocket] = useState<WebSocket | null>(null);
 
     // ---------------------------------------------------------------------------
     // GPA helpers (clean version)
@@ -434,6 +437,7 @@ export default function Dashboard() {
             // SECURITY: không gửi JWT trực tiếp qua WebSocket message.
             // Dùng one-time ticket ngắn hạn để xác thực kết nối.
             socket = new WebSocket(wsUrl);
+            setChatSocket(socket);
             socket.onopen = async () => {
                 reconnectAttempts = 0;
                 stopOnlinePolling();
@@ -471,6 +475,7 @@ export default function Dashboard() {
             };
             socket.onclose = () => {
                 if (stopped) return;
+                setChatSocket(null);
                 reconnectAttempts += 1;
 
                 if (reconnectAttempts >= 4) {
@@ -494,6 +499,7 @@ export default function Dashboard() {
                 socket.onclose = null;
                 socket.close();
             }
+            setChatSocket(null);
             clearTimeout(reconnectTimeout);
             stopOnlinePolling();
         };
@@ -1020,6 +1026,24 @@ export default function Dashboard() {
                 <div id="gpa-simulator-container" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20"><div className="mt-12 border-t border-slate-200 pt-8"><h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2"><Sparkles className="w-6 h-6 text-indigo-500" />Mô phỏng Điểm Tích Lũy</h2><GPASimulator currentCredits={totalCredits} currentPoints={totalPoints} /></div></div>
             )}
             <FeedbackButton username={username} />
+
+            <PublicChat
+                user={{ username, role }}
+                socket={chatSocket}
+                isOpen={isChatOpen}
+                onClose={() => setIsChatOpen(false)}
+            />
+
+            {!isChatOpen && (
+                <motion.button
+                    onClick={() => setIsChatOpen(true)}
+                    className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-300/40 dark:shadow-violet-900/40 flex items-center justify-center hover:scale-110 active:scale-95 transition-transform"
+                    whileHover={{ rotate: [0, 10, -10, 0] }}
+                    title="Chat Công Cộng"
+                >
+                    <MessageCircle className="w-6 h-6" />
+                </motion.button>
+            )}
         </div >
     );
 }
