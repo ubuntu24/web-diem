@@ -104,7 +104,7 @@ async function parseResponse<T>(res: Response): Promise<T> {
     if (text.startsWith('"')) {
         try { payload = JSON.parse(text); } catch { /* keep original */ }
     }
-// silenced
+    // silenced
     // Last resort fallback
     try { return JSON.parse(text); } catch { return text as any; }
 }

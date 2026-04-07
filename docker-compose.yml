@@ -33,6 +33,7 @@ services:
       - "3000"
     environment:
       - API_URL=http://backend:8000
+      - NODE_ENV=production
       - DOCKER_ENV=true
     depends_on:
       - backend

@@ -16,6 +16,9 @@ COPY . .
 # Build the application
 RUN npm run build
 
+# Runtime must be production for custom server to avoid dev/HMR websocket paths in deploy.
+ENV NODE_ENV=production
+
 # Expose port
 EXPOSE 3000
 
