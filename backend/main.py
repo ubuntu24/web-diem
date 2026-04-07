@@ -72,16 +72,17 @@ app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
 app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 # Configure CORS
-# 🛡️ SECURITY: No hardcoded domains in source. Strictly use ENV for production.
+# 🛡️ SECURITY: Production origins MUST be set via ALLOWED_ORIGINS env var.
+# Source code remains clean for GitHub.
 env_origins = os.getenv("ALLOWED_ORIGINS", "").split(",")
 origins = [o.strip() for o in env_origins if o.strip()]
+
 if not origins:
-    # Safe defaults for local development
+    # Safe defaults for local development only
     origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
-    
+
 app.add_middleware(
     CORSMiddleware,
-    # In production, ONLY use values from ALLOWED_ORIGINS
     allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],

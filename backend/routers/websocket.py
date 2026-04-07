@@ -242,10 +242,20 @@ async def websocket_endpoint(websocket: WebSocket):
                         finally:
                             db.close()
 
-            except (json.JSONDecodeError, Exception) as e:
-                pass
+            except json.JSONDecodeError:
+                print("WebSocket: Received invalid JSON")
+                continue
+            except Exception as e:
+                import traceback
+                print(f"WebSocket Error: {str(e)}")
+                traceback.print_exc()
+                continue
 
     except WebSocketDisconnect:
         manager.disconnect(websocket)
+        print(f"WebSocket: Client disconnected ({client_ip})")
         await manager.broadcast_online_count()
+    except Exception as e:
+        print(f"WebSocket Fatal Error: {str(e)}")
+        manager.disconnect(websocket)
 
