@@ -45,7 +45,7 @@ def login(payload: schemas.LoginRequest, request: Request, db: Session = Depends
     # Đặt httpOnly cookie — RSC pages sử dụng để fetch data server-side
     # Browser JS không đọc được httpOnly cookie (bảo mật hơn localStorage)
     cookie_max_age = 60 * 60 * 24 * 7  # 7 days in seconds
-    is_production = os.getenv("ENV", "development").lower() == "production"
+    is_production = security.IS_PRODUCTION
     response = JSONResponse(content={
         "access_token": access_token,
         "token_type": "bearer",

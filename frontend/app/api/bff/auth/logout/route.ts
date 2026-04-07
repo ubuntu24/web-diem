@@ -23,5 +23,6 @@ export async function POST(request: Request) {
 
     store.delete('stoken');
     store.delete('role');
+    store.delete('csrf_token');
     return Response.json({ success: true });
 }

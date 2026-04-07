@@ -443,11 +443,7 @@ export async function loginUserBff(username: string, password: string): Promise<
             throw new Error(text || 'Không thể kết nối máy chủ đăng nhập');
         }
     }
-    const data = await res.json();
-    if (data && data.csrf_token && typeof window !== 'undefined') {
-        localStorage.setItem('csrfToken', data.csrf_token);
-    }
-    return data;
+    return res.json();
 }
 
 export async function registerUserBff(username: string, password: string): Promise<void> {

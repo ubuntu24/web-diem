@@ -58,11 +58,9 @@ app.prepare().then(() => {
     if (pathname.startsWith('/_s/')) {
       // Rewrite path: /_s/online-count → /ws/online-count
       const targetPath = pathname.replace(/^\/_s\//, '/ws/');
-      const targetUrl = `${BACKEND_WS_URL}${targetPath}`;
       const query = parsed.search || '';
       req.url = `${targetPath}${query}`;
 
-      console.log(`[WS Proxy] Upgrading: ${pathname} → ${targetUrl}`);
       proxy.ws(req, socket, head, { target: BACKEND_WS_URL });
       return;
     }
@@ -77,8 +75,5 @@ app.prepare().then(() => {
   });
 
   const PORT = parseInt(process.env.PORT || '3000', 10);
-  server.listen(PORT, () => {
-    console.log(`> Custom Next.js server ready on http://localhost:${PORT}`);
-    console.log(`> WebSocket proxy: /_s/* → ${BACKEND_WS_URL}/ws/*`);
-  });
+  server.listen(PORT);
 });

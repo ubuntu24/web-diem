@@ -33,29 +33,27 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
         }
 
         const updateStatus = () => {
-            console.log(`[ChatWS] Status changed: ${socket.readyState} (0:CONNECTING, 1:OPEN, 2:CLOSING, 3:CLOSED)`);
             setStatus(socket.readyState);
         };
-        
+        const handleError = () => updateStatus();
+
         // Initial check
         updateStatus();
 
         socket.addEventListener('open', updateStatus);
         socket.addEventListener('close', updateStatus);
-        socket.addEventListener('error', (err) => {
-            console.error('[ChatWS] Socket error event:', err);
-            updateStatus();
-        });
+        socket.addEventListener('error', handleError);
 
         return () => {
             socket.removeEventListener('open', updateStatus);
             socket.removeEventListener('close', updateStatus);
+            socket.removeEventListener('error', handleError);
         };
     }, [socket]);
 
     useEffect(() => {
         if (isOpen) {
-            getChatHistoryBff().then(setMessages).catch(() => {});
+            getChatHistoryBff().then(setMessages).catch(() => { });
         }
     }, [isOpen]);
 
@@ -74,11 +72,11 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
                     }]);
                 }
                 if (data.type === 'user_banned') {
-                   if (user?.username === data.username) {
-                       window.location.reload(); 
-                   }
+                    if (user?.username === data.username) {
+                        window.location.reload();
+                    }
                 }
-            } catch {}
+            } catch { }
         };
 
         socket.addEventListener('message', handleMsg);
@@ -100,7 +98,7 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
     const handleBan = async (msg: Message) => {
         if (user?.role !== 1) return;
         if (!confirm(`Bạn có chắc muốn BAN người dùng "${msg.user}"?`)) return;
-        
+
         try {
             await banUserBff(msg.user, undefined, undefined, 'Hành vi không chừng mực trong chat');
             alert('Đã ban người dùng!');
@@ -123,7 +121,7 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
                     />
 
                     {/* Chat Modal */}
-                    <motion.div 
+                    <motion.div
                         initial={{ opacity: 0, scale: 0.9, y: 30 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.9, y: 30 }}
@@ -140,17 +138,16 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
                                     <div>
                                         <h3 className="font-bold text-sm tracking-tight">Chat Công Cộng</h3>
                                         <div className="flex items-center gap-1.5">
-                                            <span className={`w-1.5 h-1.5 rounded-full animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.5)] ${
-                                                status === 1 ? 'bg-green-400' : status === 0 ? 'bg-amber-400' : 'bg-red-500'
-                                            }`}></span>
+                                            <span className={`w-1.5 h-1.5 rounded-full animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.5)] ${status === 1 ? 'bg-green-400' : status === 0 ? 'bg-amber-400' : 'bg-red-500'
+                                                }`}></span>
                                             <span className="text-[10px] text-white/80 font-medium">
                                                 {status === 1 ? 'Trực tiếp' : status === 0 ? 'Đang kết nối...' : 'Ngoại tuyến'}
                                             </span>
                                         </div>
                                     </div>
                                 </div>
-                                <button 
-                                    onClick={onClose} 
+                                <button
+                                    onClick={onClose}
                                     className="p-1.5 rounded-full hover:bg-white/20 transition-colors"
                                 >
                                     <X className="w-4 h-4" />
@@ -168,10 +165,10 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
                                 {messages.map((m) => {
                                     const isMe = m.user === user?.username;
                                     return (
-                                        <motion.div 
+                                        <motion.div
                                             initial={{ opacity: 0, y: 10, scale: 0.95 }}
                                             animate={{ opacity: 1, y: 0, scale: 1 }}
-                                            key={m.id} 
+                                            key={m.id}
                                             className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
                                         >
                                             <div className="flex items-center gap-2 mb-1 px-1">
@@ -180,8 +177,8 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
                                                     {m.user}
                                                 </span>
                                                 {user?.role === 1 && !isMe && (
-                                                    <button 
-                                                        onClick={() => handleBan(m)} 
+                                                    <button
+                                                        onClick={() => handleBan(m)}
                                                         className="text-[10px] text-red-500 hover:text-red-700 font-bold uppercase transition-colors flex items-center gap-0.5 bg-red-50 dark:bg-red-900/20 px-1.5 py-0.5 rounded"
                                                         title="Ban tài khoản và thiết bị"
                                                     >
@@ -190,11 +187,10 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
                                                     </button>
                                                 )}
                                             </div>
-                                            <div className={`px-4 py-2 rounded-2xl max-w-[85%] text-sm shadow-sm transition-all hover:shadow-md ${
-                                                isMe 
-                                                ? 'bg-gradient-to-br from-violet-600 to-indigo-600 text-white rounded-tr-none' 
-                                                : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-tl-none'
-                                            }`}>
+                                            <div className={`px-4 py-2 rounded-2xl max-w-[85%] text-sm shadow-sm transition-all hover:shadow-md ${isMe
+                                                    ? 'bg-gradient-to-br from-violet-600 to-indigo-600 text-white rounded-tr-none'
+                                                    : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-tl-none'
+                                                }`}>
                                                 {m.text}
                                             </div>
                                             <span className="text-[9px] text-slate-400 mt-1 font-medium px-1">
@@ -219,7 +215,7 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
                                             className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all disabled:opacity-50 dark:text-slate-100 placeholder:text-slate-400 font-medium"
                                         />
                                     </div>
-                                    <button 
+                                    <button
                                         onClick={send}
                                         disabled={!user || !input.trim()}
                                         className="p-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl shadow-lg shadow-violet-500/20 active:scale-90 transition-all disabled:opacity-50 disabled:grayscale flex-shrink-0"

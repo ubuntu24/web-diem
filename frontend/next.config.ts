@@ -7,9 +7,8 @@ const DEFAULT_API = 'http://localhost:8000';
 // Priority: API_URL env var -> Default
 // Logic to determine API Base URL
 const getApiBase = () => {
-    const url = process.env.API_URL || DEFAULT_API;
-    console.log(`[Next.Config] API_URL detected: ${url}`);
-    return url;
+  const url = process.env.API_URL || DEFAULT_API;
+  return url;
 };
 
 const apiBase = getApiBase();

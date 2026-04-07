@@ -21,8 +21,9 @@ load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-for-development-only")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 1 week
+IS_PRODUCTION = os.getenv("ENV", "").lower() == "production" or os.getenv("NODE_ENV", "").lower() == "production"
 
-if os.getenv("ENV", "development").lower() == "production" and SECRET_KEY == "your-secret-key-for-development-only":
+if IS_PRODUCTION and SECRET_KEY == "your-secret-key-for-development-only":
     raise RuntimeError("SECRET_KEY must be set in production")
 
 OBFUSCATION_ID_KEY = os.getenv("OBFUSCATION_ID_KEY", "ID_OBFUSCATION_SALT_2026").encode()

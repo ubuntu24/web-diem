@@ -51,6 +51,8 @@ def _build_allowed_hosts() -> list[str]:
     api_url = os.getenv("API_URL", "").strip()
     if api_url:
         parsed = urlparse(api_url if "://" in api_url else f"http://{api_url}")
+        if parsed.hostname:
+            hosts.append(parsed.hostname)
     # 🕵️ AUTO-RESCUE: Detection logic for Trusted Hosts
     # We no longer hardcode specific domains to keep the source code clean for GitHub.
     # Use ALLOWED_HOSTS or ALLOWED_ORIGINS environment variables instead.
@@ -85,8 +87,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-CSRF-Token"],
 )
 
 
