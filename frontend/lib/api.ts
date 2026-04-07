@@ -109,6 +109,30 @@ async function parseResponse<T>(res: Response): Promise<T> {
     try { return JSON.parse(text); } catch { return text as any; }
 }
 
+export function decryptPayload(payload: unknown): any {
+    if (payload === null || payload === undefined) return null;
+    if (typeof payload !== 'string') return payload;
+
+    const text = payload.trim();
+    if (!text) return null;
+
+    // Already plain JSON.
+    if ((text.startsWith('{') && text.endsWith('}')) || (text.startsWith('[') && text.endsWith(']'))) {
+        try { return JSON.parse(text); } catch { /* fall through */ }
+    }
+
+    // Handle JSON-stringified payload, e.g. "{...}" or "[...]".
+    if (text.startsWith('"') && text.endsWith('"')) {
+        try {
+            const unwrapped = JSON.parse(text);
+            return decryptPayload(unwrapped);
+        } catch { /* fall through */ }
+    }
+
+    // If payload is not JSON (or cannot be parsed), return raw text.
+    try { return JSON.parse(text); } catch { return text; }
+}
+
 export async function getClasses(tokenOverride?: string): Promise<string[]> {
     const res = await fetch(`${API_BASE_URL}/api/classes`, { headers: authHeaders(tokenOverride) });
     if (!res.ok) throw new Error('Failed to fetch classes');
@@ -124,6 +148,10 @@ export async function getClassesRaw(tokenOverride?: string): Promise<string | nu
 export async function getClassesBff(): Promise<any> {
     const res = await fetch('/v/classes', { credentials: 'include' });
     return res.ok ? res.json() : null;
+}
+
+export async function getClassesBffRaw(): Promise<string | null> {
+    return fetchBffRaw('/v/classes');
 }
 // ... (repeating this pattern for overall file)
 
@@ -148,6 +176,10 @@ export async function getStudentsByClassBff(maLop: string): Promise<any> {
     return res.ok ? res.json() : null;
 }
 
+export async function getStudentsByClassBffRaw(maLop: string): Promise<string | null> {
+    return fetchBffRaw(`/v/class/${encodeURIComponent(maLop)}/students`);
+}
+
 export async function getStudent(msv: string, tokenOverride?: string): Promise<Student> {
     const url = `${API_BASE_URL}/api/student/${encodeURIComponent(msv)}`;
     const res = await fetch(url, { headers: authHeaders(tokenOverride) });
@@ -169,6 +201,10 @@ export async function getStudentBff(msv: string): Promise<any> {
     return res.ok ? res.json() : null;
 }
 
+export async function getStudentBffRaw(msv: string): Promise<string | null> {
+    return fetchBffRaw(`/v/student/${encodeURIComponent(msv)}`);
+}
+
 export async function searchStudents(query: string, tokenOverride?: string): Promise<Student[]> {
     const url = `${API_BASE_URL}/api/search?query=${encodeURIComponent(query)}`;
     const res = await fetch(url, { headers: authHeaders(tokenOverride) });
@@ -185,6 +221,10 @@ export async function searchStudentsRaw(query: string, tokenOverride?: string): 
 export async function searchStudentsBff(query: string): Promise<any> {
     const res = await fetch(`/v/search?query=${encodeURIComponent(query)}`, { credentials: 'include' });
     return res.ok ? res.json() : null;
+}
+
+export async function searchStudentsBffRaw(query: string): Promise<string | null> {
+    return fetchBffRaw(`/v/search?query=${encodeURIComponent(query)}`);
 }
 
 export interface User {
