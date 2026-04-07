@@ -434,6 +434,12 @@ export default function Dashboard() {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             const hostname = window.location.hostname;
             
+            // 🚀 SMART DIRECT CONNECTION (Skill: Frontend Architecture)
+            // If on production domain, connect DIRECTLY to backend to avoid proxy 403/Forbidden
+            if (hostname === 'lifesucks.meomeow.qzz.io') {
+                return `wss://${hostname}/ws/online-count`;
+            }
+
             if (window.location.port === '3000') {
                 return `${protocol}//${hostname}:8000/ws/online-count`;
             }
@@ -459,7 +465,7 @@ export default function Dashboard() {
                 try {
                     ticket = await getWebSocketTicketBff();
                 } catch (authErr) {
-                    console.warn("[WebSocket] Auth ticket failed, using guest mode", authErr);
+                    console.warn("[WebSocket] Direct ticket failed, falling back to basic auth", authErr);
                 }
                 
                 ws.send(JSON.stringify({ type: 'auth_ticket', ticket, fp }));
