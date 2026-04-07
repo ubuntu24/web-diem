@@ -410,7 +410,7 @@ export default function Dashboard() {
             }
 
             if (wsUrl.startsWith('/')) {
-                wsUrl = `${pageProtocol}//${window.location.host}${wsUrl}`;
+                return `${pageProtocol}//${window.location.host}${wsUrl}`;
             }
 
             if (wsUrl.startsWith('http://')) {
@@ -427,42 +427,51 @@ export default function Dashboard() {
             return wsUrl;
         };
 
+        const resolveWsUrl = () => {
+            const envWsUrl = (process.env.NEXT_PUBLIC_WS_URL || '').trim();
+            if (envWsUrl) return normalizeWsUrl(envWsUrl);
+            
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const hostname = window.location.hostname;
+            
+            if (window.location.port === '3000') {
+                return `${protocol}//${hostname}:8000/ws/online-count`;
+            }
+            return `${protocol}//${window.location.host}/_s/online-count`;
+        };
+
         const connectWebSocket = () => {
             if (stopped) return;
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const envWsUrl = (process.env.NEXT_PUBLIC_WS_URL || '').trim();
-            let wsUrl = envWsUrl || `${protocol}//${window.location.host}/_s/online-count`;
-            if (window.location.port === '3000') {
-                const hostname = window.location.hostname;
-                wsUrl = `${protocol}//${hostname}:8000/ws/online-count`;
-            }
-            wsUrl = normalizeWsUrl(wsUrl);
-            // SECURITY: không gửi JWT trực tiếp qua WebSocket message.
-            // Dùng one-time ticket ngắn hạn để xác thực kết nối.
-            socket = new WebSocket(wsUrl);
-            socket.onopen = async () => {
+            
+            const wsUrl = resolveWsUrl();
+            console.log(`[WebSocket] Connecting to: ${wsUrl}`);
+            
+            const ws = new WebSocket(wsUrl);
+            socket = ws;
+
+            ws.onopen = async () => {
                 reconnectAttempts = 0;
                 setLastError(null);
                 stopOnlinePolling();
+                
                 const fp = await getDeviceFingerprint();
                 let ticket = null;
                 try {
                     ticket = await getWebSocketTicketBff();
                 } catch (authErr) {
-                    console.warn("[WebSocket] Auth ticket failed, connecting as Guest", authErr);
+                    console.warn("[WebSocket] Auth ticket failed, using guest mode", authErr);
                 }
                 
-                if (ticket) {
-                    socket?.send(JSON.stringify({ type: 'auth_ticket', ticket, fp }));
-                } else {
-                    socket?.send(JSON.stringify({ type: 'auth', fp }));
-                }
-                setCurrentSocket(socket);
+                ws.send(JSON.stringify({ type: 'auth_ticket', ticket, fp }));
+                setCurrentSocket(ws);
             };
-            socket.onmessage = (event) => {
+
+            ws.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    if (data && typeof data.count === 'number') setOnlineUsers(data.count);
+                    if (data && typeof data.count === 'number') {
+                        setOnlineUsers(data.count);
+                    }
                     if (data && data.type === 'error') {
                         setLastError(data.message);
                     }
@@ -480,29 +489,33 @@ export default function Dashboard() {
                             const count = parseInt(localStorage.getItem('classChanges') || '0');
                             const today = new Date().toISOString().slice(0, 10);
                             const storedDate = localStorage.getItem('classChangeDate');
-                            if (storedDate === today && count >= newLimit) {
+                            if (storedDate === today && count >= (newLimit as number)) {
                                 setIsVipLimitReached(true);
                             } else {
                                 setIsVipLimitReached(false);
                             }
                         }
                     }
-                } catch (error) { }
+                } catch (error) {
+                    console.error("[WebSocket] Parse error:", error);
+                }
             };
-            socket.onclose = () => {
+
+            ws.onclose = () => {
                 if (stopped) return;
                 reconnectAttempts += 1;
 
                 if (reconnectAttempts >= 4) {
-                    // Fallback to polling so online counter still updates without WS.
                     startOnlinePolling();
                 }
 
                 const backoffMs = Math.min(20000, 3000 * reconnectAttempts);
                 reconnectTimeout = setTimeout(connectWebSocket, backoffMs);
+                setCurrentSocket(null);
             };
-            socket.onerror = () => {
-                socket?.close();
+
+            ws.onerror = () => {
+                ws.close();
             };
         };
 
