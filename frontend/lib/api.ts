@@ -23,34 +23,6 @@ function authHeaders(tokenOverride?: string): HeadersInit {
 }
 
 // Fixed Key for "Black Box" decryption
-const PAYLOAD_KEY = process.env.NEXT_PUBLIC_PAYLOAD_OBFUSCATION_KEY || "PAYLOAD_OBFUSCATION_KEY_2026";
-
-export function decryptPayload(cipher: string): any {
-    try {
-        // Base64 Decode (Base64 URL)
-        let b64 = cipher.replace(/-/g, '+').replace(/_/g, '/');
-        while (b64.length % 4) b64 += '=';
-
-        const binaryString = atob(b64);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-        }
-
-        // XOR Decrypt
-        const keyBytes = new TextEncoder().encode(PAYLOAD_KEY);
-        const decryptedBytes = new Uint8Array(bytes.length);
-        for (let i = 0; i < bytes.length; i++) {
-            decryptedBytes[i] = bytes[i] ^ keyBytes[i % keyBytes.length];
-        }
-
-        const jsonStr = new TextDecoder().decode(decryptedBytes);
-        return JSON.parse(jsonStr);
-    } catch (e) {
-        // Fallback or log if it wasn't encrypted
-        try { return JSON.parse(cipher); } catch { return null; }
-    }
-}
 
 /**
  * Fetches a URL and returns the raw encrypted payload string (NOT decrypted).
@@ -81,6 +53,16 @@ async function fetchBffRaw(url: string): Promise<string | null> {
             try { return JSON.parse(text); } catch { }
         }
         return text;
+    } catch {
+        return null;
+    }
+}
+
+async function fetchBff(url: string): Promise<any> {
+    try {
+        const res = await fetch(url, { credentials: 'include' });
+        if (!res.ok) return null;
+        return await res.json();
     } catch {
         return null;
     }
@@ -122,14 +104,7 @@ async function parseResponse<T>(res: Response): Promise<T> {
     if (text.startsWith('"')) {
         try { payload = JSON.parse(text); } catch { /* keep original */ }
     }
-
-    // Attempt decryption on the unquoted payload
-    const decrypted = decryptPayload(payload);
-    if (decrypted) {
-        return decrypted;
-    }
-
-    // silenced
+// silenced
     // Last resort fallback
     try { return JSON.parse(text); } catch { return text as any; }
 }
@@ -146,8 +121,9 @@ export async function getClassesRaw(tokenOverride?: string): Promise<string | nu
     return fetchRawEncrypted(`${API_BASE_URL}/api/classes`, authHeaders(tokenOverride));
 }
 
-export async function getClassesBffRaw(): Promise<string | null> {
-    return fetchBffRaw('/api/bff/classes');
+export async function getClassesBff(): Promise<any> {
+    const res = await fetch('/api/bff/classes', { credentials: 'include' });
+    return res.ok ? res.json() : null;
 }
 
 export async function getStudentsByClass(maLop: string, tokenOverride?: string): Promise<Student[]> {
@@ -166,8 +142,9 @@ export async function getStudentsByClassRaw(maLop: string, tokenOverride?: strin
     return fetchRawEncrypted(`${API_BASE_URL}/api/class/${encodeURIComponent(maLop)}/students`, authHeaders(tokenOverride));
 }
 
-export async function getStudentsByClassBffRaw(maLop: string): Promise<string | null> {
-    return fetchBffRaw(`/api/bff/class/${encodeURIComponent(maLop)}/students`);
+export async function getStudentsByClassBff(maLop: string): Promise<any> {
+    const res = await fetch(`/api/bff/class/${encodeURIComponent(maLop)}/students`, { credentials: 'include' });
+    return res.ok ? res.json() : null;
 }
 
 export async function getStudent(msv: string, tokenOverride?: string): Promise<Student> {
@@ -186,8 +163,9 @@ export async function getStudentRaw(msv: string, tokenOverride?: string): Promis
     return fetchRawEncrypted(`${API_BASE_URL}/api/student/${encodeURIComponent(msv)}`, authHeaders(tokenOverride));
 }
 
-export async function getStudentBffRaw(msv: string): Promise<string | null> {
-    return fetchBffRaw(`/api/bff/student/${encodeURIComponent(msv)}`);
+export async function getStudentBff(msv: string): Promise<any> {
+    const res = await fetch(`/api/bff/student/${encodeURIComponent(msv)}`, { credentials: 'include' });
+    return res.ok ? res.json() : null;
 }
 
 export async function searchStudents(query: string, tokenOverride?: string): Promise<Student[]> {
@@ -203,8 +181,9 @@ export async function searchStudentsRaw(query: string, tokenOverride?: string): 
     return fetchRawEncrypted(`${API_BASE_URL}/api/search?query=${encodeURIComponent(query)}`, authHeaders(tokenOverride));
 }
 
-export async function searchStudentsBffRaw(query: string): Promise<string | null> {
-    return fetchBffRaw(`/api/bff/search?query=${encodeURIComponent(query)}`);
+export async function searchStudentsBff(query: string): Promise<any> {
+    const res = await fetch(`/api/bff/search?query=${encodeURIComponent(query)}`, { credentials: 'include' });
+    return res.ok ? res.json() : null;
 }
 
 export interface User {
@@ -361,8 +340,7 @@ export async function registerUser(username: string, password: string): Promise<
 }
 
 export async function getMeBff(): Promise<User | null> {
-    const raw = await fetchBffRaw('/api/bff/me');
-    const data = raw ? decryptPayload(raw) : null;
+    const data = await fetchBff('/api/bff/me');
     if (!data) return null;
     return {
         username: data.u ?? data.username,
@@ -374,8 +352,7 @@ export async function getMeBff(): Promise<User | null> {
 }
 
 export async function getProfileBff(): Promise<User | null> {
-    const raw = await fetchBffRaw('/api/bff/profile');
-    const data = raw ? decryptPayload(raw) : null;
+    const data = await fetchBff('/api/bff/profile');
     if (!data) return null;
     return {
         username: data.u ?? data.username,
@@ -387,16 +364,14 @@ export async function getStudentCountBff(className?: string): Promise<number> {
     const url = className
         ? `/api/bff/stats/student-count?class_name=${encodeURIComponent(className)}`
         : '/api/bff/stats/student-count';
-    const raw = await fetchBffRaw(url);
-    if (!raw) return 0;
-    const data = decryptPayload(raw) || JSON.parse(raw);
+    const data = await fetchBff(url);
+    if (!data) return 0;
     return data?.count || 0;
 }
 
 export async function getOnlineUsersBff(): Promise<number> {
-    const raw = await fetchBffRaw('/api/bff/stats/online-users');
-    if (!raw) return 0;
-    const data = decryptPayload(raw) || JSON.parse(raw);
+    const data = await fetchBff('/api/bff/stats/online-users');
+    if (!data) return 0;
     return data?.count || 0;
 }
 
@@ -427,7 +402,11 @@ export async function loginUserBff(username: string, password: string): Promise<
             throw new Error(text || 'Không thể kết nối máy chủ đăng nhập');
         }
     }
-    return res.json();
+    const data = await res.json();
+    if (data && data.csrf_token && typeof window !== 'undefined') {
+        localStorage.setItem('csrfToken', data.csrf_token);
+    }
+    return data;
 }
 
 export async function registerUserBff(username: string, password: string): Promise<void> {
@@ -494,4 +473,48 @@ export async function sendFeedbackBff(message: string, username?: string): Promi
     }
     return { success: true };
 }
+
+// --- Chat & Moderation ---
+
+/** Generates or retrieves a persistent device fingerprint. */
+export function getDeviceFingerprint(): string {
+    if (typeof window === 'undefined') return 'server';
+    let fp = localStorage.getItem('device_fp');
+    if (!fp) {
+        fp = crypto.randomUUID();
+        localStorage.setItem('device_fp', fp);
+    }
+    return fp;
+}
+
+export async function getChatHistoryBff(): Promise<any[]> {
+    const data = await fetchBff('/api/bff/chat/history');
+    return data?.messages || [];
+}
+
+export async function banUserBff(user: string, ip?: string, fp?: string, reason?: string): Promise<void> {
+    const res = await fetch('/api/bff/admin/ban', {
+        method: 'POST',
+        headers: withCsrf({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ username: user, ip, fp, reason }),
+        credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to ban user');
+}
+
+export async function getBansBff(): Promise<any[]> {
+    const res = await fetch('/api/bff/admin/bans', { credentials: 'include' });
+    if (!res.ok) return [];
+    return res.json();
+}
+
+export async function unbanUserBff(banId: number): Promise<void> {
+    const res = await fetch(`/api/bff/admin/ban/${banId}`, {
+        method: 'DELETE',
+        headers: withCsrf(),
+        credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to unban user');
+}
+
 

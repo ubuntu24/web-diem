@@ -42,3 +42,7 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# AI Agent Skills
+.agents/
+.agent/

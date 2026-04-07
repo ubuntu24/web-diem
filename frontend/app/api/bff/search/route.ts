@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { API_BASE_URL, authHeadersFromCookies, cacheScopeFromToken, enforceRateLimit, withTtlCache } from '@/app/api/bff/_utils';
+import { API_BASE_URL, authHeadersFromCookies, cacheScopeFromToken, enforceRateLimit, withTtlCache, fetchUpstream } from '@/app/api/bff/_utils';
 
 export async function GET(request: Request) {
     const limited = enforceRateLimit(request, 'search', 90, 60_000);
@@ -12,12 +12,10 @@ export async function GET(request: Request) {
 
     const scope = await cacheScopeFromToken();
     const cached = await withTtlCache(`search:${scope}:${query.toLowerCase()}`, 12_000, async () => {
-        const res = await fetch(`${API_BASE_URL}/api/search?query=${encodeURIComponent(query)}`, {
+        return fetchUpstream(`${API_BASE_URL}/api/search?query=${encodeURIComponent(query)}`, {
             headers,
             cache: 'no-store',
         });
-        const body = await res.text();
-        return { status: res.status, body };
     });
 
     return new Response(cached.body, {

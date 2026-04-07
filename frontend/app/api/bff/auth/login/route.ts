@@ -45,7 +45,8 @@ export async function POST(request: Request) {
             path: '/',
             maxAge: 60 * 60 * 24 * 7,
         });
-        await issueCsrfCookie();
+        const csrf = await issueCsrfCookie();
+        data.csrf_token = csrf;
     }
 
     return Response.json(data);

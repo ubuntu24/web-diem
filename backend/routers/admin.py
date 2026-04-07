@@ -129,3 +129,91 @@ async def update_user_class_change_limit(
     )
     
     return {"message": f"Class change limit updated for user {user.username}"}
+
+@router.post("/admin/ban")
+async def ban_user(
+    payload: dict, # {username, reason}
+    current_user: models.Nick = Depends(security.get_current_user),
+    db: Session = Depends(database.get_db)
+):
+    if current_user.role != 1:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    target_username = payload.get("username")
+    reason = payload.get("reason", "Vi phạm điều khoản cộng đồng")
+    
+    # Automate identifier retrieval from active connections
+    target_ip = None
+    target_fp = None
+    
+    for conn in manager.active_connections:
+        if conn.get("user") == target_username:
+            target_ip = conn.get("ip")
+            target_fp = conn.get("fp")
+            break
+            
+    # Fallback to chat history if user is offline
+    if not target_ip or not target_fp:
+        from sqlalchemy import text
+        try:
+            res = db.execute(text("""
+                SELECT ip_address, device_fingerprint 
+                FROM chat_messages 
+                WHERE username = :u 
+                ORDER BY id DESC LIMIT 1
+            """), {"u": target_username}).fetchone()
+            
+            if res:
+                target_ip = target_ip or res[0]
+                target_fp = target_fp or res[1]
+        except:
+            pass
+
+    ban = models.BanRecord(
+        username=target_username,
+        ip_address=target_ip,
+        device_fingerprint=target_fp,
+        reason=reason
+    )
+    db.add(ban)
+    db.commit()
+    
+    # Enforce Live Kick across all devices/accounts matching these identifiers
+    await manager.kick_by_identifiers(
+        username=target_username,
+        ip=target_ip,
+        fp=target_fp
+    )
+    
+    # Broadcast to all (for general notification if needed, though kick handles direct disconnection)
+    await manager.broadcast({
+        "type": "user_banned",
+        "username": target_username,
+        "ip": target_ip,
+        "fp": target_fp
+    })
+    
+    return {"message": "User and associated device/IP banned successfully"}
+
+@router.get("/admin/bans")
+def get_bans(
+    current_user: models.Nick = Depends(security.get_current_user),
+    db: Session = Depends(database.get_db)
+):
+    if current_user.role != 1:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    return db.query(models.BanRecord).order_by(models.BanRecord.id.desc()).all()
+
+@router.delete("/admin/ban/{ban_id}")
+def unban_user(
+    ban_id: int,
+    current_user: models.Nick = Depends(security.get_current_user),
+    db: Session = Depends(database.get_db)
+):
+    if current_user.role != 1:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    db.query(models.BanRecord).filter(models.BanRecord.id == ban_id).delete()
+    db.commit()
+    return {"message": "Ban removed"}
+

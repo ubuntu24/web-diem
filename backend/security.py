@@ -167,9 +167,11 @@ def obfuscate_payload(data: any) -> str:
     # Prefix to indicate it's an encrypted payload
     return base64.urlsafe_b64encode(xored).decode().replace('=', '')
 
-def deobfuscate_id(opaque_id: str) -> str:
+def deobfuscate_id(opaque_id: str, force_obfuscated: bool = False) -> str:
     """Resolves an opaque token back to a real student ID if it has the T_ prefix."""
     if not opaque_id or not opaque_id.startswith("T_"):
+        if force_obfuscated:
+            raise ValueError("Direct MSV access forbidden")
         return opaque_id # It's a real MSV or empty
     
     import base64
@@ -185,4 +187,6 @@ def deobfuscate_id(opaque_id: str) -> str:
         unxored = bytes([decoded[i] ^ OBFUSCATION_ID_KEY[i % len(OBFUSCATION_ID_KEY)] for i in range(len(decoded))])
         return unxored.decode()
     except Exception:
+        if force_obfuscated:
+            raise ValueError("Invalid obfuscated ID")
         return opaque_id

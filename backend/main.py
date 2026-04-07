@@ -12,7 +12,7 @@ from jose import JWTError, jwt
 from dotenv import load_dotenv
 
 import models, database, security
-from routers import auth, students, admin, websocket
+from routers import auth, students, admin, websocket, chat
 
 # Load environment variables
 load_dotenv()
@@ -122,7 +122,8 @@ async def log_requests(request: Request, call_next):
         
         if (username != "guest" 
             and request.method not in ("OPTIONS", "HEAD")
-            and request.url.path.startswith("/api/")):
+            and request.url.path.startswith("/api/")
+            and not any(p in request.url.path for p in ["/ws-ticket", "/online-users", "/me", "/profile"])):
             
             now = datetime.now()
             last_update = _last_access_update.get(username)
@@ -204,6 +205,7 @@ def startup_event():
 app.include_router(auth.router, tags=["Authentication"])
 app.include_router(students.router, tags=["Students"])
 app.include_router(admin.router, tags=["Admin"])
+app.include_router(chat.router, tags=["Chat"])
 app.include_router(websocket.router, tags=["WebSocket"])
 
 if __name__ == "__main__":

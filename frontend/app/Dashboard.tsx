@@ -1,26 +1,29 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-    decryptPayload,
-    getClassesBffRaw,
-    getStudentsByClassBffRaw,
-    getStudentBffRaw,
-    searchStudentsBffRaw,
+    
+    getClassesBff,
+    getStudentsByClassBff,
+    getStudentBff,
+    searchStudentsBff,
     getMeBff,
     getStudentCountBff,
     getOnlineUsersBff,
     getWebSocketTicketBff,
+    getDeviceFingerprint,
     logoutUserBff,
+    User as UserType,
 } from '@/lib/api';
+import PublicChat from './PublicChat';
 import { Student, Grade } from '@/lib/types';
 import Sidebar from '@/components/Sidebar';
 import SemesterAccordion from '@/components/SemesterAccordion';
 import GPASimulator from '@/components/GPASimulator';
 import { compareSemesterKeys } from '@/lib/utils';
-import { Search, Loader2, Skull, ChevronRight, Home as HomeIcon, Sparkles, ChevronLeft, Users, Award, Shield, MapPin, Star } from 'lucide-react';
+import { Search, Loader2, Skull, ChevronRight, Home as HomeIcon, Sparkles, ChevronLeft, Users, Award, Shield, MapPin, Star, MessageCircle, MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import UserMenu from '@/components/UserMenu';
 import HeroSection from '@/components/HeroSection';
@@ -52,7 +55,7 @@ export default function Dashboard() {
     const [totalCredits, setTotalCredits] = useState(0);
     const [totalPoints, setTotalPoints] = useState(0);
     const [totalStudentCount, setTotalStudentCount] = useState(0);
-    const [onlineUsers, setOnlineUsers] = useState(1);
+    const [onlineUsers, setOnlineUsers] = useState(0);
     const [showClassPicker, setShowClassPicker] = useState(false);
     const [sortBy, setSortBy] = useState<'cumulative' | 'semester'>('cumulative');
     const [sortingScale, setSortingScale] = useState<'4' | '10'>('4');
@@ -61,6 +64,9 @@ export default function Dashboard() {
     const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
     const [isVipLimitReached, setIsVipLimitReached] = useState(false);
     const [classChangeLimit, setClassChangeLimit] = useState(5);
+    const [isChatOpen, setIsChatOpen] = useState(false);
+    const [currentSocket, setCurrentSocket] = useState<WebSocket | null>(null);
+    const [lastError, setLastError] = useState<string | null>(null);
 
     // ---------------------------------------------------------------------------
     // GPA helpers (clean version)
@@ -436,16 +442,24 @@ export default function Dashboard() {
             socket = new WebSocket(wsUrl);
             socket.onopen = async () => {
                 reconnectAttempts = 0;
+                setLastError(null);
                 stopOnlinePolling();
                 const ticket = await getWebSocketTicketBff();
+                const fp = await getDeviceFingerprint();
                 if (ticket) {
-                    socket?.send(JSON.stringify({ type: 'auth_ticket', ticket }));
+                    socket?.send(JSON.stringify({ type: 'auth_ticket', ticket, fp }));
+                } else {
+                    socket?.send(JSON.stringify({ type: 'auth', fp }));
                 }
+                setCurrentSocket(socket);
             };
             socket.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
                     if (data && typeof data.count === 'number') setOnlineUsers(data.count);
+                    if (data && data.type === 'error') {
+                        setLastError(data.message);
+                    }
                     if (data && data.type === 'reset_limit') {
                         localStorage.removeItem('classChanges');
                         localStorage.removeItem('classChangeDate');
@@ -514,15 +528,13 @@ export default function Dashboard() {
             if (v === 'students' && state.cls) {
                 // Reload students list for the class
                 setSelectedClass(state.cls);
-                getStudentsByClassBffRaw(state.cls).then(encrypted => {
-                    const data = encrypted ? decryptPayload(encrypted) : null;
+                getStudentsByClassBff(state.cls).then(data => {
                     setStudents((data?.students || []).map(mapStudent));
                     setView('students');
                 }).catch(() => setView('classes'));
             } else if (v === 'grades' && state.msv) {
                 // Reload grade detail
-                getStudentBffRaw(state.msv).then(encrypted => {
-                    const data = encrypted ? decryptPayload(encrypted) : null;
+                getStudentBff(state.msv).then(data => {
                     if (data) {
                         const mapped = mapStudent(data);
                         setCurrentStudent(mapped);
@@ -553,8 +565,7 @@ export default function Dashboard() {
     async function loadClasses() {
         setLoading(true);
         try {
-            const encrypted = await getClassesBffRaw();
-            const data = encrypted ? decryptPayload(encrypted) : null;
+            const data = await getClassesBff();
             setClasses(data?.classes || []);
             navigateView('classes');
         } catch (error) {
@@ -568,8 +579,7 @@ export default function Dashboard() {
         setLoading(true);
         setSelectedClass(cls);
         try {
-            const encrypted = await getStudentsByClassBffRaw(cls);
-            const data = encrypted ? decryptPayload(encrypted) : null;
+            const data = await getStudentsByClassBff(cls);
             setStudents((data?.students || []).map(mapStudent));
             navigateView('students', { cls });
             getStudentCountBff(cls).then(count => setTotalStudentCount(count)).catch(() => { });
@@ -591,8 +601,7 @@ export default function Dashboard() {
         if (!Array.isArray(maLop)) setSelectedClass(maLop);
         setLocalSearchTerm('');
         try {
-            const encrypted = await getStudentsByClassBffRaw(maLopStr);
-            const data = encrypted ? decryptPayload(encrypted) : null;
+            const data = await getStudentsByClassBff(maLopStr);
 
             setStudents((data?.students || []).map(mapStudent));
             navigateView('students', { cls: maLopStr });
@@ -611,8 +620,7 @@ export default function Dashboard() {
     async function loadGrade(msv: string) {
         setLoading(true);
         try {
-            const encrypted = await getStudentBffRaw(msv);
-            const data = encrypted ? decryptPayload(encrypted) : null;
+            const data = await getStudentBff(msv);
             if (data) {
                 const mapped = mapStudent(data);
                 setCurrentStudent(mapped);
@@ -634,8 +642,7 @@ export default function Dashboard() {
         if (!searchQuery.trim()) return;
         setLoading(true);
         try {
-            const encrypted = await searchStudentsBffRaw(searchQuery);
-            const data = encrypted ? decryptPayload(encrypted) : null;
+            const data = await searchStudentsBff(searchQuery);
             setStudents((data?.results || []).map(mapStudent));
             navigateView('search');
         } catch (error) {
@@ -658,7 +665,7 @@ export default function Dashboard() {
         calculateGPA(currentStudent);
     }, [currentStudent, sortingScale]);
 
-    const gradesBySemester = (() => {
+    const gradesBySemester = useMemo(() => {
         // Step 1: Group grades by semester
         const grouped = (currentStudent?.diem || []).reduce((acc, grade) => {
             const hk = getNormalizedSemester(grade);
@@ -710,17 +717,17 @@ export default function Dashboard() {
         }
 
         return grouped;
-    })();
+    }, [currentStudent]);
 
-    const sortedSemesterKeys = Object.keys(gradesBySemester).sort(compareSemesterKeys);
+    const sortedSemesterKeys = useMemo(() => Object.keys(gradesBySemester).sort(compareSemesterKeys), [gradesBySemester]);
 
-    const allSemesters = Array.from(new Set(students.flatMap(s => ([
+    const allSemesters = useMemo(() => Array.from(new Set(students.flatMap(s => ([
         ...(s.diem ? s.diem.map(d => getNormalizedSemester(d)) : []),
         ...((s.semesters || [])),
         ...Object.keys(s.semester_gpa || {})
     ]))))
         .filter(Boolean)
-        .sort(compareSemesterKeys);
+        .sort(compareSemesterKeys), [students]);
 
     const getSemesterValue = (student: Student, semester: string, scale: '4' | '10') => {
         const semGPA = calculateSemesterGPA(student, semester);
@@ -731,26 +738,28 @@ export default function Dashboard() {
         return scale === '4' ? fallback.gpa4 : fallback.gpa10;
     };
 
-    const filteredStudents = students.filter(sv =>
-        sv.ho_ten.toLowerCase().includes(localSearchTerm.toLowerCase()) ||
-        sv.msv.toLowerCase().includes(localSearchTerm.toLowerCase())
-    ).sort((a, b) => {
-        let valA = 0;
-        if (selectedSemester === 'all') {
-            const cumGPA = calculateCumulativeGPA(a);
-            valA = sortingScale === '4' ? cumGPA.gpa4 : cumGPA.gpa10;
-        } else {
-            valA = getSemesterValue(a, selectedSemester, sortingScale);
-        }
-        let valB = 0;
-        if (selectedSemester === 'all') {
-            const cumGPA = calculateCumulativeGPA(b);
-            valB = sortingScale === '4' ? cumGPA.gpa4 : cumGPA.gpa10;
-        } else {
-            valB = getSemesterValue(b, selectedSemester, sortingScale);
-        }
-        return valB - valA;
-    });
+    const filteredStudents = useMemo(() => {
+        return students.filter(sv =>
+            sv.ho_ten.toLowerCase().includes(localSearchTerm.toLowerCase()) ||
+            sv.msv.toLowerCase().includes(localSearchTerm.toLowerCase())
+        ).sort((a, b) => {
+            let valA = 0;
+            if (selectedSemester === 'all') {
+                const cumGPA = calculateCumulativeGPA(a);
+                valA = sortingScale === '4' ? cumGPA.gpa4 : cumGPA.gpa10;
+            } else {
+                valA = getSemesterValue(a, selectedSemester, sortingScale);
+            }
+            let valB = 0;
+            if (selectedSemester === 'all') {
+                const cumGPA = calculateCumulativeGPA(b);
+                valB = sortingScale === '4' ? cumGPA.gpa4 : cumGPA.gpa10;
+            } else {
+                valB = getSemesterValue(b, selectedSemester, sortingScale);
+            }
+            return valB - valA;
+        });
+    }, [students, localSearchTerm, selectedSemester, sortingScale]);
 
     return (
         <div className="min-h-screen bg-white dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-100 transition-colors">
@@ -1020,6 +1029,30 @@ export default function Dashboard() {
                 <div id="gpa-simulator-container" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20"><div className="mt-12 border-t border-slate-200 pt-8"><h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2"><Sparkles className="w-6 h-6 text-indigo-500" />Mô phỏng Điểm Tích Lũy</h2><GPASimulator currentCredits={totalCredits} currentPoints={totalPoints} /></div></div>
             )}
             <FeedbackButton username={username} />
+
+            <PublicChat 
+                user={{ username, role }} 
+                socket={currentSocket} 
+                isOpen={isChatOpen} 
+                onClose={() => setIsChatOpen(false)} 
+            />
+
+            {!isChatOpen && (
+                <motion.button
+                    onClick={() => setIsChatOpen(true)}
+                    className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-300/40 dark:shadow-violet-900/40 flex items-center justify-center hover:scale-110 active:scale-95 transition-transform"
+                    whileHover={{ rotate: [0, 10, -10, 0] }}
+                    title="Chat Công Cộng"
+                >
+                    <MessageCircle className="w-6 h-6" />
+                </motion.button>
+            )}
+
+            {lastError && (
+                 <div className="fixed top-4 left-1/2 -translate-x-1/2 px-6 py-3 bg-red-600 text-white text-sm font-bold rounded-full shadow-2xl z-[100] animate-bounce">
+                     {lastError}
+                 </div>
+            )}
         </div >
     );
 }

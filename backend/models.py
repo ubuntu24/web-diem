@@ -105,3 +105,22 @@ class UserAccess(Base):
     access_date = Column(Date, server_default=func.current_date(), nullable=False)
     last_update = Column(DateTime, server_default=func.now(), onupdate=func.now())
     count = Column(Integer, default=1)
+
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+
+    id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
+    username = Column(Text, nullable=False)
+    message = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class BanRecord(Base):
+    __tablename__ = "ban_records"
+
+    id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
+    username = Column(Text, nullable=True) # Could be NULL if only banning by IP/FP
+    ip_address = Column(Text, nullable=True)
+    device_fingerprint = Column(Text, nullable=True)
+    reason = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+

@@ -10,17 +10,21 @@ import cache as _cache
 router = APIRouter(prefix="/api")
 
 
+import threading
+_rl_lock = threading.Lock()
+
 def _check_rate_limit(scope: str, identity: str, limit: int, window_seconds: int) -> bool:
-    now = time.time()
-    key = f"rl:{scope}:{identity}"
-    attempts = _cache.get(key) or []
-    attempts = [t for t in attempts if now - t < window_seconds]
-    if len(attempts) >= limit:
+    with _rl_lock:
+        now = time.time()
+        key = f"rl:{scope}:{identity}"
+        attempts = _cache.get(key) or []
+        attempts = [t for t in attempts if now - t < window_seconds]
+        if len(attempts) >= limit:
+            _cache.set(key, attempts, ttl=window_seconds)
+            return False
+        attempts.append(now)
         _cache.set(key, attempts, ttl=window_seconds)
-        return False
-    attempts.append(now)
-    _cache.set(key, attempts, ttl=window_seconds)
-    return True
+        return True
 
 @router.post("/login")
 def login(payload: schemas.LoginRequest, request: Request, db: Session = Depends(database.get_db)):

@@ -1,6 +1,35 @@
 import { cookies, headers } from 'next/headers';
 
 export const API_BASE_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+const PAYLOAD_KEY = process.env.PAYLOAD_OBFUSCATION_KEY || "PAYLOAD_OBFUSCATION_KEY_2026";
+
+export function decryptUpstreamText(text: string): string {
+    try {
+        if (text.startsWith('{') || text.startsWith('[')) return text;
+        let payload = text;
+        if (text.startsWith('"') && text.endsWith('"')) {
+            payload = JSON.parse(text);
+        }
+        let b64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+        while (b64.length % 4) b64 += '=';
+        
+        const buffer = Buffer.from(b64, 'base64');
+        const keyBuffer = Buffer.from(PAYLOAD_KEY);
+        const decrypted = Buffer.alloc(buffer.length);
+        for (let i = 0; i < buffer.length; i++) {
+            decrypted[i] = buffer[i] ^ keyBuffer[i % keyBuffer.length];
+        }
+        return decrypted.toString('utf-8');
+    } catch {
+        return text;
+    }
+}
+
+export async function fetchUpstream(url: string, init?: RequestInit): Promise<{status: number, body: string}> {
+    const res = await fetch(url, init);
+    const text = await res.text();
+    return { status: res.status, body: decryptUpstreamText(text) };
+}
 
 type CacheItem = {
     expiresAt: number;
@@ -14,14 +43,14 @@ type Store = {
 };
 
 function getStore(): Store {
-    const g = globalThis as unknown as { __bffStore?: Store };
-    if (!g.__bffStore) {
-        g.__bffStore = {
+    const g = globalThis as unknown as { __bffStoreV3?: Store };
+    if (!g.__bffStoreV3) {
+        g.__bffStoreV3 = {
             rate: new Map<string, number[]>(),
             cache: new Map<string, CacheItem>(),
         };
     }
-    return g.__bffStore;
+    return g.__bffStoreV3;
 }
 
 export async function authHeadersFromCookies(extra?: HeadersInit): Promise<HeadersInit> {

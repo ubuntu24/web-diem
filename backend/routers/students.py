@@ -495,8 +495,11 @@ def get_student_detail(
     current_user: Optional[models.Nick] = Depends(security.get_optional_user),
     db: Session = Depends(database.get_db)
 ):
-    real_msv = security.deobfuscate_id(msv)
     role = current_user.role if current_user else 0
+    try:
+        real_msv = security.deobfuscate_id(msv, force_obfuscated=(role == 0))
+    except ValueError as e:
+        raise HTTPException(status_code=403, detail=str(e))
 
     cache_key = f"student:{real_msv}:role{role}"
     cached = _cache.get(cache_key)
@@ -517,8 +520,8 @@ def get_student_detail(
 
 @router.get("/search")
 def search_students(
-    query: str,
     request: Request,
+    query: str = Query(..., min_length=1, max_length=64),
     current_user: Optional[models.Nick] = Depends(security.get_optional_user),
     db: Session = Depends(database.get_db)
 ):
