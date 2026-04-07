@@ -112,6 +112,8 @@ class ChatMessage(Base):
     id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
     username = Column(Text, nullable=False)
     message = Column(Text, nullable=False)
+    ip_address = Column(Text, nullable=True)
+    device_fingerprint = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 class BanRecord(Base):

@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
@@ -60,3 +60,27 @@ def get_db():
 
 def create_tables():
     Base.metadata.create_all(bind=engine)
+
+def sync_schema():
+    """Tự động đồng bộ hóa cấu trúc bảng cho môi trường Production (Postgres/SQLite)"""
+    inspector = inspect(engine)
+    
+    # 1. Đồng bộ bảng chat_messages
+    if 'chat_messages' in inspector.get_table_names():
+        columns = [c['name'] for c in inspector.get_columns('chat_messages')]
+        with engine.connect() as conn:
+            # Thêm cột ip_address nếu thiếu
+            if 'ip_address' not in columns:
+                print("[INFO] Sync: Adding 'ip_address' to chat_messages")
+                conn.execute(text("ALTER TABLE chat_messages ADD COLUMN ip_address TEXT"))
+            
+            # Thêm cột device_fingerprint nếu thiếu
+            if 'device_fingerprint' not in columns:
+                print("[INFO] Sync: Adding 'device_fingerprint' to chat_messages")
+                conn.execute(text("ALTER TABLE chat_messages ADD COLUMN device_fingerprint TEXT"))
+            
+            conn.commit()
+    
+    # 2. Đồng bộ bảng ban_records (nếu cần tương lai)
+    # create_tables() sẽ tự động tạo bảng mới nếu chưa có
+    create_tables()

@@ -154,28 +154,41 @@ async def ban_user(
             
     # Fallback to chat history if user is offline
     if not target_ip or not target_fp:
-        from sqlalchemy import text
-        try:
-            res = db.execute(text("""
-                SELECT ip_address, device_fingerprint 
-                FROM chat_messages 
-                WHERE username = :u 
-                ORDER BY id DESC LIMIT 1
-            """), {"u": target_username}).fetchone()
-            
-            if res:
-                target_ip = target_ip or res[0]
-                target_fp = target_fp or res[1]
-        except:
-            pass
+        last_msg = db.query(models.ChatMessage).filter(
+            models.ChatMessage.username == target_username
+        ).order_by(models.ChatMessage.id.desc()).first()
+        
+        if last_msg:
+            # Note: models.ChatMessage now includes these columns in the SQLAlchemy model
+            # We use getattr to safely handle cases where the DB column might be missing
+            try:
+                if res:
+                    target_ip = target_ip or res[0]
+                    target_fp = target_fp or res[1]
+            except:
+                pass
 
-    ban = models.BanRecord(
-        username=target_username,
-        ip_address=target_ip,
-        device_fingerprint=target_fp,
-        reason=reason
-    )
-    db.add(ban)
+    # 🛡️ SECURITY: Prevent duplicate bans
+    existing_ban = db.query(models.BanRecord).filter(
+        (models.BanRecord.username == target_username) |
+        ((models.BanRecord.ip_address == target_ip) & (models.BanRecord.ip_address != None)) |
+        ((models.BanRecord.device_fingerprint == target_fp) & (models.BanRecord.device_fingerprint != None))
+    ).first()
+
+    if existing_ban:
+        existing_ban.reason = reason
+        existing_ban.username = target_username or existing_ban.username
+        existing_ban.ip_address = target_ip or existing_ban.ip_address
+        existing_ban.device_fingerprint = target_fp or existing_ban.device_fingerprint
+    else:
+        ban = models.BanRecord(
+            username=target_username,
+            ip_address=target_ip,
+            device_fingerprint=target_fp,
+            reason=reason
+        )
+        db.add(ban)
+    
     db.commit()
     
     # Enforce Live Kick across all devices/accounts matching these identifiers

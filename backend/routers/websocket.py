@@ -114,6 +114,9 @@ async def websocket_endpoint(websocket: WebSocket):
     finally:
         db.close()
 
+    # Rate limiting state
+    last_chat_time = datetime.min
+    
     await manager.connect(websocket, user_id, client_ip)
 
     try:
@@ -164,6 +167,17 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 # Public Chat Message
                 if msg.get("type") == "chat" and msg.get("message"):
+                    # 🛡️ SECURITY: Rate Limiting (1 message / 2 seconds)
+                    now = datetime.now()
+                    diff = (now - last_chat_time).total_seconds()
+                    if diff < 2:
+                        await websocket.send_text(json.dumps({
+                            "type": "error", 
+                            "message": f"Bạn đang gửi tin nhắn quá nhanh. Vui lòng chờ {int(2-diff)+1} giây."
+                        }))
+                        continue
+                    
+                    last_chat_time = now
                     content = msg["message"].strip()
                     if content:
                         # Get current user details from manager
@@ -192,26 +206,30 @@ async def websocket_endpoint(websocket: WebSocket):
                                 await websocket.close()
                                 return
 
-                            # Store in DB using raw SQL to ensure it works even if models lack the columns
-                            from sqlalchemy import text
+                            # Store in DB using SQLAlchemy ORM (cleaner & more secure)
                             try:
-                                db.execute(text("""
-                                    INSERT INTO chat_messages (username, message, ip_address, device_fingerprint, created_at)
-                                    VALUES (:u, :m, :ip, :fp, NOW())
-                                """), {"u": sender, "m": content, "ip": sender_ip, "fp": sender_fp})
+                                db_msg = models.ChatMessage(
+                                    username=sender, 
+                                    message=content,
+                                    ip_address=sender_ip,
+                                    device_fingerprint=sender_fp
+                                )
+                                db.add(db_msg)
                                 db.commit()
+                                db.refresh(db_msg)
+                                
+                                last_id = db_msg.id
+                                last_time = db_msg.created_at.isoformat()
                             except Exception as db_err:
-                                # Fallback to standard insert if custom columns fail
+                                # Fallback if columns are still missing in physical DB
                                 db.rollback()
                                 db_msg = models.ChatMessage(username=sender, message=content)
                                 db.add(db_msg)
                                 db.commit()
-                                print(f"DB Error: {db_err}")
-                            
-                            # Fetch the ID of the last message for broadcast
-                            last_msg = db.query(models.ChatMessage).filter(models.ChatMessage.username == sender).order_by(models.ChatMessage.id.desc()).first()
-                            last_id = last_msg.id
-                            last_time = last_msg.created_at.isoformat()
+                                db.refresh(db_msg)
+                                last_id = db_msg.id
+                                last_time = db_msg.created_at.isoformat()
+                                print(f"DB Columns missing fallback: {db_err}")
 
                             # Broadcast
                             await manager.broadcast({

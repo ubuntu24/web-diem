@@ -162,8 +162,9 @@ async def log_requests(request: Request, call_next):
 
 # Database Initialization & Admin User
 @app.on_event("startup")
-def startup_event():
-    models.Base.metadata.create_all(bind=database.engine)
+async def startup_event():
+    # Ensure database tables exist and are synchronized (Production & Local)
+    database.sync_schema()
     
     # Ensure admin user exists
     db = database.SessionLocal()
