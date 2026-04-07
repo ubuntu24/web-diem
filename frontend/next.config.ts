@@ -5,8 +5,11 @@ const DEFAULT_API = 'http://localhost:8000';
 
 // 2. Logic to determine API Base URL
 // Priority: API_URL env var -> Default
+// Logic to determine API Base URL
 const getApiBase = () => {
-  return process.env.API_URL || DEFAULT_API;
+    const url = process.env.API_URL || DEFAULT_API;
+    console.log(`[Next.Config] API_URL detected: ${url}`);
+    return url;
 };
 
 const apiBase = getApiBase();
@@ -32,7 +35,7 @@ const nextConfig: NextConfig = {
       "font-src 'self' data:",
       "style-src 'self' 'unsafe-inline'",
       scriptSrc,
-      "connect-src 'self' ws: wss: https:",
+      "connect-src 'self' ws: wss: https: http:",
       "form-action 'self'",
       "upgrade-insecure-requests"
     ].join('; ');
@@ -87,15 +90,17 @@ const nextConfig: NextConfig = {
   },
   async rewrites() {
     return [
-      // API proxy removed — all API calls go through Server Actions now
-      // Only keep static files and WebSocket with obfuscated paths
       {
         source: '/static/:path*',
         destination: `${apiBase}/static/:path*`, // Proxy static files
       },
       {
         source: '/_s/:path*',
-        destination: `${apiBase}/ws/:path*`, // Proxy WebSockets (obfuscated path)
+        destination: `${apiBase}/ws/:path*`, // WebSocket Proxy
+      },
+      {
+        source: '/v/:path*',
+        destination: '/api/bff/:path*', // Global API Cloaking Path
       },
     ]
   },

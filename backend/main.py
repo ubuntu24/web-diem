@@ -51,10 +51,14 @@ def _build_allowed_hosts() -> list[str]:
     api_url = os.getenv("API_URL", "").strip()
     if api_url:
         parsed = urlparse(api_url if "://" in api_url else f"http://{api_url}")
-        if parsed.hostname:
-            hosts.append(parsed.hostname)
+    # 🕵️ AUTO-RESCUE: Detection logic for Trusted Hosts
+    # We no longer hardcode specific domains to keep the source code clean for GitHub.
+    # Use ALLOWED_HOSTS or ALLOWED_ORIGINS environment variables instead.
+    env_extra_hosts = os.getenv("EXTRA_TRUSTED_HOSTS", "").split(",")
+    hosts.extend([h.strip() for h in env_extra_hosts if h.strip()])
 
     deduped: list[str] = []
+    # ... logic for deduping stays same
     seen: set[str] = set()
     for host in hosts:
         if host not in seen:
@@ -68,9 +72,16 @@ app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
 app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 # Configure CORS
-origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+# 🛡️ SECURITY: No hardcoded domains in source. Strictly use ENV for production.
+env_origins = os.getenv("ALLOWED_ORIGINS", "").split(",")
+origins = [o.strip() for o in env_origins if o.strip()]
+if not origins:
+    # Safe defaults for local development
+    origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    
 app.add_middleware(
     CORSMiddleware,
+    # In production, ONLY use values from ALLOWED_ORIGINS
     allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],

@@ -223,12 +223,12 @@ async def websocket_endpoint(websocket: WebSocket):
                             except Exception as db_err:
                                 # Fallback if columns are still missing in physical DB
                                 db.rollback()
-                                db_msg = models.ChatMessage(username=sender, message=content)
-                                db.add(db_msg)
+                                db_msg_fallback = models.ChatMessage(username=sender, message=content)
+                                db.add(db_msg_fallback)
                                 db.commit()
-                                db.refresh(db_msg)
-                                last_id = db_msg.id
-                                last_time = db_msg.created_at.isoformat()
+                                db.refresh(db_msg_fallback)
+                                last_id = db_msg_fallback.id
+                                last_time = db_msg_fallback.created_at.isoformat()
                                 print(f"DB Columns missing fallback: {db_err}")
 
                             # Broadcast

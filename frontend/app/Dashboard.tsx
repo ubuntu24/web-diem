@@ -431,7 +431,7 @@ export default function Dashboard() {
             if (stopped) return;
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             const envWsUrl = (process.env.NEXT_PUBLIC_WS_URL || '').trim();
-            let wsUrl = envWsUrl || `${protocol}//${window.location.host}/ws/online-count`;
+            let wsUrl = envWsUrl || `${protocol}//${window.location.host}/_s/online-count`;
             if (window.location.port === '3000') {
                 const hostname = window.location.hostname;
                 wsUrl = `${protocol}//${hostname}:8000/ws/online-count`;
@@ -444,8 +444,14 @@ export default function Dashboard() {
                 reconnectAttempts = 0;
                 setLastError(null);
                 stopOnlinePolling();
-                const ticket = await getWebSocketTicketBff();
                 const fp = await getDeviceFingerprint();
+                let ticket = null;
+                try {
+                    ticket = await getWebSocketTicketBff();
+                } catch (authErr) {
+                    console.warn("[WebSocket] Auth ticket failed, connecting as Guest", authErr);
+                }
+                
                 if (ticket) {
                     socket?.send(JSON.stringify({ type: 'auth_ticket', ticket, fp }));
                 } else {

@@ -122,9 +122,10 @@ export async function getClassesRaw(tokenOverride?: string): Promise<string | nu
 }
 
 export async function getClassesBff(): Promise<any> {
-    const res = await fetch('/api/bff/classes', { credentials: 'include' });
+    const res = await fetch('/v/classes', { credentials: 'include' });
     return res.ok ? res.json() : null;
 }
+// ... (repeating this pattern for overall file)
 
 export async function getStudentsByClass(maLop: string, tokenOverride?: string): Promise<Student[]> {
     const url = `${API_BASE_URL}/api/class/${encodeURIComponent(maLop)}/students`;
@@ -143,7 +144,7 @@ export async function getStudentsByClassRaw(maLop: string, tokenOverride?: strin
 }
 
 export async function getStudentsByClassBff(maLop: string): Promise<any> {
-    const res = await fetch(`/api/bff/class/${encodeURIComponent(maLop)}/students`, { credentials: 'include' });
+    const res = await fetch(`/v/class/${encodeURIComponent(maLop)}/students`, { credentials: 'include' });
     return res.ok ? res.json() : null;
 }
 
@@ -164,7 +165,7 @@ export async function getStudentRaw(msv: string, tokenOverride?: string): Promis
 }
 
 export async function getStudentBff(msv: string): Promise<any> {
-    const res = await fetch(`/api/bff/student/${encodeURIComponent(msv)}`, { credentials: 'include' });
+    const res = await fetch(`/v/student/${encodeURIComponent(msv)}`, { credentials: 'include' });
     return res.ok ? res.json() : null;
 }
 
@@ -182,7 +183,7 @@ export async function searchStudentsRaw(query: string, tokenOverride?: string): 
 }
 
 export async function searchStudentsBff(query: string): Promise<any> {
-    const res = await fetch(`/api/bff/search?query=${encodeURIComponent(query)}`, { credentials: 'include' });
+    const res = await fetch(`/v/search?query=${encodeURIComponent(query)}`, { credentials: 'include' });
     return res.ok ? res.json() : null;
 }
 
@@ -340,7 +341,7 @@ export async function registerUser(username: string, password: string): Promise<
 }
 
 export async function getMeBff(): Promise<User | null> {
-    const data = await fetchBff('/api/bff/me');
+    const data = await fetchBff('/v/me');
     if (!data) return null;
     return {
         username: data.u ?? data.username,
@@ -352,7 +353,7 @@ export async function getMeBff(): Promise<User | null> {
 }
 
 export async function getProfileBff(): Promise<User | null> {
-    const data = await fetchBff('/api/bff/profile');
+    const data = await fetchBff('/v/profile');
     if (!data) return null;
     return {
         username: data.u ?? data.username,
@@ -362,21 +363,21 @@ export async function getProfileBff(): Promise<User | null> {
 
 export async function getStudentCountBff(className?: string): Promise<number> {
     const url = className
-        ? `/api/bff/stats/student-count?class_name=${encodeURIComponent(className)}`
-        : '/api/bff/stats/student-count';
+        ? `/v/stats/student-count?class_name=${encodeURIComponent(className)}`
+        : '/v/stats/student-count';
     const data = await fetchBff(url);
     if (!data) return 0;
     return data?.count || 0;
 }
 
 export async function getOnlineUsersBff(): Promise<number> {
-    const data = await fetchBff('/api/bff/stats/online-users');
+    const data = await fetchBff('/v/stats/online-users');
     if (!data) return 0;
     return data?.count || 0;
 }
 
 export async function getWebSocketTicketBff(): Promise<string | null> {
-    const res = await fetch('/api/bff/ws-ticket', {
+    const res = await fetch('/v/ws-ticket', {
         method: 'POST',
         credentials: 'include',
         headers: withCsrf(),
@@ -387,7 +388,7 @@ export async function getWebSocketTicketBff(): Promise<string | null> {
 }
 
 export async function loginUserBff(username: string, password: string): Promise<LoginResponse> {
-    const res = await fetch('/api/bff/auth/login', {
+    const res = await fetch('/v/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -410,7 +411,7 @@ export async function loginUserBff(username: string, password: string): Promise<
 }
 
 export async function registerUserBff(username: string, password: string): Promise<void> {
-    const res = await fetch('/api/bff/auth/register', {
+    const res = await fetch('/v/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -428,7 +429,7 @@ export async function registerUserBff(username: string, password: string): Promi
 }
 
 export async function logoutUserBff(): Promise<void> {
-    await fetch('/api/bff/auth/logout', {
+    await fetch('/v/auth/logout', {
         method: 'POST',
         credentials: 'include',
         headers: withCsrf(),
@@ -436,13 +437,13 @@ export async function logoutUserBff(): Promise<void> {
 }
 
 export async function getUsersBff(): Promise<AdminUser[]> {
-    const res = await fetch('/api/bff/admin/users', { credentials: 'include' });
+    const res = await fetch('/v/admin/users', { credentials: 'include' });
     if (!res.ok) throw new Error('Failed to fetch users');
     return res.json();
 }
 
 export async function resetUserLimitBff(userId: number): Promise<void> {
-    const res = await fetch(`/api/bff/admin/user/${userId}/reset-limit`, {
+    const res = await fetch(`/v/admin/user/${userId}/reset-limit`, {
         method: 'POST',
         credentials: 'include',
         headers: withCsrf(),
@@ -451,7 +452,7 @@ export async function resetUserLimitBff(userId: number): Promise<void> {
 }
 
 export async function updateUserLimitBff(userId: number, limit: number): Promise<void> {
-    const res = await fetch(`/api/bff/admin/user/${userId}/class-change-limit`, {
+    const res = await fetch(`/v/admin/user/${userId}/class-change-limit`, {
         method: 'POST',
         headers: withCsrf({ 'Content-Type': 'application/json' }),
         credentials: 'include',
@@ -461,7 +462,7 @@ export async function updateUserLimitBff(userId: number, limit: number): Promise
 }
 
 export async function sendFeedbackBff(message: string, username?: string): Promise<{ success: boolean; error?: string }> {
-    const res = await fetch('/api/bff/feedback', {
+    const res = await fetch('/v/feedback', {
         method: 'POST',
         headers: withCsrf({ 'Content-Type': 'application/json' }),
         credentials: 'include',
@@ -488,12 +489,12 @@ export function getDeviceFingerprint(): string {
 }
 
 export async function getChatHistoryBff(): Promise<any[]> {
-    const data = await fetchBff('/api/bff/chat/history');
+    const data = await fetchBff('/v/chat/history');
     return data?.messages || [];
 }
 
 export async function banUserBff(user: string, ip?: string, fp?: string, reason?: string): Promise<void> {
-    const res = await fetch('/api/bff/admin/ban', {
+    const res = await fetch('/v/admin/ban', {
         method: 'POST',
         headers: withCsrf({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ username: user, ip, fp, reason }),
@@ -503,13 +504,13 @@ export async function banUserBff(user: string, ip?: string, fp?: string, reason?
 }
 
 export async function getBansBff(): Promise<any[]> {
-    const res = await fetch('/api/bff/admin/bans', { credentials: 'include' });
+    const res = await fetch('/v/admin/bans', { credentials: 'include' });
     if (!res.ok) return [];
     return res.json();
 }
 
 export async function unbanUserBff(banId: number): Promise<void> {
-    const res = await fetch(`/api/bff/admin/ban/${banId}`, {
+    const res = await fetch(`/v/admin/ban/${banId}`, {
         method: 'DELETE',
         headers: withCsrf(),
         credentials: 'include',
