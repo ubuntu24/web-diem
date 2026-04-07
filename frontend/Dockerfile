@@ -15,5 +15,5 @@ RUN npm run build
 # Expose port
 EXPOSE 3000
 
-# Run the application
-CMD ["npm", "start"]
+# Run the custom server (supports WebSocket proxy via /_s/ path)
+CMD ["node", "server.js"]

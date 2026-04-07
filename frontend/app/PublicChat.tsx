@@ -22,7 +22,36 @@ interface PublicChatProps {
 export default function PublicChat({ user, socket, isOpen, onClose }: PublicChatProps) {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
+    const [status, setStatus] = useState<number>(socket?.readyState ?? 0);
     const scrollRef = useRef<HTMLDivElement>(null);
+
+    // Monitor socket state changes
+    useEffect(() => {
+        if (!socket) {
+            setStatus(3); // CLOSED
+            return;
+        }
+
+        const updateStatus = () => {
+            console.log(`[ChatWS] Status changed: ${socket.readyState} (0:CONNECTING, 1:OPEN, 2:CLOSING, 3:CLOSED)`);
+            setStatus(socket.readyState);
+        };
+        
+        // Initial check
+        updateStatus();
+
+        socket.addEventListener('open', updateStatus);
+        socket.addEventListener('close', updateStatus);
+        socket.addEventListener('error', (err) => {
+            console.error('[ChatWS] Socket error event:', err);
+            updateStatus();
+        });
+
+        return () => {
+            socket.removeEventListener('open', updateStatus);
+            socket.removeEventListener('close', updateStatus);
+        };
+    }, [socket]);
 
     useEffect(() => {
         if (isOpen) {
@@ -111,8 +140,12 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
                                     <div>
                                         <h3 className="font-bold text-sm tracking-tight">Chat Công Cộng</h3>
                                         <div className="flex items-center gap-1.5">
-                                            <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.5)]"></span>
-                                            <span className="text-[10px] text-white/80 font-medium">Trực tiếp</span>
+                                            <span className={`w-1.5 h-1.5 rounded-full animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.5)] ${
+                                                status === 1 ? 'bg-green-400' : status === 0 ? 'bg-amber-400' : 'bg-red-500'
+                                            }`}></span>
+                                            <span className="text-[10px] text-white/80 font-medium">
+                                                {status === 1 ? 'Trực tiếp' : status === 0 ? 'Đang kết nối...' : 'Ngoại tuyến'}
+                                            </span>
                                         </div>
                                     </div>
                                 </div>

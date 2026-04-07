@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-    
+
     getClassesBff,
     getStudentsByClassBff,
     getStudentBff,
@@ -430,28 +430,27 @@ export default function Dashboard() {
         const resolveWsUrl = () => {
             const envWsUrl = (process.env.NEXT_PUBLIC_WS_URL || '').trim();
             if (envWsUrl) return normalizeWsUrl(envWsUrl);
-            
+
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             const hostname = window.location.hostname;
-            
-            // 🚀 SMART DIRECT CONNECTION (Skill: Frontend Architecture)
-            // If on production domain, connect DIRECTLY to backend to avoid proxy 403/Forbidden
-            if (hostname === 'lifesucks.meomeow.qzz.io') {
-                return `wss://${hostname}/ws/online-count`;
-            }
 
+            // Local dev: connect directly to backend port 8000
             if (window.location.port === '3000') {
                 return `${protocol}//${hostname}:8000/ws/online-count`;
             }
+
+            // Production & Docker: always use custom server WebSocket proxy path /_s/
+            // server.js intercepts HTTP Upgrade on /_s/* and forwards to backend /ws/*
+            // Cloudflare Tunnel only exposes the frontend (port 3000) — backend is internal only.
             return `${protocol}//${window.location.host}/_s/online-count`;
         };
 
         const connectWebSocket = () => {
             if (stopped) return;
-            
+
             const wsUrl = resolveWsUrl();
             console.log(`[WebSocket] Connecting to: ${wsUrl}`);
-            
+
             const ws = new WebSocket(wsUrl);
             socket = ws;
 
@@ -459,7 +458,7 @@ export default function Dashboard() {
                 reconnectAttempts = 0;
                 setLastError(null);
                 stopOnlinePolling();
-                
+
                 const fp = await getDeviceFingerprint();
                 let ticket = null;
                 try {
@@ -467,7 +466,7 @@ export default function Dashboard() {
                 } catch (authErr) {
                     console.warn("[WebSocket] Direct ticket failed, falling back to basic auth", authErr);
                 }
-                
+
                 ws.send(JSON.stringify({ type: 'auth_ticket', ticket, fp }));
                 setCurrentSocket(ws);
             };
@@ -1055,11 +1054,11 @@ export default function Dashboard() {
             )}
             <FeedbackButton username={username} />
 
-            <PublicChat 
-                user={{ username, role }} 
-                socket={currentSocket} 
-                isOpen={isChatOpen} 
-                onClose={() => setIsChatOpen(false)} 
+            <PublicChat
+                user={{ username, role }}
+                socket={currentSocket}
+                isOpen={isChatOpen}
+                onClose={() => setIsChatOpen(false)}
             />
 
             {!isChatOpen && (
@@ -1074,9 +1073,9 @@ export default function Dashboard() {
             )}
 
             {lastError && (
-                 <div className="fixed top-4 left-1/2 -translate-x-1/2 px-6 py-3 bg-red-600 text-white text-sm font-bold rounded-full shadow-2xl z-[100] animate-bounce">
-                     {lastError}
-                 </div>
+                <div className="fixed top-4 left-1/2 -translate-x-1/2 px-6 py-3 bg-red-600 text-white text-sm font-bold rounded-full shadow-2xl z-[100] animate-bounce">
+                    {lastError}
+                </div>
             )}
         </div >
     );

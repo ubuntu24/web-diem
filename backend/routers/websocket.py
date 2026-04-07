@@ -84,7 +84,13 @@ async def websocket_endpoint(websocket: WebSocket):
     Client phải gửi auth message sau khi kết nối:
       { "type": "auth", "token": "<JWT>" }
     """
-    client_ip = websocket.client.host if websocket.client else "unknown"
+    # Recover client IP behind proxy (Cloudflare/Next.js)
+    client_ip = websocket.headers.get("x-forwarded-for") or \
+                websocket.headers.get("x-real-ip") or \
+                (websocket.client.host if websocket.client else "unknown")
+    # x-forwarded-for may contain a chain: "client, proxy1, proxy2"
+    if "," in client_ip:
+        client_ip = client_ip.split(",")[0].strip()
     user_id = client_ip  # Default: track by IP
     device_fp = None
     
