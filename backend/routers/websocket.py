@@ -341,9 +341,9 @@ async def websocket_endpoint(websocket: WebSocket):
                             await manager.broadcast({
                                 "type": "chat_message",
                                 "id": int(last_id),
-                                "user": sender,
-                                "text": content,
-                                "time": last_time
+                                "username": sender,
+                                "message": content,
+                                "timestamp": last_time
                             })
                         finally:
                             db.close()

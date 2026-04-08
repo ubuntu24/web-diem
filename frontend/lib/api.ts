@@ -58,11 +58,12 @@ async function fetchBffRaw(url: string): Promise<string | null> {
     }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function fetchBff<T = any>(url: string): Promise<T | null> {
     try {
         const res = await fetch(url, { credentials: 'include' });
         if (!res.ok) return null;
-        return await res.json();
+        return await res.json() as T;
     } catch {
         return null;
     }
@@ -106,10 +107,10 @@ async function parseResponse<T>(res: Response): Promise<T> {
     }
     // silenced
     // Last resort fallback
-    try { return JSON.parse(text); } catch { return text as any; }
+    try { return JSON.parse(text); } catch { return text as unknown as T; }
 }
 
-export function decryptPayload(payload: unknown): any {
+export function decryptPayload(payload: unknown): unknown {
     if (payload === null || payload === undefined) return null;
     if (typeof payload !== 'string') return payload;
 
@@ -253,6 +254,7 @@ export interface ChatMessage {
 export async function getMe(tokenOverride?: string): Promise<User> {
     const res = await fetch(`${API_BASE_URL}/api/me`, { headers: authHeaders(tokenOverride) });
     if (!res.ok) throw new Error('Failed to fetch user info');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const data = await parseResponse<any>(res);
     // Backend returns short field names: u=username, r=role, rl=reset_limit_at, ca=created_at, cl=class_change_limit
     return {
@@ -274,6 +276,7 @@ export async function getProfile(tokenOverride?: string): Promise<User> {
     if (!res.ok) {
         return getMe(tokenOverride);
     }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const data = await parseResponse<any>(res);
     return {
         username: data.u ?? data.username,

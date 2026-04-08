@@ -1,16 +1,12 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { User as UserType, getChatHistoryBff, banUserBff } from '../lib/api';
+import { User as UserType, getChatHistoryBff, banUserBff, ChatMessage } from '../lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, X, ShieldAlert, MessageCircle, User } from 'lucide-react';
 
-interface Message {
-    id: number;
-    user: string;
-    text: string;
-    time: string;
-}
+// Local Message mapping
+type Message = ChatMessage;
 
 interface PublicChatProps {
     user: UserType | null;
@@ -64,11 +60,11 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
             try {
                 const data = JSON.parse(event.data);
                 if (data.type === 'chat_message') {
-                    setMessages((prev) => [...prev, {
+                    setMessages((prev: Message[]) => [...prev, {
                         id: data.id,
-                        user: data.user,
-                        text: data.text,
-                        time: data.time
+                        username: data.username,
+                        message: data.message,
+                        timestamp: data.timestamp
                     }]);
                 }
                 if (data.type === 'user_banned') {
@@ -97,10 +93,10 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
 
     const handleBan = async (msg: Message) => {
         if (user?.role !== 1) return;
-        if (!confirm(`Bạn có chắc muốn BAN người dùng "${msg.user}"?`)) return;
+        if (!confirm(`Bạn có chắc muốn BAN người dùng "${msg.username}"?`)) return;
 
         try {
-            await banUserBff(msg.user, undefined, undefined, 'Hành vi không chừng mực trong chat');
+            await banUserBff(msg.username, undefined, undefined, 'Hành vi không chừng mực trong chat');
             alert('Đã ban người dùng!');
         } catch (e) {
             alert('Lỗi: ' + e);
@@ -163,7 +159,7 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
                                     </div>
                                 )}
                                 {messages.map((m) => {
-                                    const isMe = m.user === user?.username;
+                                    const isMe = m.username === user?.username;
                                     return (
                                         <motion.div
                                             initial={{ opacity: 0, y: 10, scale: 0.95 }}
@@ -174,7 +170,7 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
                                             <div className="flex items-center gap-2 mb-1 px-1">
                                                 {!isMe && <User className="w-3 h-3 text-slate-400" />}
                                                 <span className={`text-[10px] font-bold uppercase tracking-wider ${isMe ? 'text-indigo-500' : 'text-slate-500'}`}>
-                                                    {m.user}
+                                                    {m.username}
                                                 </span>
                                                 {user?.role === 1 && !isMe && (
                                                     <button
@@ -191,10 +187,10 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
                                                     ? 'bg-gradient-to-br from-violet-600 to-indigo-600 text-white rounded-tr-none'
                                                     : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-tl-none'
                                                 }`}>
-                                                {m.text}
+                                                {m.message}
                                             </div>
                                             <span className="text-[9px] text-slate-400 mt-1 font-medium px-1">
-                                                {new Date(m.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                             </span>
                                         </motion.div>
                                     );
