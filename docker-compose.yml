@@ -75,12 +75,10 @@ services:
         max-file: "3"
 
   cloudflared:
-    image: cloudflare/cloudflared:2024.3.0
+    image: cloudflare/cloudflared:latest
     container_name: cloudflared
     restart: always
-    environment:
-      - TUNNEL_TOKEN=${CF_TOKEN}
-    command: tunnel run
+    command: tunnel --no-autoupdate run --token "${CF_TOKEN}"
     networks:
       - frontend-network
       - backend-network
