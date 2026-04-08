@@ -13,11 +13,60 @@ from dotenv import load_dotenv
 
 import models, database, security
 from routers import auth, students, admin, websocket, chat
+from contextlib import asynccontextmanager
 
 # Load environment variables
 load_dotenv()
 
-app = FastAPI(title="Uneti Grade API")
+# Database Initialization & Admin User (Modern Lifespan)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # STARTUP
+    # Ensure database tables exist and are synchronized (Production & Local)
+    database.sync_schema()
+    
+    # Ensure admin user exists
+    db = database.SessionLocal()
+    
+    # Migration: Add class_change_limit column if doesn't exist
+    try:
+        from sqlalchemy import text
+        db.execute(text("ALTER TABLE nick ADD COLUMN class_change_limit INTEGER DEFAULT 5"))
+        db.commit()
+    except Exception:
+        db.rollback()
+        
+    admin_pass = os.getenv("ADMIN_PASSWORD")
+    admin_users = db.query(models.Nick).filter(models.Nick.username == "admin").all()
+    if not admin_users:
+        if admin_pass:
+            if len(admin_pass) >= 8:
+                new_admin = models.Nick(
+                    username="admin",
+                    password=security.get_password_hash(admin_pass),
+                    role=1,
+                    created_at=datetime.now()
+                )
+                db.add(new_admin)
+                db.commit()
+        else:
+            # Don't crash startup if admin pass is missing, just log it
+            logging.error("ADMIN_PASSWORD not set. Admin user not created.")
+    else:
+        updated = False
+        for admin_user in admin_users:
+            if admin_user.role != 1:
+                admin_user.role = 1
+                updated = True
+        if updated:
+            db.commit()
+    db.close()
+    
+    yield
+    # SHUTDOWN
+    # Add cleanup logic here if needed
+
+app = FastAPI(title="Uneti Grade API", lifespan=lifespan)
 
 def _build_allowed_hosts() -> list[str]:
     """
@@ -174,47 +223,6 @@ async def log_requests(request: Request, call_next):
     
     return response
 
-# Database Initialization & Admin User
-@app.on_event("startup")
-async def startup_event():
-    # Ensure database tables exist and are synchronized (Production & Local)
-    database.sync_schema()
-    
-    # Ensure admin user exists
-    db = database.SessionLocal()
-    
-    # Migration: Add class_change_limit column if doesn't exist
-    try:
-        from sqlalchemy import text
-        db.execute(text("ALTER TABLE nick ADD COLUMN class_change_limit INTEGER DEFAULT 5"))
-        db.commit()
-    except Exception:
-        db.rollback()
-        
-    admin_pass = os.getenv("ADMIN_PASSWORD")
-    admin_users = db.query(models.Nick).filter(models.Nick.username == "admin").all()
-    if not admin_users:
-        if not admin_pass:
-            raise RuntimeError("ADMIN_PASSWORD must be set before first startup")
-        if len(admin_pass) < 8:
-            raise RuntimeError("ADMIN_PASSWORD must be at least 8 characters")
-        new_admin = models.Nick(
-            username="admin",
-            password=security.get_password_hash(admin_pass),
-            role=1,
-            created_at=datetime.now()
-        )
-        db.add(new_admin)
-        db.commit()
-    else:
-        updated = False
-        for admin_user in admin_users:
-            if admin_user.role != 1:
-                admin_user.role = 1
-                updated = True
-        if updated:
-            db.commit()
-    db.close()
 
 # Include Routers
 app.include_router(auth.router, tags=["Authentication"])

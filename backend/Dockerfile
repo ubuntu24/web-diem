@@ -20,7 +20,10 @@ RUN echo "precedence ::ffff:0:0/96 100" >> /etc/gai.conf
 WORKDIR /app
 
 # Tạo user để không chạy bằng root
-RUN addgroup --system appgroup && adduser --system --group appuser
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && addgroup --system appgroup && adduser --system --group appuser
 
 # Sao chép các gói python đã cài đặt từ builder
 COPY --from=builder /install /usr/local

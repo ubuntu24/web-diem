@@ -58,7 +58,7 @@ async function fetchBffRaw(url: string): Promise<string | null> {
     }
 }
 
-async function fetchBff(url: string): Promise<any> {
+async function fetchBff<T = any>(url: string): Promise<T | null> {
     try {
         const res = await fetch(url, { credentials: 'include' });
         if (!res.ok) return null;
@@ -136,7 +136,7 @@ export function decryptPayload(payload: unknown): any {
 export async function getClasses(tokenOverride?: string): Promise<string[]> {
     const res = await fetch(`${API_BASE_URL}/api/classes`, { headers: authHeaders(tokenOverride) });
     if (!res.ok) throw new Error('Failed to fetch classes');
-    const data: any = await parseResponse(res);
+    const data = await parseResponse<{ classes: string[] }>(res);
     return data?.classes || [];
 }
 
@@ -145,9 +145,11 @@ export async function getClassesRaw(tokenOverride?: string): Promise<string | nu
     return fetchRawEncrypted(`${API_BASE_URL}/api/classes`, authHeaders(tokenOverride));
 }
 
-export async function getClassesBff(): Promise<any> {
+export async function getClassesBff(): Promise<string[] | null> {
     const res = await fetch('/v/classes', { credentials: 'include' });
-    return res.ok ? res.json() : null;
+    if (!res.ok) return null;
+    const data = await res.json() as { classes: string[] };
+    return data?.classes || [];
 }
 
 export async function getClassesBffRaw(): Promise<string | null> {
@@ -162,7 +164,7 @@ export async function getStudentsByClass(maLop: string, tokenOverride?: string):
         // silenced
         throw new Error('Failed to fetch students');
     }
-    const data: any = await parseResponse(res);
+    const data = await parseResponse<{ students: Student[] }>(res);
     return data?.students || [];
 }
 
@@ -171,9 +173,11 @@ export async function getStudentsByClassRaw(maLop: string, tokenOverride?: strin
     return fetchRawEncrypted(`${API_BASE_URL}/api/class/${encodeURIComponent(maLop)}/students`, authHeaders(tokenOverride));
 }
 
-export async function getStudentsByClassBff(maLop: string): Promise<any> {
+export async function getStudentsByClassBff(maLop: string): Promise<Student[] | null> {
     const res = await fetch(`/v/class/${encodeURIComponent(maLop)}/students`, { credentials: 'include' });
-    return res.ok ? res.json() : null;
+    if (!res.ok) return null;
+    const data = await res.json() as { students: Student[] };
+    return data?.students || [];
 }
 
 export async function getStudentsByClassBffRaw(maLop: string): Promise<string | null> {
@@ -196,7 +200,7 @@ export async function getStudentRaw(msv: string, tokenOverride?: string): Promis
     return fetchRawEncrypted(`${API_BASE_URL}/api/student/${encodeURIComponent(msv)}`, authHeaders(tokenOverride));
 }
 
-export async function getStudentBff(msv: string): Promise<any> {
+export async function getStudentBff(msv: string): Promise<Student | null> {
     const res = await fetch(`/v/student/${encodeURIComponent(msv)}`, { credentials: 'include' });
     return res.ok ? res.json() : null;
 }
@@ -209,7 +213,7 @@ export async function searchStudents(query: string, tokenOverride?: string): Pro
     const url = `${API_BASE_URL}/api/search?query=${encodeURIComponent(query)}`;
     const res = await fetch(url, { headers: authHeaders(tokenOverride) });
     if (!res.ok) throw new Error('Failed to search students');
-    const data: any = await parseResponse(res);
+    const data = await parseResponse<{ results: Student[] }>(res);
     return data?.results || [];
 }
 
@@ -218,9 +222,11 @@ export async function searchStudentsRaw(query: string, tokenOverride?: string): 
     return fetchRawEncrypted(`${API_BASE_URL}/api/search?query=${encodeURIComponent(query)}`, authHeaders(tokenOverride));
 }
 
-export async function searchStudentsBff(query: string): Promise<any> {
+export async function searchStudentsBff(query: string): Promise<Student[] | null> {
     const res = await fetch(`/v/search?query=${encodeURIComponent(query)}`, { credentials: 'include' });
-    return res.ok ? res.json() : null;
+    if (!res.ok) return null;
+    const data = await res.json() as { results: Student[] };
+    return data?.results || [];
 }
 
 export async function searchStudentsBffRaw(query: string): Promise<string | null> {
@@ -236,10 +242,18 @@ export interface User {
     class_change_limit?: number;
 }
 
+export interface ChatMessage {
+    id: number;
+    username: string;
+    message: string;
+    timestamp: string;
+    role?: number;
+}
+
 export async function getMe(tokenOverride?: string): Promise<User> {
     const res = await fetch(`${API_BASE_URL}/api/me`, { headers: authHeaders(tokenOverride) });
     if (!res.ok) throw new Error('Failed to fetch user info');
-    const data: any = await parseResponse(res);
+    const data = await parseResponse<any>(res);
     // Backend returns short field names: u=username, r=role, rl=reset_limit_at, ca=created_at, cl=class_change_limit
     return {
         username: data.u ?? data.username,
@@ -260,7 +274,7 @@ export async function getProfile(tokenOverride?: string): Promise<User> {
     if (!res.ok) {
         return getMe(tokenOverride);
     }
-    const data: any = await parseResponse(res);
+    const data = await parseResponse<any>(res);
     return {
         username: data.u ?? data.username,
         created_at: data.ca ?? data.created_at,
@@ -278,14 +292,14 @@ export async function getStudentCount(className?: string, tokenOverride?: string
 
     const res = await fetch(url, { headers: authHeaders(tokenOverride) });
     if (!res.ok) throw new Error('Failed to fetch student count');
-    const data: any = await parseResponse(res);
+    const data = await parseResponse<{ count: number }>(res);
     return data.count || 0;
 }
 
 export async function getOnlineUsers(tokenOverride?: string): Promise<number> {
     const res = await fetch(`${API_BASE_URL}/api/stats/online-users`, { headers: authHeaders(tokenOverride) });
     if (!res.ok) throw new Error('Failed to fetch online users');
-    const data: any = await parseResponse(res);
+    const data = await parseResponse<{ count: number }>(res);
     return data.count;
 }
 
@@ -524,8 +538,8 @@ export function getDeviceFingerprint(): string {
     return fp;
 }
 
-export async function getChatHistoryBff(): Promise<any[]> {
-    const data = await fetchBff('/v/chat/history');
+export async function getChatHistoryBff(): Promise<ChatMessage[]> {
+    const data = await fetchBff<{ messages: ChatMessage[] }>('/v/chat/history');
     return data?.messages || [];
 }
 
@@ -539,7 +553,7 @@ export async function banUserBff(user: string, ip?: string, fp?: string, reason?
     if (!res.ok) throw new Error('Failed to ban user');
 }
 
-export async function getBansBff(): Promise<any[]> {
+export async function getBansBff(): Promise<unknown[]> {
     const res = await fetch('/v/admin/bans', { credentials: 'include' });
     if (!res.ok) return [];
     return res.json();

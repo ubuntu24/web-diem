@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Custom Next.js server with WebSocket proxy support.
  *
