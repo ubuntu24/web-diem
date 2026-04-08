@@ -13,6 +13,7 @@ import {
     getStudentCountBff,
     getOnlineUsersBff,
     getWebSocketTicketBff,
+    getDeviceFingerprint,
     logoutUserBff,
 } from '@/lib/api';
 import PublicChat from './PublicChat';
@@ -443,7 +444,8 @@ export default function Dashboard() {
                 stopOnlinePolling();
                 const ticket = await getWebSocketTicketBff();
                 if (ticket) {
-                    socket?.send(JSON.stringify({ type: 'auth_ticket', ticket }));
+                    const fp = getDeviceFingerprint();
+                    socket?.send(JSON.stringify({ type: 'auth_ticket', ticket, fp }));
                 }
             };
             socket.onmessage = (event) => {
