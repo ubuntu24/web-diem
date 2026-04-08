@@ -16,7 +16,7 @@ jobs:
         run: |
           echo "$FRONTEND_ENV" > frontend/.env
           echo "$BACKEND_ENV" > backend/.env
-          echo "CF_TOKEN=$CF_TOKEN" > .env
+          printf "CF_TOKEN=%s\n" "$CF_TOKEN" > .env
         env:
           FRONTEND_ENV: ${{ secrets.FRONTEND_ENV }}
           BACKEND_ENV: ${{ secrets.BACKEND_ENV }}
@@ -42,7 +42,7 @@ jobs:
         run: |
           echo "$FRONTEND_ENV" > frontend/.env
           echo "$BACKEND_ENV" > backend/.env
-          echo "CF_TOKEN=$CF_TOKEN" > .env
+          printf "CF_TOKEN=%s\n" "$CF_TOKEN" > .env
         env:
           FRONTEND_ENV: ${{ secrets.FRONTEND_ENV }}
           BACKEND_ENV: ${{ secrets.BACKEND_ENV }}
