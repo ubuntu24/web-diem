@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Student } from './types';
 
 // Detect if we are running on the server or in the browser
@@ -110,7 +111,8 @@ async function parseResponse<T>(res: Response): Promise<T> {
     try { return JSON.parse(text); } catch { return text as unknown as T; }
 }
 
-export function decryptPayload(payload: unknown): unknown {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function decryptPayload(payload: unknown): any {
     if (payload === null || payload === undefined) return null;
     if (typeof payload !== 'string') return payload;
 
