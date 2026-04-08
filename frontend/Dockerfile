@@ -37,6 +37,10 @@ COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 # Copy our custom server.js
 COPY --from=builder --chown=nextjs:nodejs /app/server.js ./server.js
 
+# 🚀 FINAL FIX: Manually copy node_modules to ensure http-proxy is found
+# Next.js standalone mode sometimes misses dependencies used in custom server.js
+COPY --from=deps --chown=nextjs:nodejs /app/node_modules ./node_modules
+
 USER nextjs
 
 EXPOSE 3000
