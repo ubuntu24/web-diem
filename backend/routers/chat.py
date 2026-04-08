@@ -7,7 +7,10 @@ import security
 router = APIRouter(prefix="/api")
 
 @router.get("/chat/history")
-def get_chat_history(db: Session = Depends(get_db)):
+def get_chat_history(
+    current_user: models.Nick = Depends(security.get_current_user),
+    db: Session = Depends(get_db)
+):
     # Fetch last 50 messages
     messages = db.query(models.ChatMessage).order_by(models.ChatMessage.id.desc()).limit(50).all()
     # Return in chronological order
@@ -15,8 +18,8 @@ def get_chat_history(db: Session = Depends(get_db)):
     for m in reversed(messages):
         result.append({
             "id": int(m.id),
-            "user": m.username,
-            "text": m.message,
-            "time": m.created_at.isoformat()
+            "username": m.username,
+            "message": m.message,
+            "timestamp": m.created_at.isoformat()
         })
     return security.obfuscate_payload({"messages": result})

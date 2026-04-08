@@ -22,7 +22,7 @@ class User(BaseModel):
 
 class RegisterRequest(BaseModel):
     username: constr(strip_whitespace=True, min_length=3, max_length=32, pattern=r"^[A-Za-z0-9_.-]+$")
-    password: constr(min_length=8, max_length=4096)
+    password: constr(min_length=1, max_length=4096)
 
 class UpdateLimitRequest(BaseModel):
     limit: int = Field(ge=-1, le=100)

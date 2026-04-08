@@ -420,7 +420,7 @@ def format_student(sv: models.SinhVien, hide_details=False, role: int = 1):
 @router.get("/stats/student-count")
 def get_student_count(
     class_name: Optional[str] = None,
-    current_user: Optional[models.Nick] = Depends(security.get_optional_user),
+    current_user: models.Nick = Depends(security.get_current_user),
     db: Session = Depends(database.get_db)
 ):
     cache_key = f"student_count:{class_name or '__all__'}"
@@ -440,7 +440,7 @@ def get_student_count(
 
 @router.get("/classes")
 def get_classes(
-    current_user: Optional[models.Nick] = Depends(security.get_optional_user),
+    current_user: models.Nick = Depends(security.get_current_user),
     db: Session = Depends(database.get_db)
 ):
     cache_key = "classes:list"
@@ -458,7 +458,7 @@ def get_classes(
 @router.get("/class/{ma_lop}/students")
 def get_students_by_class(
     ma_lop: str, 
-    current_user: Optional[models.Nick] = Depends(security.get_optional_user),
+    current_user: models.Nick = Depends(security.get_current_user),
     db: Session = Depends(database.get_db)
 ):
     # Support multiple classes separated by commas (split and clean)
@@ -481,9 +481,8 @@ def get_students_by_class(
     if not students:
         raise HTTPException(status_code=404, detail=f"No students found for class(es): {ma_lop}")
 
-    # Role 0: return lightweight list (no full grade table) for privacy + performance.
-    # Role 1: keep full details as before.
-    hide_details = role == 0
+    # All authenticated users can see details.
+    hide_details = False
     data = {"students": [format_student(sv, hide_details=hide_details, role=role) for sv in students]}
     result = security.obfuscate_payload(data)
     _cache.set(cache_key, result, ttl=_TTL_CLASS)
@@ -492,7 +491,7 @@ def get_students_by_class(
 @router.get("/student/{msv}")
 def get_student_detail(
     msv: str,
-    current_user: Optional[models.Nick] = Depends(security.get_optional_user),
+    current_user: models.Nick = Depends(security.get_current_user),
     db: Session = Depends(database.get_db)
 ):
     role = current_user.role if current_user else 0
@@ -522,7 +521,7 @@ def get_student_detail(
 def search_students(
     request: Request,
     query: str = Query(..., min_length=1, max_length=64),
-    current_user: Optional[models.Nick] = Depends(security.get_optional_user),
+    current_user: models.Nick = Depends(security.get_current_user),
     db: Session = Depends(database.get_db)
 ):
     identity = (current_user.username if current_user else (request.client.host if request.client else "anon"))
@@ -544,7 +543,7 @@ def search_students(
         (models.SinhVien.msv.ilike(f"%{clean_query}%"))
     ).limit(50).all()
 
-    data = {"results": [format_student(sv, hide_details=True, role=role) for sv in students]}
+    data = {"results": [format_student(sv, hide_details=False, role=role) for sv in students]}
     result = security.obfuscate_payload(data)
     _cache.set(cache_key, result, ttl=_TTL_SEARCH)
     return result

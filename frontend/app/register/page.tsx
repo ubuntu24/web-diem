@@ -63,7 +63,7 @@ export default function RegisterPage() {
                         <UserPlus className="w-8 h-8" />
                     </div>
                     <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Đăng Ký Tài Khoản</h1>
-                    <p className="text-slate-500 dark:text-slate-400 text-sm mt-2">Tạo tài khoản khách để xem điểm</p>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm mt-2">Tạo tài khoản để xem điểm và tham gia chat</p>
                 </div>
 
                 <form onSubmit={handleRegister} className="space-y-4">

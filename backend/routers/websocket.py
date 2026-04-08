@@ -60,8 +60,9 @@ class ConnectionManager:
 
     async def broadcast_online_count(self):
         unique_users = len(set(
-            conn["user"] if conn.get("user") not in (None, "Guest") else f"guest:{id(conn['ws'])}"
+            conn["user"]
             for conn in self.active_connections
+            if conn.get("user")
         ))
         message = json.dumps({"type": "online_count", "count": unique_users})
         for connection in self.active_connections:
@@ -175,8 +176,8 @@ async def websocket_endpoint(websocket: WebSocket):
     # Only use public-routable IP for ban policy to avoid proxy/internal-IP collateral bans.
     policy_ip = client_ip if _is_public_ip(client_ip) else None
 
-    # Start as Guest; upgrade to username after JWT/ticket auth succeeds.
-    user_id = "Guest"
+    # Start as None; must upgrade to username after JWT success.
+    user_id = None
     device_fp = None
     
     # Extract token from cookies
@@ -190,13 +191,19 @@ async def websocket_endpoint(websocket: WebSocket):
         except JWTError:
             pass
 
+    if not user_id:
+        await websocket.accept()
+        await websocket.send_text(json.dumps({"type": "error", "message": "Bạn cần đăng nhập để tham gia hệ thống."}))
+        await websocket.close()
+        return
+
     # Initial Ban Check (by IP)
     db = SessionLocal()
     try:
         ban_filters = []
         if policy_ip:
             ban_filters.append(models.BanRecord.ip_address == policy_ip)
-        if user_id != "Guest":
+        if user_id:
             ban_filters.append(models.BanRecord.username == user_id)
 
         if ban_filters:
@@ -279,24 +286,27 @@ async def websocket_endpoint(websocket: WebSocket):
                     content = msg["message"].strip()
                     if content:
                         # Get current user details from manager
-                        sender = "Guest"
+                        sender = None
                         sender_ip = policy_ip
                         sender_fp = device_fp
                         for conn in manager.active_connections:
                             if conn["ws"] == websocket:
                                 conn_user = conn.get("user")
-                                if conn_user and conn_user != "Guest":
+                                if conn_user:
                                     sender = conn_user
                                 sender_ip = conn.get("ip", policy_ip)
                                 sender_fp = conn.get("fp", device_fp)
                                 break
+                        
+                        if not sender:
+                            continue
                         
                         # Store in DB
                         db = SessionLocal()
                         try:
                             # Verify ban before storing (in case they were banned while online)
                             ban_filters = []
-                            if sender and sender != "Guest":
+                            if sender:
                                 ban_filters.append(models.BanRecord.username == sender)
                             if sender_ip:
                                 ban_filters.append(models.BanRecord.ip_address == sender_ip)

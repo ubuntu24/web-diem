@@ -20,7 +20,8 @@ export default function HeroSection({ username, totalClasses, totalStudents, onl
         else setGreeting('Chào buổi tối');
     }, []);
 
-    const isGuest = role === 0;
+    // role 0 = Student, role 1 = Admin/Teacher
+    const isStudent = role === 0;
 
     return (
         <div className="mb-8 space-y-6">
@@ -35,9 +36,9 @@ export default function HeroSection({ username, totalClasses, totalStudents, onl
                         {greeting}, {username}! <span className="text-3xl md:text-4xl">👋</span>
                     </h1>
                     <p className="text-indigo-100 text-base md:text-lg opacity-90">
-                        {isGuest
-                            ? "Hôm nay bạn muốn kiểm tra tiến độ học tập của mình chứ?"
-                            : "Hôm nay bạn muốn kiểm tra tiến độ của lớp nào?"}
+                        {isStudent
+                            ? "Xem kết quả học tập và theo dõi tiến độ cá nhân của bạn."
+                            : "Quản lý dữ liệu điểm và theo dõi tiến độ của các lớp học."}
                     </p>
                 </div>
 
@@ -50,13 +51,13 @@ export default function HeroSection({ username, totalClasses, totalStudents, onl
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <StatsCard
                     icon={<BookOpen className="w-6 h-6 text-blue-600 dark:text-blue-400" />}
-                    label={isGuest ? "Lớp học đang theo dõi" : "Lớp học đang quản lý"}
+                    label={isStudent ? "Lớp đang theo dõi" : "Lớp đang quản lý"}
                     value={totalClasses.toString()}
                     color="bg-blue-50 border-blue-100 dark:bg-blue-900/20 dark:border-blue-800"
                 />
                 <StatsCard
                     icon={<Users className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />}
-                    label={isGuest ? "Sinh viên trong lớp" : "Tổng sinh viên (Toàn trường)"}
+                    label={isStudent ? "Bạn cùng lớp" : "Tổng lượng sinh viên"}
                     value={totalStudents > 0 ? totalStudents.toString() : "--"}
                     color="bg-emerald-50 border-emerald-100 dark:bg-emerald-900/20 dark:border-emerald-800"
                 />
