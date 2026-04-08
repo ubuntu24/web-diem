@@ -78,7 +78,9 @@ services:
     image: cloudflare/cloudflared:2024.3.0
     container_name: cloudflared
     restart: always
-    command: tunnel run --token ${CF_TOKEN}
+    environment:
+      - TUNNEL_TOKEN=${CF_TOKEN}
+    command: tunnel run
     networks:
       - frontend-network
       - backend-network
@@ -86,7 +88,7 @@ services:
       frontend:
         condition: service_started
       backend:
-        condition: service_healthy
+        condition: service_started
     logging:
       driver: "json-file"
       options:
