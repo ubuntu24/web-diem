@@ -16,8 +16,17 @@ jobs:
         run: |
           echo "$FRONTEND_ENV" > frontend/.env
           echo "$BACKEND_ENV" > backend/.env
-          # Extract only the token part (if command was pasted) and remove whitespace
+          # 🚀 CLEAN & EXTRACT TOKEN
           CLEAN_TOKEN=$(echo "$CF_TOKEN" | grep -oE "ey[a-zA-Z0-9+/=_.-]+" | head -n 1 || echo "$CF_TOKEN" | tr -d '[:space:]')
+          
+          # SAFE DEBUG: Verify integrity without leaking secret
+          echo "DEBUG: Token Length is ${#CLEAN_TOKEN}"
+          echo "DEBUG: Token starts with ${CLEAN_TOKEN:0:8}..."
+          echo "DEBUG: Token ends with ...${CLEAN_TOKEN: -8}"
+          
+          # Create dedicated tunnel env file
+          printf "TUNNEL_TOKEN=%s\n" "$CLEAN_TOKEN" > .env.tunnel
+          # Keep root .env for compatibility
           printf "CF_TOKEN=%s\n" "$CLEAN_TOKEN" > .env
         env:
           FRONTEND_ENV: ${{ secrets.FRONTEND_ENV }}
@@ -44,8 +53,17 @@ jobs:
         run: |
           echo "$FRONTEND_ENV" > frontend/.env
           echo "$BACKEND_ENV" > backend/.env
-          # Extract only the token part (if command was pasted) and remove whitespace
+          # 🚀 CLEAN & EXTRACT TOKEN
           CLEAN_TOKEN=$(echo "$CF_TOKEN" | grep -oE "ey[a-zA-Z0-9+/=_.-]+" | head -n 1 || echo "$CF_TOKEN" | tr -d '[:space:]')
+          
+          # SAFE DEBUG: Verify integrity without leaking secret
+          echo "DEBUG: Token Length is ${#CLEAN_TOKEN}"
+          echo "DEBUG: Token starts with ${CLEAN_TOKEN:0:8}..."
+          echo "DEBUG: Token ends with ...${CLEAN_TOKEN: -8}"
+          
+          # Create dedicated tunnel env file
+          printf "TUNNEL_TOKEN=%s\n" "$CLEAN_TOKEN" > .env.tunnel
+          # Keep root .env for compatibility
           printf "CF_TOKEN=%s\n" "$CLEAN_TOKEN" > .env
         env:
           FRONTEND_ENV: ${{ secrets.FRONTEND_ENV }}

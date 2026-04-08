@@ -78,7 +78,9 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared
     restart: always
-    command: tunnel --no-autoupdate run --token "${CF_TOKEN}"
+    env_file:
+      - .env.tunnel
+    command: tunnel --no-autoupdate run
     networks:
       - frontend-network
       - backend-network
