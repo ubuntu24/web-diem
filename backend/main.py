@@ -223,6 +223,10 @@ app.include_router(admin.router, tags=["Admin"])
 app.include_router(chat.router, tags=["Chat"])
 app.include_router(websocket.router, tags=["WebSocket"])
 
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
+
 if __name__ == "__main__":
     import uvicorn
     host = os.getenv("BACKEND_HOST", "127.0.0.1")

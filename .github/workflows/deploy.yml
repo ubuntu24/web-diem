@@ -14,9 +14,13 @@ jobs:
 
       - name: Create .env files
         run: |
-          echo "${{ secrets.FRONTEND_ENV }}" > frontend/.env
-          echo "${{ secrets.BACKEND_ENV }}" > backend/.env
-          echo "${{ secrets.CF_TOKEN }}" > .env
+          echo "$FRONTEND_ENV" > frontend/.env
+          echo "$BACKEND_ENV" > backend/.env
+          echo "$CF_TOKEN" > .env
+        env:
+          FRONTEND_ENV: ${{ secrets.FRONTEND_ENV }}
+          BACKEND_ENV: ${{ secrets.BACKEND_ENV }}
+          CF_TOKEN: ${{ secrets.CF_TOKEN }}
 
 
       - name: Build Frontend
@@ -36,11 +40,14 @@ jobs:
 
       - name: Create .env files
         run: |
-          echo "${{ secrets.FRONTEND_ENV }}" > frontend/.env
-          echo "${{ secrets.BACKEND_ENV }}" > backend/.env
-          echo "${{ secrets.CF_TOKEN }}" > .env
+          echo "$FRONTEND_ENV" > frontend/.env
+          echo "$BACKEND_ENV" > backend/.env
+          echo "$CF_TOKEN" > .env
+        env:
+          FRONTEND_ENV: ${{ secrets.FRONTEND_ENV }}
+          BACKEND_ENV: ${{ secrets.BACKEND_ENV }}
+          CF_TOKEN: ${{ secrets.CF_TOKEN }}
 
       - name: Deploy
         run: |
-          docker compose down
-          docker compose up -d --build
+          docker compose up -d --build --remove-orphans

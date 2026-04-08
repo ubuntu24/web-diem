@@ -46,3 +46,18 @@ Thumbs.db
 # AI Agent Skills
 .agents/
 .agent/
+
+# Security & Keys
+*.pem
+*.key
+*.p12
+*.pfx
+*.cert
+*.crt
+id_rsa*
+secrets.json
+
+# Local Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
