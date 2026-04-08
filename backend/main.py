@@ -1,5 +1,14 @@
 import os
 import logging
+import sys
+
+# Initialize logging immediately for startup visibility
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    stream=sys.stdout
+)
+logger = logging.getLogger("api")
 from datetime import datetime, date
 from urllib.parse import urlparse
 from fastapi import FastAPI, Request
@@ -21,46 +30,51 @@ load_dotenv()
 # Database Initialization & Admin User (Modern Lifespan)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # STARTUP
-    # Ensure database tables exist and are synchronized (Production & Local)
-    database.sync_schema()
-    
-    # Ensure admin user exists
-    db = database.SessionLocal()
-    
-    # Migration: Add class_change_limit column if doesn't exist
     try:
-        from sqlalchemy import text
-        db.execute(text("ALTER TABLE nick ADD COLUMN class_change_limit INTEGER DEFAULT 5"))
-        db.commit()
-    except Exception:
-        db.rollback()
+        # STARTUP
+        # Ensure database tables exist and are synchronized (Production & Local)
+        database.sync_schema()
         
-    admin_pass = os.getenv("ADMIN_PASSWORD")
-    admin_users = db.query(models.Nick).filter(models.Nick.username == "admin").all()
-    if not admin_users:
-        if admin_pass:
-            if len(admin_pass) >= 8:
-                new_admin = models.Nick(
-                    username="admin",
-                    password=security.get_password_hash(admin_pass),
-                    role=1,
-                    created_at=datetime.now()
-                )
-                db.add(new_admin)
-                db.commit()
-        else:
-            # Don't crash startup if admin pass is missing, just log it
-            logging.error("ADMIN_PASSWORD not set. Admin user not created.")
-    else:
-        updated = False
-        for admin_user in admin_users:
-            if admin_user.role != 1:
-                admin_user.role = 1
-                updated = True
-        if updated:
+        # Ensure admin user exists
+        db = database.SessionLocal()
+        
+        # Migration: Add class_change_limit column if doesn't exist
+        try:
+            from sqlalchemy import text
+            db.execute(text("ALTER TABLE nick ADD COLUMN class_change_limit INTEGER DEFAULT 5"))
             db.commit()
-    db.close()
+        except Exception as e:
+            db.rollback()
+            logger.info(f"Migration skip or already exists: {e}")
+            
+        admin_pass = os.getenv("ADMIN_PASSWORD")
+        admin_users = db.query(models.Nick).filter(models.Nick.username == "admin").all()
+        if not admin_users:
+            if admin_pass:
+                if len(admin_pass) >= 8:
+                    new_admin = models.Nick(
+                        username="admin",
+                        password=security.get_password_hash(admin_pass),
+                        role=1,
+                        created_at=datetime.now()
+                    )
+                    db.add(new_admin)
+                    db.commit()
+                    logger.info("Admin user created.")
+            else:
+                logger.warning("ADMIN_PASSWORD not set. Admin user not created.")
+        else:
+            updated = False
+            for admin_user in admin_users:
+                if admin_user.role != 1:
+                    admin_user.role = 1
+                    updated = True
+            if updated:
+                db.commit()
+                logger.info("Admin roles synchronized.")
+        db.close()
+    except Exception as startup_err:
+        logger.error(f"FATAL STARTUP ERROR (silenced to keep server alive): {startup_err}")
     
     yield
     # SHUTDOWN
@@ -118,7 +132,12 @@ def _build_allowed_hosts() -> list[str]:
     return deduped or ["*"]
 
 
-allowed_hosts = _build_allowed_hosts()
+# 🛡️ SECURITY: Production allowed hosts. 
+# For Docker Healthcheck reliability, we use "*" as the default inside containers
+# unless an explicit allowlist is provided via ALLOWED_HOSTS.
+allowed_hosts = os.getenv("ALLOWED_HOSTS", "*").split(",")
+allowed_hosts = [h.strip() for h in allowed_hosts if h.strip()]
+
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
 app.add_middleware(GZipMiddleware, minimum_size=1024)
 

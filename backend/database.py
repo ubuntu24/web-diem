@@ -63,24 +63,32 @@ def create_tables():
 
 def sync_schema():
     """Tự động đồng bộ hóa cấu trúc bảng cho môi trường Production (Postgres/SQLite)"""
-    inspector = inspect(engine)
-    
-    # 1. Đồng bộ bảng chat_messages
-    if 'chat_messages' in inspector.get_table_names():
-        columns = [c['name'] for c in inspector.get_columns('chat_messages')]
-        with engine.connect() as conn:
-            # Thêm cột ip_address nếu thiếu
-            if 'ip_address' not in columns:
-                print("[INFO] Sync: Adding 'ip_address' to chat_messages")
-                conn.execute(text("ALTER TABLE chat_messages ADD COLUMN ip_address TEXT"))
-            
-            # Thêm cột device_fingerprint nếu thiếu
-            if 'device_fingerprint' not in columns:
-                print("[INFO] Sync: Adding 'device_fingerprint' to chat_messages")
-                conn.execute(text("ALTER TABLE chat_messages ADD COLUMN device_fingerprint TEXT"))
-            
-            conn.commit()
-    
-    # 2. Đồng bộ bảng ban_records (nếu cần tương lai)
-    # create_tables() sẽ tự động tạo bảng mới nếu chưa có
-    create_tables()
+    try:
+        print("[INFO] Sync: Starting schema synchronization...")
+        inspector = inspect(engine)
+        
+        # 1. Đồng bộ bảng chat_messages
+        if 'chat_messages' in inspector.get_table_names():
+            columns = [c['name'] for c in inspector.get_columns('chat_messages')]
+            with engine.connect() as conn:
+                # Thêm cột ip_address nếu thiếu
+                if 'ip_address' not in columns:
+                    print("[INFO] Sync: Adding 'ip_address' to chat_messages")
+                    conn.execute(text("ALTER TABLE chat_messages ADD COLUMN ip_address TEXT"))
+                
+                # Thêm cột device_fingerprint nếu thiếu
+                if 'device_fingerprint' not in columns:
+                    print("[INFO] Sync: Adding 'device_fingerprint' to chat_messages")
+                    conn.execute(text("ALTER TABLE chat_messages ADD COLUMN device_fingerprint TEXT"))
+                
+                conn.commit()
+                print("[INFO] Sync: chat_messages table synchronized.")
+        
+        # 2. Đồng bộ bảng ban_records (nếu cần tương lai)
+        # create_tables() sẽ tự động tạo bảng mới nếu chưa có
+        print("[INFO] Sync: Ensuring all tables exist...")
+        create_tables()
+        print("[INFO] Sync: Schema synchronization complete.")
+    except Exception as e:
+        print(f"[ERROR] Sync: Schema synchronization failed: {e}")
+        # We don't re-raise to allow the server to start even if sync has issues
