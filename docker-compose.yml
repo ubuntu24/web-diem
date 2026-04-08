@@ -100,4 +100,3 @@ networks:
     driver: bridge
   backend-network:
     driver: bridge
-    internal: true
