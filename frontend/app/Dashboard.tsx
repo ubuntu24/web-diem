@@ -29,6 +29,8 @@ import HeroSection from '@/components/HeroSection';
 import AdminUserList from '@/components/AdminUserList';
 import ClassPicker from '@/components/ClassPicker';
 import FeedbackButton from '@/components/FeedbackButton';
+import StudentCharts from '@/components/StudentCharts';
+import anime from 'animejs/lib/anime.js';
 
 export default function Dashboard() {
     const router = useRouter();
@@ -50,7 +52,8 @@ export default function Dashboard() {
     }
 
     const [role, setRole] = useState<number>(0);
-    const [username, setUsername] = useState('User');
+    const [username, setUsername] = useState('User'); // This is the DISPLAY name (full_name or username)
+    const [loginUsername, setLoginUsername] = useState(''); // This is the ACTUAL login username
     const [totalCredits, setTotalCredits] = useState(0);
     const [totalPoints, setTotalPoints] = useState(0);
     const [totalStudentCount, setTotalStudentCount] = useState(0);
@@ -67,21 +70,8 @@ export default function Dashboard() {
     const [chatSocket, setChatSocket] = useState<WebSocket | null>(null);
 
     // ---------------------------------------------------------------------------
-    // GPA helpers (clean version)
+    // GPA helpers (Centralized in Backend)
     // ---------------------------------------------------------------------------
-
-    const EXCLUDED_MA_MON = new Set(['0101000515', '0101000509', '0101000518']);
-    const EXCLUDED_KEYWORDS = [
-        'giáo dục thể chất', 'gdtc',
-        'giáo dục quốc phòng', 'gdqp',
-        'thể dục',
-        'toeic',
-        'tiếng anh đầu vào', 'tieng anh dau vao',
-        'english placement',
-        'xếp lớp tiếng anh', 'xep lop tieng anh',
-        'kiểm tra đầu vào tiếng anh', 'kiem tra dau vao tiếng anh',
-        'điểm test tiếng anh đầu vào', 'diem test tieng anh dau vao',
-    ];
 
     function toNumber(value: unknown): number | null {
         if (value === null || value === undefined) return null;
@@ -107,39 +97,14 @@ export default function Dashboard() {
         return { s10, s4 };
     }
 
-    function isExcludedFromGPA(grade: { ten_mon?: string; ma_mon?: string; exclude_from_gpa?: boolean; tong_ket_10?: string }): boolean {
-        if (grade.exclude_from_gpa === true) return true;
-        if (EXCLUDED_MA_MON.has((grade.ma_mon || '').trim())) return true;
-        const name = (grade.ten_mon || '').trim().toLowerCase();
-        if (name && EXCLUDED_KEYWORDS.some(kw => name.includes(kw))) return true;
-        const raw10 = toNumber(grade.tong_ket_10);
-        if (raw10 !== null && raw10 > 10) return true;
-        return false;
+    function isExcludedFromGPA(grade: Grade): boolean {
+        // Backend now handles exclusion logic (ma_mon, keywords, score range)
+        return grade.exclude_from_gpa === true;
     }
 
-    function getNormalizedSemester(grade: any): string {
-        let hk = (grade.hoc_ky || '').trim();
-        const ldl = (grade.loai_du_lieu || '').trim();
-        const tenMon = (grade.ten_mon || '').trim().toLowerCase();
-
-        const hkUpper = hk.toUpperCase();
-        // If hoc_ky is a real semester (not empty, not "HV"), always use it
-        // This prevents subjects like "Tiếng Anh HV" from being pulled out of their semester
-        const hasRealSemester = hk && hkUpper !== 'HV' && !hk.toLowerCase().includes('hoc vuot');
-        if (hasRealSemester) return hk;
-
-        const isHocVuot =
-            hkUpper === 'HV' ||
-            hk.toLowerCase().includes('hoc vuot') ||
-            ldl.toUpperCase() === 'HV' ||
-            ldl.toLowerCase().includes('hoc vuot') ||
-            tenMon.includes('_ hv') ||
-            tenMon.includes('(hoc vuot)') ||
-            tenMon.includes('(hv)');
-
-        if (isHocVuot) return 'Học vượt';
-        if (!hk && ldl) return ldl;
-        return hk || 'Khác';
+    function getNormalizedSemester(grade: Grade): string {
+        // Backend now handles semester normalization (Học vượt, Khác, etc.)
+        return grade.normalized_semester || grade.hoc_ky || 'Khác';
     }
 
     // ---------------------------------------------------------------------------
@@ -199,7 +164,8 @@ export default function Dashboard() {
             xu_ly_hoc_vu: g.xlhv,
             loai_du_lieu: g.ldl,
             exclude_from_gpa: g.e,
-            // cai_thien removed
+            normalized_semester: g.nh,
+            clean_name: g.cn
         };
     }
 
@@ -231,6 +197,9 @@ export default function Dashboard() {
         };
     }
     function calculateSemesterGPA(student: Student, semester: string): { gpa4: number, gpa10: number } {
+        const fallback = student.semester_gpa?.[semester];
+        if (fallback) return fallback;
+        
         if (!student.diem) return { gpa4: 0, gpa10: 0 };
         const target = semester.trim().toLowerCase();
         const rows = student.diem.filter(
@@ -264,6 +233,16 @@ export default function Dashboard() {
             gpa4: tc > 0 ? parseFloat((p4 / tc).toFixed(2)) : 0,
             gpa10: tc > 0 ? parseFloat((p10 / tc).toFixed(2)) : 0,
         };
+    }
+
+    function calculateSemesterGPAData(student: Student): Record<string, { gpa4: number, gpa10: number }> {
+        if (!student.diem) return {};
+        const semesters = new Set((student.diem || []).map(g => getNormalizedSemester(g)));
+        const result: Record<string, { gpa4: number, gpa10: number }> = {};
+        semesters.forEach(sem => {
+            result[sem] = calculateSemesterGPA(student, sem);
+        });
+        return result;
     }
 
     function calculateCumulativeGPA(student: Student): { gpa4: number, gpa10: number, totalCredits: number, totalPoints4: number, totalPoints10: number } {
@@ -321,12 +300,13 @@ export default function Dashboard() {
                 router.push('/login');
                 return;
             }
-            const username = user.username;
+            const displayedName = user.full_name || user.username;
             const role = user.role;
             const classChangeLimit = user.class_change_limit;
             const resetLimitAt = user.reset_limit_at;
 
-            if (username) setUsername(username);
+            if (user.username) setLoginUsername(user.username);
+            if (displayedName) setUsername(displayedName);
             if (role !== undefined) setRole(role);
 
             const storedClass = localStorage.getItem('selectedClass') || '';
@@ -623,6 +603,10 @@ export default function Dashboard() {
             const data = encrypted ? decryptPayload(encrypted) : null;
             if (data) {
                 const mapped = mapStudent(data);
+                // Ensure semester_gpa is populated for charts
+                if (!mapped.semester_gpa || Object.keys(mapped.semester_gpa).length === 0) {
+                    mapped.semester_gpa = calculateSemesterGPAData(mapped);
+                }
                 setCurrentStudent(mapped);
                 calculateGPA(mapped);
                 navigateView('grades', { msv });
@@ -659,12 +643,43 @@ export default function Dashboard() {
         setTotalPoints(cum.totalPoints4);
         const val = sortingScale === '4' ? cum.gpa4 : cum.gpa10;
         setGpa(val > 0 ? val.toFixed(2) : 'N/A');
+        
+        // Populate semester_gpa for charts if missing
+        if (!student.semester_gpa || Object.keys(student.semester_gpa).length === 0) {
+            student.semester_gpa = calculateSemesterGPAData(student);
+        }
     }
 
     useEffect(() => {
         if (!currentStudent) return;
         calculateGPA(currentStudent);
     }, [currentStudent, sortingScale]);
+
+    // Anime.js View Transition
+    useEffect(() => {
+        if (!anime) return;
+        (anime as any)({
+            targets: '.animate-view-entry',
+            translateY: [20, 0],
+            opacity: [0, 1],
+            easing: 'easeOutExpo',
+            duration: 800,
+            delay: (el: any, i: number) => i * 100
+        });
+    }, [view, loading]);
+
+    // Anime.js Stagger for Lists
+    useEffect(() => {
+        if (!anime || loading) return;
+        (anime as any)({
+            targets: '.stagger-item',
+            translateX: [-20, 0],
+            opacity: [0, 1],
+            delay: (el: any, i: number) => i * 50,
+            easing: 'easeOutQuad',
+            duration: 600
+        });
+    }, [view, loading, students, classes]);
 
     const gradesBySemester = (() => {
         // Step 1: Group grades by semester
@@ -885,11 +900,11 @@ export default function Dashboard() {
                                     {role === 0 ? (
                                         selectedClass ? (
                                             <div className="grid grid-cols-1 gap-3">
-                                                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} whileHover={{ y: -5, transition: { duration: 0.2 } }} onClick={() => loadStudents(selectedClass)} className="bg-white dark:bg-slate-800 p-5 rounded-xl border border-indigo-200 dark:border-indigo-700 transition-all flex items-center gap-4 group cursor-pointer shadow-sm hover:shadow-lg hover:border-indigo-400">
+                                                <div onClick={() => loadStudents(selectedClass)} className="animate-view-entry bg-white dark:bg-slate-800 p-5 rounded-xl border border-indigo-200 dark:border-indigo-700 transition-all flex items-center gap-4 group cursor-pointer shadow-sm hover:shadow-lg hover:border-indigo-400">
                                                     <div className="w-12 h-12 rounded-full flex items-center justify-center bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 group-hover:scale-110 transition-transform"><MapPin className="w-6 h-6" /></div>
                                                     <div className="flex-1"><div className="font-bold text-lg text-slate-900 dark:text-white">{selectedClass}</div><div className="text-xs text-slate-500 dark:text-slate-400">Nhấn để xem danh sách sinh viên</div></div>
                                                     <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-indigo-500 transition-colors" />
-                                                </motion.div>
+                                                </div>
                                             </div>
                                         ) : (
                                             <div className="text-center py-12"><MapPin className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-4" /><p className="text-slate-500 dark:text-slate-400 font-medium">Vui lòng chọn lớp để bắt đầu</p><button onClick={() => setShowClassPicker(true)} className="mt-4 px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors">Chọn lớp</button></div>
@@ -897,11 +912,11 @@ export default function Dashboard() {
                                     ) : (
                                         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
                                             {classes.map((cls, index) => (
-                                                <motion.div key={cls} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }} whileHover={{ y: -5, transition: { duration: 0.2 } }} onClick={() => compareMode ? toggleClassSelection(cls) : loadStudents(cls)} className={`bg-white dark:bg-slate-800 p-3 md:p-5 rounded-xl border transition-all flex flex-col items-center justify-center gap-3 group relative overflow-hidden shadow-sm hover:shadow-lg hover:border-indigo-300 dark:hover:border-indigo-700 ${compareMode && selectedClasses.includes(cls) ? 'border-indigo-500 bg-indigo-50/30 ring-2 ring-indigo-500' : 'border-slate-100 dark:border-slate-700'} cursor-pointer`}>
+                                                <div key={cls} onClick={() => compareMode ? toggleClassSelection(cls) : loadStudents(cls)} className={`stagger-item bg-white dark:bg-slate-800 p-3 md:p-5 rounded-xl border transition-all flex flex-col items-center justify-center gap-3 group relative overflow-hidden shadow-sm hover:shadow-lg hover:border-indigo-300 dark:hover:border-indigo-700 ${compareMode && selectedClasses.includes(cls) ? 'border-indigo-500 bg-indigo-50/30 ring-2 ring-indigo-500' : 'border-slate-100 dark:border-slate-700'} cursor-pointer`}>
                                                     {compareMode && (<div className={`absolute top-2 right-2 w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${selectedClasses.includes(cls) ? 'bg-indigo-600 border-indigo-600' : 'bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600'}`}>{selectedClasses.includes(cls) && <div className="w-1.5 h-1.5 bg-white rounded-full" />}</div>)}
                                                     <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${compareMode && selectedClasses.includes(cls) ? 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300' : 'bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-700 dark:to-slate-700 text-indigo-600 dark:text-indigo-300'} group-hover:scale-110 transition-transform shadow-inner`}><span className="font-bold text-sm tracking-tight">{cls.substring(0, 2)}</span></div>
                                                     <div className={`font-semibold text-sm truncate w-full text-center group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors ${compareMode && selectedClasses.includes(cls) ? 'text-indigo-900 dark:text-indigo-200' : 'text-slate-600 dark:text-slate-300'}`}>{cls}</div>
-                                                </motion.div>
+                                                </div>
                                             ))}
                                         </div>
                                     )}
@@ -932,7 +947,16 @@ export default function Dashboard() {
                                             )}
                                         </div>
                                         {(view === 'students' || view === 'search') && (
-                                            <div className="relative max-w-xs w-full"><Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" /><input type="text" placeholder={view === 'search' ? 'Lọc trong kết quả...' : 'Tìm trong lớp này...'} className="w-full pl-9 pr-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-md text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-slate-900 dark:text-slate-100 font-medium placeholder-slate-400" value={localSearchTerm} onChange={(e) => setLocalSearchTerm(e.target.value)} /></div>
+                                            <div className="relative max-w-xs w-full">
+                                                <Search className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                                                <input 
+                                                    type="text" 
+                                                    placeholder={view === 'search' ? 'Lọc trong kết quả...' : 'Tìm trong lớp này...'} 
+                                                    className="w-full pl-9 pr-3 py-1.5 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-slate-900 dark:text-slate-100 font-semibold placeholder-slate-500 dark:placeholder-slate-400" 
+                                                    value={localSearchTerm} 
+                                                    onChange={(e) => setLocalSearchTerm(e.target.value)} 
+                                                />
+                                            </div>
                                         )}
                                     </div>
                                     <div className="grid grid-cols-1 divide-y divide-gray-100 dark:divide-slate-700">
@@ -940,7 +964,7 @@ export default function Dashboard() {
                                             <div className="p-8 text-center text-slate-500 dark:text-slate-400">{localSearchTerm ? 'Không tìm thấy sinh viên phù hợp.' : 'Không có dữ liệu.'}</div>
                                         ) : (
                                             filteredStudents.map((sv) => (
-                                                <div key={sv.msv} onClick={() => loadGrade(sv.msv)} className="p-3 md:p-4 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 cursor-pointer transition-colors flex items-center gap-3 md:gap-4 group">
+                                                <div key={sv.msv} onClick={() => loadGrade(sv.msv)} className="stagger-item p-3 md:p-4 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 cursor-pointer transition-colors flex items-center gap-3 md:gap-4 group">
                                                     <div className="relative">
                                                         <div className="w-16 h-16 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center text-slate-400 dark:text-slate-300 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/50 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors"><span className="font-bold text-2xl">{sv.ho_ten.charAt(0).toUpperCase()}</span></div>
                                                         <div className="absolute -bottom-2 -right-2 flex gap-1 z-10">
@@ -979,7 +1003,8 @@ export default function Dashboard() {
                                             <div className="mt-6 p-4 bg-slate-900 dark:bg-indigo-950/50 border border-slate-800 dark:border-indigo-900/50 rounded-lg text-white text-center shadow-inner"><div className="text-xs uppercase tracking-wider opacity-70 mb-1 text-slate-300 dark:text-indigo-200">GPA Tích Lũy</div><div className="text-3xl font-bold text-white dark:text-indigo-100">{gpa}</div></div>
                                         </div>
                                     </div>
-                                    <div className="lg:col-span-3 space-y-4">
+                                    <div className="lg:col-span-3 space-y-4 animate-view-entry">
+                                        <StudentCharts student={currentStudent} scale={sortingScale} />
                                         <div className="flex items-center gap-2 mb-2"><h3 className="font-bold text-slate-800 dark:text-white">Bảng Điểm Chi Tiết</h3></div>
                                         {sortedSemesterKeys.map(hk => {
                                             const semesterGrades = gradesBySemester[hk];
@@ -1030,7 +1055,7 @@ export default function Dashboard() {
             <FeedbackButton username={username} />
 
             <PublicChat
-                user={{ username, role }}
+                user={{ username, loginUsername, role }}
                 socket={chatSocket}
                 isOpen={isChatOpen}
                 onClose={() => setIsChatOpen(false)}
@@ -1039,11 +1064,14 @@ export default function Dashboard() {
             {!isChatOpen && (
                 <motion.button
                     onClick={() => setIsChatOpen(true)}
-                    className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-300/40 dark:shadow-violet-900/40 flex items-center justify-center hover:scale-110 active:scale-95 transition-transform"
+                    className="fixed bottom-6 right-6 sm:bottom-8 sm:right-8 z-50 w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-xl shadow-violet-500/30 dark:shadow-violet-900/50 flex items-center justify-center hover:scale-110 active:scale-95 transition-transform"
                     whileHover={{ rotate: [0, 10, -10, 0] }}
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
                     title="Chat Công Cộng"
                 >
-                    <MessageCircle className="w-6 h-6" />
+                    <MessageCircle className="w-6 h-6 sm:w-7 sm:h-7" />
+                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-white dark:border-slate-900 animate-pulse"></div>
                 </motion.button>
             )}
         </div >

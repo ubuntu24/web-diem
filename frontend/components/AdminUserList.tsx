@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Search, Shield, Edit, Save, X, Check, Loader2, User as UserIcon, Star, Activity } from 'lucide-react';
 import { AdminUser, getUsersBff, resetUserLimitBff, updateUserLimitBff, getBansBff, unbanUserBff } from '@/lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'react-hot-toast';
 
 export default function AdminUserList() {
     const [users, setUsers] = useState<AdminUser[]>([]);
@@ -42,10 +43,10 @@ export default function AdminUserList() {
         if (!confirm('Bạn có muốn gỡ cấm cho thiết bị/tài khoản này?')) return;
         try {
             await unbanUserBff(id);
-            alert('Đã gỡ cấm thành công!');
+            toast.success('Đã gỡ cấm thành công!');
             loadData();
         } catch (e) {
-            alert('Lỗi: ' + e);
+            toast.error('Gỡ cấm thất bại');
         }
     };
 
@@ -155,13 +156,13 @@ export default function AdminUserList() {
                                                                 const newLimit = parseInt(newLimitStr);
                                                                 if (!isNaN(newLimit)) {
                                                                     updateUserLimitBff(user.id, newLimit).then(() => {
-                                                                        alert(`Đã cập nhật lượt đổi lớp cho ${user.username}`);
+                                                                        toast.success(`Đã cập nhật lượt đổi lớp cho ${user.username}`);
                                                                         loadData();
                                                                     }).catch(() => {
-                                                                        alert('Cập nhật thất bại');
+                                                                        toast.error('Cập nhật thất bại');
                                                                     });
                                                                 } else {
-                                                                    alert('Giá trị không hợp lệ');
+                                                                    toast.error('Giá trị không hợp lệ');
                                                                 }
                                                             }
                                                         }}
@@ -174,10 +175,10 @@ export default function AdminUserList() {
                                                         onClick={() => {
                                                             if (confirm(`Bạn có chắc muốn reset lượt đổi lớp cho ${user.username}?`)) {
                                                                 resetUserLimitBff(user.id).then(() => {
-                                                                    alert(`Đã reset lượt đổi lớp cho ${user.username}`);
+                                                                    toast.success(`Đã reset lượt đổi lớp cho ${user.username}`);
                                                                     loadData();
                                                                 }).catch(() => {
-                                                                    alert('Reset thất bại');
+                                                                    toast.error('Reset thất bại');
                                                                 });
                                                             }
                                                         }}

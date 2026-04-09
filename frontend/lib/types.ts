@@ -59,6 +59,8 @@ export interface Grade {
     loai_du_lieu?: string;
     exclude_from_gpa?: boolean;
     cai_thien?: boolean;
+    normalized_semester?: string;
+    clean_name?: string;
 }
 
 export interface Student {

@@ -1,16 +1,19 @@
 import time
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+
+import cache as _cache
+import database
+import models
+import schemas
+import security
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta
-import os
-import models, database, schemas, security
-import cache as _cache
 
 router = APIRouter(prefix="/api")
 
 
 import threading
+
 _rl_lock = threading.Lock()
 
 def _check_rate_limit(scope: str, identity: str, limit: int, window_seconds: int) -> bool:
@@ -93,9 +96,10 @@ def register(payload: schemas.RegisterRequest, request: Request, db: Session = D
 
 @router.get("/me")
 def read_users_me(current_user: models.Nick = Depends(security.get_current_user)):
-    # Masked fields for privacy: u=username, r=role, rl=reset_limit_at, ca=created_at, cl=class_change_limit
+    # Masked fields: u=username, fn=full_name, r=role, rl=reset_limit_at, ca=created_at, cl=class_change_limit
     data = {
         "u": current_user.username,
+        "fn": current_user.full_name,
         "r": current_user.role,
         "rl": current_user.reset_limit_at.isoformat() if current_user.reset_limit_at else None,
         "ca": current_user.created_at.isoformat() if current_user.created_at else None,
@@ -110,9 +114,37 @@ def read_user_profile(current_user: models.Nick = Depends(security.get_current_u
     # Minimal profile payload only; excludes role/reset/limit fields.
     data = {
         "u": current_user.username,
+        "fn": current_user.full_name,
         "ca": current_user.created_at.isoformat() if current_user.created_at else None,
     }
     return security.obfuscate_payload(data)
+
+
+@router.patch("/profile")
+def update_profile(
+    payload: schemas.UpdateProfileRequest,
+    current_user: models.Nick = Depends(security.get_current_user),
+    db: Session = Depends(database.get_db)
+):
+    print(f"Backend: Received profile update for {current_user.username}")
+    # Re-fetch the user using both ID and username to ensure precise attachment in composite PK table
+    user = db.query(models.Nick).filter(
+        models.Nick.id == current_user.id,
+        models.Nick.username == current_user.username
+    ).first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    old_name = user.full_name
+    user.full_name = payload.full_name.strip()
+    db.add(user) # Explicitly mark for update
+    db.commit()
+    print(f"Backend: DB Commit Success for {user.username}. Changed '{old_name}' to '{user.full_name}'")
+    
+    # Invalidate cache so that subsequent GETs see the new name
+    security.invalidate_user_cache(user.username)
+    return {"message": "Profile updated successfully"}
 
 
 @router.post("/ws-ticket")

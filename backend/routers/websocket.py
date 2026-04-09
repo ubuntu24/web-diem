@@ -1,13 +1,18 @@
-import json
 import ipaddress
-import security
-import models
-from database import SessionLocal
+import json
+import logging
 from datetime import datetime
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from typing import List, Optional
-from jose import jwt, JWTError
+
+import models
+import security
+from database import SessionLocal
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from jose import JWTError, jwt
 from sqlalchemy import or_
+
+logger = logging.getLogger(__name__)
+
 
 class ConnectionManager:
     def __init__(self):
@@ -26,7 +31,7 @@ class ConnectionManager:
     def disconnect(self, websocket: WebSocket):
         self.active_connections = [conn for conn in self.active_connections if conn["ws"] != websocket]
 
-    async def kick_by_identifiers(self, username: str = None, ip: str = None, fp: str = None):
+    async def kick_by_identifiers(self, username: Optional[str] = None, ip: Optional[str] = None, fp: Optional[str] = None):
         """Kicks all active connections matching ANY of the identifiers."""
         to_kick = []
         for conn in self.active_connections:
@@ -43,8 +48,8 @@ class ConnectionManager:
             try:
                 await conn["ws"].send_text(json.dumps({"type": "error", "message": "Bạn đã bị cấm khỏi hệ thống."}))
                 await conn["ws"].close()
-            except:
-                pass
+            except Exception as e:
+                logger.debug(f"Kick error (already closed?): {e}")
             self.disconnect(conn["ws"])
         
         if to_kick:
@@ -55,7 +60,8 @@ class ConnectionManager:
         for connection in self.active_connections:
             try:
                 await connection["ws"].send_text(msg_str)
-            except:
+            except Exception:
+                # Connection likely closed
                 pass
 
     async def broadcast_online_count(self):
@@ -68,7 +74,7 @@ class ConnectionManager:
         for connection in self.active_connections:
             try:
                 await connection["ws"].send_text(message)
-            except:
+            except Exception:
                 pass
 
     async def send_personal_message(self, user_identifier: str, message: dict):
@@ -77,7 +83,7 @@ class ConnectionManager:
             if connection["user"] == user_identifier:
                 try:
                     await connection["ws"].send_text(msg_str)
-                except:
+                except Exception:
                     pass
 
 manager = ConnectionManager()
@@ -337,21 +343,26 @@ async def websocket_endpoint(websocket: WebSocket):
                                 last_id = db_msg.id
                                 last_time = db_msg.created_at.isoformat()
                             except Exception as db_err:
-                                # Fallback if columns are still missing in physical DB
                                 db.rollback()
-                                db_msg_fallback = models.ChatMessage(username=sender, message=content)
-                                db.add(db_msg_fallback)
-                                db.commit()
-                                db.refresh(db_msg_fallback)
-                                last_id = db_msg_fallback.id
-                                last_time = db_msg_fallback.created_at.isoformat()
-                                print(f"DB Columns missing fallback: {db_err}")
+                                logger.error(f"DB Insert Failure: {db_err}")
+                                # Fallback: Still try to broadcast even if DB save fails
+                                last_id = 0
+                                last_time = datetime.now().isoformat()
 
-                            # Broadcast
+                            # BROADCAST (Always happens for successfully received valid messages)
+                            # Lookup latest full_name to reflect profile changes immediately
+                            sender_full_name = None
+                            sender_nick = db.query(models.Nick).filter(
+                                models.Nick.username == sender
+                            ).first()
+                            if sender_nick:
+                                sender_full_name = sender_nick.full_name
+
                             await manager.broadcast({
                                 "type": "chat_message",
-                                "id": int(last_id),
+                                "id": last_id,
                                 "username": sender,
+                                "full_name": sender_full_name,
                                 "message": content,
                                 "timestamp": last_time
                             })
@@ -359,19 +370,17 @@ async def websocket_endpoint(websocket: WebSocket):
                             db.close()
 
             except json.JSONDecodeError:
-                print("WebSocket: Received invalid JSON")
+                logger.warning("WebSocket: Received invalid JSON")
                 continue
             except Exception as e:
-                import traceback
-                print(f"WebSocket Error: {str(e)}")
-                traceback.print_exc()
+                logger.exception(f"WebSocket Message Processing Error: {e}")
                 continue
 
     except WebSocketDisconnect:
         manager.disconnect(websocket)
-        print(f"WebSocket: Client disconnected ({client_ip})")
+        logger.info(f"WebSocket: Client disconnected ({client_ip})")
         await manager.broadcast_online_count()
     except Exception as e:
-        print(f"WebSocket Fatal Error: {str(e)}")
+        logger.exception(f"WebSocket Fatal Error: {e}")
         manager.disconnect(websocket)
 

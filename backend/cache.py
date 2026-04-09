@@ -4,9 +4,9 @@ Thread-safe với threading.Lock.
 Graceful: nếu muốn nâng cấp sang Redis sau thì chỉ cần sửa file này.
 """
 
+import logging
 import threading
 import time
-import logging
 from typing import Any, Optional
 
 logger = logging.getLogger(__name__)

@@ -1,8 +1,10 @@
 import json
-from typing import Callable, Any
+from typing import Callable
+
 from fastapi import Request, Response
 from fastapi.routing import APIRoute
-from security import encrypt_data
+from security import obfuscate_payload
+
 
 class PrivacyShieldRoute(APIRoute):
     def get_route_handler(self) -> Callable:
@@ -16,11 +18,15 @@ class PrivacyShieldRoute(APIRoute):
                 and "application/json" in response.headers.get("content-type", "")):
                 
                 try:
-                    # Deserialize original body
-                    body = json.loads(response.body.decode('utf-8'))
+                    # Deserialize original body safely
+                    content = response.body
+                    if isinstance(content, memoryview):
+                        content = content.tobytes()
+                        
+                    body = json.loads(content.decode('utf-8'))
                     
-                    # Encrypt the body
-                    encrypted_string = encrypt_data(body)
+                    # Encrypt the body using obfuscate_payload
+                    encrypted_string = obfuscate_payload(body)
                     
                     if encrypted_string:
                         # Wrap in shield

@@ -63,6 +63,7 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
                     setMessages((prev: Message[]) => [...prev, {
                         id: data.id,
                         username: data.username,
+                        full_name: data.full_name,
                         message: data.message,
                         timestamp: data.timestamp
                     }]);
@@ -159,7 +160,7 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
                                     </div>
                                 )}
                                 {messages.map((m) => {
-                                    const isMe = m.username === user?.username;
+                                    const isMe = m.username?.toLowerCase() === user?.loginUsername?.toLowerCase();
                                     return (
                                         <motion.div
                                             initial={{ opacity: 0, y: 10, scale: 0.95 }}
@@ -170,7 +171,7 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
                                             <div className="flex items-center gap-2 mb-1 px-1">
                                                 {!isMe && <User className="w-3 h-3 text-slate-400" />}
                                                 <span className={`text-[10px] font-bold uppercase tracking-wider ${isMe ? 'text-indigo-500' : 'text-slate-500'}`}>
-                                                    {m.username}
+                                                    {m.full_name || m.username}
                                                 </span>
                                                 {user?.role === 1 && !isMe && (
                                                     <button

@@ -1,15 +1,17 @@
+import hashlib
 import os
 import secrets
-import hashlib
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Any, Optional
+
+import cache as _cache
+import database
+import models
 from dotenv import load_dotenv
+from fastapi import Depends, HTTPException, Request, status
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from fastapi import Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
-import models, database
-import cache as _cache
 
 # TTL for user cache (seconds)
 _USER_CACHE_TTL = 300  # 5 minutes
@@ -152,10 +154,10 @@ def obfuscate_id(real_id: str) -> str:
     # Prefix with T_ to distinguish from real MSVs
     return "T_" + base64.urlsafe_b64encode(xored).decode().replace('=', '')
 
-def obfuscate_payload(data: any) -> str:
+def obfuscate_payload(data: Any) -> str:
     """Encrypts an entire dictionary/list into a single opaque string."""
-    import json
     import base64
+    import json
     
     # Minimize JSON first
     json_str = json.dumps(data, separators=(',', ':'))

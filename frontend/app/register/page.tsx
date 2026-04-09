@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { Loader2, Lock, User, UserPlus, AlertCircle, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
+import { Toaster, toast } from 'react-hot-toast';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { registerUserBff } from '@/lib/api';
 
@@ -20,7 +21,9 @@ export default function RegisterPage() {
     async function handleRegister(e: React.FormEvent) {
         e.preventDefault();
         if (password !== confirmPassword) {
-            setError("Mật khẩu nhập lại không khớp");
+            const msg = "Mật khẩu nhập lại không khớp";
+            setError(msg);
+            toast.error(msg);
             return;
         }
 
@@ -29,11 +32,13 @@ export default function RegisterPage() {
 
         try {
             await registerUserBff(username, password);
-
+            toast.success('Đăng ký tài khoản thành công!');
             // Redirect to login on success
-            router.push('/login');
+            setTimeout(() => router.push('/login'), 1500);
         } catch (err: any) {
-            setError(err.message);
+            const msg = err.message || 'Đăng ký thất bại';
+            setError(msg);
+            toast.error(msg);
         } finally {
             setLoading(false);
         }

@@ -98,6 +98,10 @@ const nextConfig: NextConfig = {
         destination: `${apiBase}/ws/:path*`, // WebSocket Proxy
       },
       {
+        source: '/v/profile',
+        destination: '/api/bff/update-user-profile', // Specific route for profile to avoid 404
+      },
+      {
         source: '/v/:path*',
         destination: '/api/bff/:path*', // Global API Cloaking Path
       },

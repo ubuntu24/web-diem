@@ -1,10 +1,12 @@
-from pydantic import BaseModel, Field, constr
-from typing import List, Optional
 from datetime import datetime
+from typing import Annotated, Optional
+
+from pydantic import BaseModel, Field, StringConstraints
+
 
 class LoginRequest(BaseModel):
-    username: constr(strip_whitespace=True, min_length=3, max_length=32, pattern=r"^[A-Za-z0-9_.-]+$")
-    password: constr(min_length=1, max_length=4096)
+    username: Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=32, pattern=r"^[A-Za-z0-9_.-]+$")]
+    password: Annotated[str, StringConstraints(min_length=1, max_length=4096)]
 
 class Token(BaseModel):
     access_token: str
@@ -21,8 +23,11 @@ class User(BaseModel):
         from_attributes = True
 
 class RegisterRequest(BaseModel):
-    username: constr(strip_whitespace=True, min_length=3, max_length=32, pattern=r"^[A-Za-z0-9_.-]+$")
-    password: constr(min_length=1, max_length=4096)
+    username: Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=32, pattern=r"^[A-Za-z0-9_.-]+$")]
+    password: Annotated[str, StringConstraints(min_length=1, max_length=4096)]
 
 class UpdateLimitRequest(BaseModel):
     limit: int = Field(ge=-1, le=100)
+
+class UpdateProfileRequest(BaseModel):
+    full_name: Annotated[str, StringConstraints(strip_whitespace=True, max_length=100)]

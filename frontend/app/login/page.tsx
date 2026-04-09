@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Loader2, Lock, User, CheckCircle2, AlertCircle } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { loginUserBff } from '@/lib/api';
 
@@ -24,13 +25,18 @@ export default function LoginPage() {
 
             if (result?.access_token) {
                 localStorage.setItem('role', String(result.role ?? 0));
+                toast.success('Đăng nhập thành công!');
                 // Full navigation guarantees new cookies are used immediately by RSC routes.
-                window.location.href = '/dashboard';
+                setTimeout(() => {
+                    window.location.href = '/dashboard';
+                }, 800);
             } else {
                 throw new Error('Đăng nhập không thành công, không nhận được token.');
             }
         } catch (err: any) {
-            setError(err.message);
+            const msg = err.message || 'Đăng nhập thất bại';
+            setError(msg);
+            toast.error(msg);
         } finally {
             setLoading(false);
         }

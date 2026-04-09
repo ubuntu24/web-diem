@@ -1,6 +1,25 @@
-import os
+import asyncio
 import logging
+import os
 import sys
+from contextlib import asynccontextmanager
+from datetime import date, datetime
+from urllib.parse import urlparse
+
+import database
+import models
+import security
+from dotenv import load_dotenv
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import JSONResponse
+from jose import JWTError, jwt
+from routers import admin, auth, chat, students, websocket
+from starlette.middleware.trustedhost import TrustedHostMiddleware
+
+# Load environment variables
+load_dotenv()
 
 # Initialize logging immediately for startup visibility
 logging.basicConfig(
@@ -9,72 +28,92 @@ logging.basicConfig(
     stream=sys.stdout
 )
 logger = logging.getLogger("api")
-from datetime import datetime, date
-from urllib.parse import urlparse
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.gzip import GZipMiddleware
-from starlette.middleware.trustedhost import TrustedHostMiddleware
-from sqlalchemy.orm import Session
-from jose import JWTError, jwt
-from dotenv import load_dotenv
 
-import models, database, security
-from routers import auth, students, admin, websocket, chat
-from contextlib import asynccontextmanager
-
-# Load environment variables
-load_dotenv()
+async def _update_access_logic(username: str):
+    """Background task to update user access stats without blocking the response."""
+    db = None
+    try:
+        now = datetime.now()
+        today = date.today()
+        db = database.SessionLocal()
+        user = db.query(models.Nick).filter(models.Nick.username == username).first()
+        if user:
+            user.last_active = now
+            access_record = db.query(models.UserAccess).filter(
+                models.UserAccess.user_id == user.id,
+                models.UserAccess.access_date == today
+            ).first()
+            
+            if access_record:
+                access_record.count += 1
+            else:
+                access_record = models.UserAccess(
+                    user_id=user.id,
+                    access_date=today,
+                    count=1
+                )
+                db.add(access_record)
+            db.commit()
+    except Exception as e:
+        logger.error(f"Access update error for {username}: {e}")
+    finally:
+        if db:
+            db.close()
 
 # Database Initialization & Admin User (Modern Lifespan)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
         # STARTUP
-        # Ensure database tables exist and are synchronized (Production & Local)
+        # Ensure database tables exist and are synchronized
         database.sync_schema()
         
-        # Ensure admin user exists
         db = database.SessionLocal()
         
-        # Migration: Add class_change_limit column if doesn't exist
+        # Migration: Add class_change_limit and full_name columns if they don't exist
         try:
             from sqlalchemy import text
-            db.execute(text("ALTER TABLE nick ADD COLUMN class_change_limit INTEGER DEFAULT 5"))
-            db.commit()
+            # Try to add class_change_limit (only if not using Alembic)
+            try:
+                db.execute(text("ALTER TABLE nick ADD COLUMN IF NOT EXISTS class_change_limit INTEGER DEFAULT 5"))
+                db.commit()
+            except Exception as e:
+                db.rollback()
+                logger.debug(f"Migration (class_change_limit) skipped or already applied: {e}")
+            
+            try:
+                db.execute(text("ALTER TABLE nick ADD COLUMN IF NOT EXISTS full_name TEXT"))
+                db.commit()
+            except Exception as e:
+                db.rollback()
+                logger.debug(f"Migration (full_name) skipped or already applied: {e}")
         except Exception as e:
-            db.rollback()
-            logger.info(f"Migration skip or already exists: {e}")
+            logger.error(f"Migration error: {e}")
             
         admin_pass = os.getenv("ADMIN_PASSWORD")
-        admin_users = db.query(models.Nick).filter(models.Nick.username == "admin").all()
-        if not admin_users:
-            if admin_pass:
-                if len(admin_pass) >= 8:
-                    new_admin = models.Nick(
-                        username="admin",
-                        password=security.get_password_hash(admin_pass),
-                        role=1,
-                        created_at=datetime.now()
-                    )
-                    db.add(new_admin)
-                    db.commit()
-                    logger.info("Admin user created.")
-            else:
+        # Now using .first() as username is unique in our new schema
+        admin_user = db.query(models.Nick).filter(models.Nick.username == "admin").first()
+        if not admin_user:
+            if admin_pass and len(admin_pass) >= 8:
+                new_admin = models.Nick(
+                    username="admin",
+                    password=security.get_password_hash(admin_pass),
+                    role=1,
+                    created_at=datetime.now()
+                )
+                db.add(new_admin)
+                db.commit()
+                logger.info("Admin user created.")
+            elif not admin_pass:
                 logger.warning("ADMIN_PASSWORD not set. Admin user not created.")
         else:
-            updated = False
-            for admin_user in admin_users:
-                if admin_user.role != 1:
-                    admin_user.role = 1
-                    updated = True
-            if updated:
+            if admin_user.role != 1:
+                admin_user.role = 1
                 db.commit()
-                logger.info("Admin roles synchronized.")
+                logger.info("Admin role synchronized.")
         db.close()
     except Exception as startup_err:
-        logger.error(f"FATAL STARTUP ERROR (silenced to keep server alive): {startup_err}")
+        logger.error(f"FATAL STARTUP ERROR: {startup_err}")
     
     yield
     # SHUTDOWN
@@ -161,7 +200,7 @@ app.add_middleware(
 
 
 # Track last access update time per user to avoid DB writes on every request
-_last_access_update = {}  # username -> datetime
+_last_access_update: dict[str, datetime] = {}  # username -> datetime
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
@@ -174,7 +213,6 @@ async def log_requests(request: Request, call_next):
         except ValueError:
             pass
 
-    client_ip = request.client.host if request.client else "unknown"
     
     response = await call_next(request)
 
@@ -202,43 +240,18 @@ async def log_requests(request: Request, call_next):
         except (JWTError, Exception):
             pass
         
-        if (username != "guest" 
-            and request.method not in ("OPTIONS", "HEAD")
-            and request.url.path.startswith("/api/")
-            and not any(p in request.url.path for p in ["/ws-ticket", "/online-users", "/me", "/profile"])):
-            
-            now = datetime.now()
-            last_update = _last_access_update.get(username)
-            
-            if not last_update or (now - last_update).total_seconds() > 60:
-                _last_access_update[username] = now
-                db = None
-                try:
-                    db = database.SessionLocal()
-                    user = db.query(models.Nick).filter(models.Nick.username == username).first()
-                    if user:
-                        user.last_active = now
-                        today = date.today()
-                        access_record = db.query(models.UserAccess).filter(
-                            models.UserAccess.user_id == user.id,
-                            models.UserAccess.access_date == today
-                        ).first()
-                        
-                        if access_record:
-                            access_record.count += 1
-                        else:
-                            access_record = models.UserAccess(
-                                user_id=user.id,
-                                access_date=today,
-                                count=1
-                            )
-                            db.add(access_record)
-                        db.commit()
-                except Exception:
-                    pass
-                finally:
-                    if db:
-                        db.close()
+    if (username != "guest" 
+        and request.method not in ("OPTIONS", "HEAD")
+        and request.url.path.startswith("/api/")
+        and not any(p in request.url.path for p in ["/ws-ticket", "/online-users", "/me", "/profile"])):
+        
+        now = datetime.now()
+        last_update = _last_access_update.get(username)
+        
+        if not last_update or (now - last_update).total_seconds() > 60:
+            _last_access_update[username] = now
+            # Track access in background tasks to avoid blocking the event loop
+            asyncio.create_task(_update_access_logic(username))
     
     return response
 
@@ -258,4 +271,5 @@ if __name__ == "__main__":
     import uvicorn
     host = os.getenv("BACKEND_HOST", "127.0.0.1")
     port = int(os.getenv("BACKEND_PORT", 8000))
-    uvicorn.run(app, host=host, port=port)
+    # Use reload=True for development only
+    uvicorn.run("main:app", host=host, port=port, reload=True)

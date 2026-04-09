@@ -1,11 +1,14 @@
+import logging
 import re
 import time
+from typing import Optional
+
+import cache as _cache
+import database
+import models
+import security
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session, joinedload
-from typing import List, Optional
-import models, database, security
-import cache as _cache
-import json, logging
 
 logger = logging.getLogger(__name__)
 
@@ -148,39 +151,45 @@ def _allow_search(identity: str, limit: int = 90, window_seconds: int = 60) -> b
 # ---------------------------------------------------------------------------
 
 def format_student(sv: models.SinhVien, hide_details=False, role: int = 1):
-    """Format a student record for the frontend."""
+    """Format a student record for the frontend.
+    
+    Fast path: When hide_details=True, we avoid building the large 'd' array.
+    """
 
     # Sort grades by id (oldest → newest) for consistent retake handling
+    # If grades are not loaded (to avoid N+1), we skip this.
+    diem_loaded = getattr(sv, 'diem', None)
     diem_sorted = sorted(
-        sv.diem or [],
+        diem_loaded or [],
         key=lambda r: (getattr(r, 'id', 0) or 0)
-    )
+    ) if diem_loaded else []
 
     # --- Compute GPA from scratch (never trust summary fields) ---
     subject_map = {}  # key → {score4, score10, credit}
 
-    for d in diem_sorted:
-        if _is_excluded_grade(d):
-            continue
-        try:
-            s10, s4 = _clean_score(d.tong_ket_10, d.tong_ket_4)
-            credit = int(float(str(d.so_tin_chi).replace(',', '.'))) if d.so_tin_chi else 0
-            if credit <= 0 or s10 is None:
+    if diem_sorted:
+        for d in diem_sorted:
+            if _is_excluded_grade(d):
                 continue
+            try:
+                s10, s4 = _clean_score(d.tong_ket_10, d.tong_ket_4)
+                credit = int(float(str(d.so_tin_chi).replace(',', '.'))) if d.so_tin_chi else 0
+                if credit <= 0 or s10 is None:
+                    continue
 
-            # Normalize name
-            raw_name = (d.ten_mon or '').strip().lower()
-            for suffix in ['_ hv', '_hv', '(hoc vuot)', '(hv)']:
-                if raw_name.endswith(suffix):
-                    raw_name = raw_name[:-len(suffix)].strip()
-            
-            key = (f"N_{raw_name}" if raw_name else '') or (d.ma_mon or '').strip()
-            
-            # HIGHEST attempt wins for Cumulative GPA
-            if key not in subject_map or s10 > subject_map[key]['s10']:
-                subject_map[key] = {'s4': s4, 's10': s10, 'credit': credit}
-        except (ValueError, TypeError):
-            pass
+                # Normalize name
+                raw_name = (d.ten_mon or '').strip().lower()
+                for suffix in ['_ hv', '_hv', '(hoc vuot)', '(hv)']:
+                    if raw_name.endswith(suffix):
+                        raw_name = raw_name[:-len(suffix)].strip()
+                
+                key = (f"N_{raw_name}" if raw_name else '') or (d.ma_mon or '').strip()
+                
+                # HIGHEST attempt wins for Cumulative GPA
+                if key not in subject_map or s10 > subject_map[key]['s10']:
+                    subject_map[key] = {'s4': s4, 's10': s10, 'credit': credit}
+            except (ValueError, TypeError):
+                pass
 
     tp4 = sum(v['s4'] * v['credit'] for v in subject_map.values() if v['s10'] >= 4.0)
     tp10 = sum(v['s10'] * v['credit'] for v in subject_map.values() if v['s10'] >= 4.0)
@@ -191,12 +200,11 @@ def format_student(sv: models.SinhVien, hide_details=False, role: int = 1):
 
     # --- Build response with Masked Fields (Privacy) ---
     display_msv = security.obfuscate_id(sv.msv) if role == 0 else sv.msv
-
     display_name = sv.ho_ten or ''
 
     result = {
         "i": display_msv,    # msv
-        "n": display_name,       # ho_ten (masked for role 0)
+        "n": display_name,   # ho_ten
         "b": str(sv.ngay_sinh) if (sv.ngay_sinh and role != 0) else None, # ngay_sinh
         "c": sv.ma_lop if role != 0 else None,      # ma_lop
         "p": sv.noi_sinh if role != 0 else None,    # noi_sinh
@@ -205,8 +213,8 @@ def format_student(sv: models.SinhVien, hide_details=False, role: int = 1):
         "tc": tc,            # total_credits
     }
 
-    if not hide_details:
-        # --- Deduplicate grades per semester: keep best score, mark cải thiện ---
+    if not hide_details and diem_sorted:
+        # --- Deduplicate grades per semester: keep best score ---
         def _normalize_name(name):
             n = (name or '').strip().lower()
             for sfx in ['_ hv', '_hv', '(hoc vuot)', '(hv)']:
@@ -215,138 +223,10 @@ def format_student(sv: models.SinhVien, hide_details=False, role: int = 1):
             return n
 
         def _get_semester(d):
-            """Determine real semester for grouping."""
+            """Backend version of getNormalizedSemester to match frontend exactly."""
             hk = (getattr(d, 'hoc_ky', '') or '').strip()
-            hk_up = hk.upper()
-            # If hoc_ky is a real semester (not HV, not empty), use it
-            if hk and hk_up != 'HV' and 'hoc vuot' not in hk.lower():
-                return hk
-            return '__OTHER__'
-
-        # Group by (semester, subject_key) → keep best
-        # Use normalized name as PRIMARY key to catch same-subject with different ma_mon
-        # (e.g. "Tiếng anh 4_ HV" appearing twice with different codes)
-        from collections import defaultdict
-
-        def _subj_key(d):
-            ma_mon = (getattr(d, 'ma_mon', '') or '').strip()
-            norm = _normalize_name(getattr(d, 'ten_mon', ''))
-            return (f"N_{norm}" if norm else '') or ma_mon
-
-        sem_subject = {}  # (semester, subject_key) → best grade row
-
-        for d in diem_sorted:
-            sem = _get_semester(d)
-            subj_key = _subj_key(d)
-            if not subj_key:
-                continue
-            
-            group_key = (sem, subj_key)
-            s10 = _to_float(getattr(d, 'tong_ket_10', None))
-            existing = sem_subject.get(group_key)
-            if existing is None:
-                sem_subject[group_key] = d
-            else:
-                exist_s10 = _to_float(getattr(existing, 'tong_ket_10', None))
-                if s10 is not None and (exist_s10 is None or s10 > exist_s10):
-                    sem_subject[group_key] = d
-
-        # Build the set of winning row IDs for dedup
-        best_ids = set()
-        for group_key, best_row in sem_subject.items():
-            row_id = getattr(best_row, 'id', None)
-            if row_id is not None:
-                best_ids.add(row_id)
-
-        # Also track subject keys we've already output (for rows without proper id)
-        seen_keys = set()
-
-        result["d"] = []
-        for d in diem_sorted:
-            row_id = getattr(d, 'id', None)
-            sem = _get_semester(d)
-            subj_key = _subj_key(d)
-            group_key = (sem, subj_key)
-
-            # If this row has a subject key, only keep the best one
-            if subj_key:
-                if row_id is not None and row_id in best_ids:
-                    if group_key in seen_keys:
-                        continue
-                    seen_keys.add(group_key)
-                elif row_id is not None:
-                    # Not a winner → skip
-                    continue
-                else:
-                    if group_key in seen_keys:
-                        continue
-                    seen_keys.add(group_key)
-
-            result["d"].append({
-                "m": d.ma_mon,
-                "t": d.ten_mon,
-                "h": d.hoc_ky,
-                "s": d.so_tin_chi,
-                "c": d.chuyen_can,
-                "h1_1": d.he_so_1_l1,
-                "h1_2": d.he_so_1_l2,
-                "h1_3": d.he_so_1_l3,
-                "h1_4": d.he_so_1_l4,
-                "h1_5": d.he_so_1_l5,
-                "h1_6": d.he_so_1_l6,
-                "h1_7": d.he_so_1_l7,
-                "h1_8": d.he_so_1_l8,
-                "h1_9": d.he_so_1_l9,
-                "h2_1": d.he_so_2_l1,
-                "h2_2": d.he_so_2_l2,
-                "h2_3": d.he_so_2_l3,
-                "h2_4": d.he_so_2_l4,
-                "h2_5": d.he_so_2_l5,
-                "h2_6": d.he_so_2_l6,
-                "h2_7": d.he_so_2_l7,
-                "h2_8": d.he_so_2_l8,
-                "h2_9": d.he_so_2_l9,
-                "th1": d.thuc_hanh_1,
-                "th2": d.thuc_hanh_2,
-                "tk1": d.thuong_ky_1,
-                "tk2": d.thuong_ky_2,
-                "tk3": d.thuong_ky_3,
-                "tb_tk": d.tb_thuong_ky,
-                "dk": d.dieu_kien_thi,
-                "dt": d.diem_thi,
-                "vt": d.vang_thi,
-                "s10_1": d.tong_ket_1,
-                "s10": d.tong_ket_10,
-                "s4": d.tong_ket_4,
-                "chu": d.diem_chu,
-                "xl": d.xep_loai,
-                "kq": d.ket_qua,
-                "kn1": d.diem_thi_kn_1,
-                "kn2": d.diem_thi_kn_2,
-                "kn3": d.diem_thi_kn_3,
-                "kn4": d.diem_thi_kn_4,
-                "tl_flag": _detect_thi_lai(d),
-                "hk10": d.tb_hoc_ky_10,
-                "hk4": d.tb_hoc_ky_4,
-                "tl10": d.tb_tich_luy_10,
-                "tl4": d.tb_tich_luy_4,
-                "tc_dk": d.tin_chi_dang_ky,
-                "tc_tl": d.tin_chi_tich_luy,
-                "xlhv": d.xu_ly_hoc_vu,
-                "ldl": d.loai_du_lieu,
-                "e": _is_excluded_grade(d),
-            })
-    else:
-        # Hide detailed grades completely in summary views (search, class list)
-        result["d"] = None
-        # Keep semester-level aggregates so UI can still show/filter by semester.
-        sem_map = {}  # semester -> {p4, p10, tc}
-        all_semesters = set()
-
-        def _normalized_semester_for_summary(row):
-            hk = (getattr(row, 'hoc_ky', '') or '').strip()
-            ldl = (getattr(row, 'loai_du_lieu', '') or '').strip()
-            ten = (getattr(row, 'ten_mon', '') or '').strip().lower()
+            ldl = (getattr(d, 'loai_du_lieu', '') or '').strip()
+            ten = (getattr(d, 'ten_mon', '') or '').strip().lower()
 
             hk_up = hk.upper()
             if hk and hk_up != 'HV' and 'hoc vuot' not in hk.lower():
@@ -361,59 +241,96 @@ def format_student(sv: models.SinhVien, hide_details=False, role: int = 1):
                 '(hoc vuot)' in ten or
                 '(hv)' in ten
             )
-            if is_hv:
-                return 'Học vượt'
-            if not hk and ldl:
-                return ldl
+            if is_hv: return 'Học vượt'
+            if not hk and ldl: return ldl
             return hk or 'Khác'
 
-        sem_subject = {}  # (semester, subject_key) -> {s4, s10, cr}
+        sem_subject = {}  # (semester, subject_key) → best grade row
+        def _subj_key(d):
+            ma_mon = (getattr(d, 'ma_mon', '') or '').strip()
+            norm = _normalize_name(getattr(d, 'ten_mon', ''))
+            return (f"N_{norm}" if norm else '') or ma_mon
+
         for d in diem_sorted:
-            sem = _normalized_semester_for_summary(d)
-            if sem:
-                all_semesters.add(sem)
+            sem = _get_semester(d)
+            subj_key = _subj_key(d)
+            if not subj_key: continue
+            
+            group_key = (sem, subj_key)
+            s10 = _to_float(getattr(d, 'tong_ket_10', None))
+            existing = sem_subject.get(group_key)
+            if existing is None:
+                sem_subject[group_key] = d
+            else:
+                exist_s10 = _to_float(getattr(existing, 'tong_ket_10', None))
+                if s10 is not None and (exist_s10 is None or s10 > exist_s10):
+                    sem_subject[group_key] = d
 
-            if _is_excluded_grade(d):
-                continue
-            try:
-                s10, s4 = _clean_score(d.tong_ket_10, d.tong_ket_4)
-                credit = int(float(str(d.so_tin_chi).replace(',', '.'))) if d.so_tin_chi else 0
-                if credit <= 0 or s10 is None or s4 is None:
-                    continue
+        best_ids = set()
+        for group_key, best_row in sem_subject.items():
+            row_id = getattr(best_row, 'id', None)
+            if row_id is not None: best_ids.add(row_id)
 
-                raw_name = (d.ten_mon or '').strip().lower()
-                for suffix in ['_ hv', '_hv', '(hoc vuot)', '(hv)']:
-                    if raw_name.endswith(suffix):
-                        raw_name = raw_name[:-len(suffix)].strip()
-                subject_key = (f"N_{raw_name}" if raw_name else '') or (d.ma_mon or '').strip()
-                if not subject_key:
-                    continue
+        seen_keys = set()
+        result["d"] = []
+        for d in diem_sorted:
+            row_id = getattr(d, 'id', None)
+            sem = _get_semester(d)
+            subj_key = _subj_key(d)
+            group_key = (sem, subj_key)
 
-                key = (sem, subject_key)
-                existing = sem_subject.get(key)
-                if existing is None or s10 > existing['s10']:
-                    sem_subject[key] = {'s4': s4, 's10': s10, 'cr': credit}
-            except (ValueError, TypeError):
-                continue
+            if subj_key:
+                if row_id is not None and row_id in best_ids:
+                    if group_key in seen_keys: continue
+                    seen_keys.add(group_key)
+                elif row_id is not None: continue
+                else:
+                    if group_key in seen_keys: continue
+                    seen_keys.add(group_key)
 
-        for (sem, _), v in sem_subject.items():
-            bucket = sem_map.get(sem)
-            if bucket is None:
-                bucket = {'p4': 0.0, 'p10': 0.0, 'tc': 0}
-                sem_map[sem] = bucket
-            bucket['p4'] += v['s4'] * v['cr']
-            bucket['p10'] += v['s10'] * v['cr']
-            bucket['tc'] += v['cr']
+            result["d"].append({
+                "m": d.ma_mon, "t": d.ten_mon, "h": d.hoc_ky, "s": d.so_tin_chi,
+                "c": d.chuyen_can, "tk1": d.thuong_ky_1, "dt": d.diem_thi,
+                "s10": d.tong_ket_10, "s4": d.tong_ket_4, "chu": d.diem_chu,
+                "tl_flag": _detect_thi_lai(d), "e": _is_excluded_grade(d),
+                "nh": sem, # Normalized semester for grouping/display
+                "cn": _normalize_name(d.ten_mon), # Clean subject name
+                # Restore full fields for details
+                "h1_1": d.he_so_1_l1, "h1_2": d.he_so_1_l2, "h1_3": d.he_so_1_l3, "h1_4": d.he_so_1_l4,
+                "h1_5": d.he_so_1_l5, "h1_6": d.he_so_1_l6, "h1_7": d.he_so_1_l7, "h1_8": d.he_so_1_l8, "h1_9": d.he_so_1_l9,
+                "h2_1": d.he_so_2_l1, "h2_2": d.he_so_2_l2, "h2_3": d.he_so_2_l3, "h2_4": d.he_so_2_l4,
+                "h2_5": d.he_so_2_l5, "h2_6": d.he_so_2_l6, "h2_7": d.he_so_2_l7, "h2_8": d.he_so_2_l8, "h2_9": d.he_so_2_l9,
+                "th1": d.thuc_hanh_1, "th2": d.thuc_hanh_2, "tk2": d.thuong_ky_2, "tk3": d.thuong_ky_3,
+                "tb_tk": d.tb_thuong_ky, "dk": d.dieu_kien_thi, "vt": d.vang_thi, "s10_1": d.tong_ket_1,
+                "xl": d.xep_loai, "kq": d.ket_qua, "kn1": d.diem_thi_kn_1, "kn2": d.diem_thi_kn_2,
+                "kn3": d.diem_thi_kn_3, "kn4": d.diem_thi_kn_4, "hk10": d.tb_hoc_ky_10, "hk4": d.tb_hoc_ky_4,
+                "tl10": d.tb_tich_luy_10, "tl4": d.tb_tich_luy_4, "tc_dk": d.tin_chi_dang_ky,
+                "tc_tl": d.tin_chi_tich_luy, "xlhv": d.xu_ly_hoc_vu, "ldl": d.loai_du_lieu,
+            })
+    else:
+        # Path for Summary/List views: No detailed grade array
+        result["d"] = None
+        # Use full logic and include 'hs' (history semesters) for filtering/display
+        if diem_loaded:
+             all_semesters = set()
+             for d in diem_sorted:
+                 # Re-run normalizing logic to get correct semester names for list view tags
+                 hk = (getattr(d, 'hoc_ky', '') or '').strip()
+                 ldl = (getattr(d, 'loai_du_lieu', '') or '').strip()
+                 ten = (getattr(d, 'ten_mon', '') or '').strip().lower()
+                 hk_up = hk.upper()
+                 
+                 sem = hk
+                 if not (hk and hk_up != 'HV' and 'hoc vuot' not in hk.lower()):
+                     is_hv = (hk_up == 'HV' or 'hoc vuot' in hk.lower() or ldl.upper() == 'HV' or 'hoc vuot' in ldl.lower() or '_ hv' in ten or '(hoc vuot)' in ten or '(hv)' in ten)
+                     if is_hv: sem = 'Học vượt'
+                     elif not hk and ldl: sem = ldl
+                     else: sem = hk or 'Khác'
+                 
+                 if sem: all_semesters.add(sem)
+             result['hs'] = sorted(list(all_semesters))
 
-        # Always include available semesters, even when no rows qualify for GPA.
-        result['hs'] = list(all_semesters)
-        result['hg'] = {
-            sem: {
-                'g4': round(vals['p4'] / vals['tc'], 2) if vals['tc'] > 0 else 0.0,
-                'g10': round(vals['p10'] / vals['tc'], 2) if vals['tc'] > 0 else 0.0,
-            }
-            for sem, vals in sem_map.items()
-        }
+    return result
 
     return result
 
@@ -461,29 +378,28 @@ def get_students_by_class(
     current_user: models.Nick = Depends(security.get_current_user),
     db: Session = Depends(database.get_db)
 ):
-    # Support multiple classes separated by commas (split and clean)
+    # Support multiple classes separated by commas
     class_list = sorted([c.strip() for c in ma_lop.split(",") if c.strip()])
     if not class_list:
         raise HTTPException(status_code=400, detail="Invalid class list")
 
-    # Role affects obfuscation — include in cache key
     role = current_user.role if current_user else 0
-    cache_key = f"class:v5:{','.join(class_list)}:role{role}"
+    cache_key = f"class:v6:{','.join(class_list)}:role{role}"
     cached = _cache.get(cache_key)
     if cached is not None:
-        logger.debug(f"[CACHE HIT] {cache_key}")
         return cached
 
+    # Optimization: Use selectinload instead of joinedload to avoid massive join duplication (N+1 fix)
+    from sqlalchemy.orm import selectinload
     students = db.query(models.SinhVien).options(
-        joinedload(models.SinhVien.diem)
+        selectinload(models.SinhVien.diem)
     ).filter(models.SinhVien.ma_lop.in_(class_list)).all()
 
     if not students:
         raise HTTPException(status_code=404, detail=f"No students found for class(es): {ma_lop}")
 
-    # All authenticated users can see details.
-    hide_details = False
-    data = {"students": [format_student(sv, hide_details=hide_details, role=role) for sv in students]}
+    # For class lists, ALWAYS hide details (perf win)
+    data = {"students": [format_student(sv, hide_details=True, role=role) for sv in students]}
     result = security.obfuscate_payload(data)
     _cache.set(cache_key, result, ttl=_TTL_CLASS)
     return result
@@ -536,14 +452,16 @@ def search_students(
         logger.debug(f"[CACHE HIT] {cache_key}")
         return cached
 
+    # Optimization: Use selectinload for search results + hide_details=True
+    from sqlalchemy.orm import selectinload
     students = db.query(models.SinhVien).options(
-        joinedload(models.SinhVien.diem)
+        selectinload(models.SinhVien.diem)
     ).filter(
         (models.SinhVien.ho_ten.ilike(f"%{clean_query}%")) |
         (models.SinhVien.msv.ilike(f"%{clean_query}%"))
     ).limit(50).all()
 
-    data = {"results": [format_student(sv, hide_details=False, role=role) for sv in students]}
+    data = {"results": [format_student(sv, hide_details=True, role=role) for sv in students]}
     result = security.obfuscate_payload(data)
     _cache.set(cache_key, result, ttl=_TTL_SEARCH)
     return result

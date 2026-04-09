@@ -1,7 +1,20 @@
-from sqlalchemy import Column, Integer, String, Date, DateTime, ForeignKey, Text, BigInteger, Boolean
-from sqlalchemy.orm import relationship
+from datetime import date, datetime
+from typing import Optional
+
 from database import Base
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    Column,
+    Date,
+    DateTime,
+    ForeignKey,
+    Integer,
+    Text,
+)
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
+
 
 class SinhVien(Base):
     __tablename__ = "sinh_vien"
@@ -85,26 +98,27 @@ class BangDiem(Base):
 class Nick(Base):
     __tablename__ = "nick"
 
-    id = Column(BigInteger, primary_key=True, index=True)
-    created_at = Column(DateTime(timezone=True), primary_key=True, server_default=func.now())
-    username = Column("user", Text, primary_key=True, nullable=False)
-    password = Column("pass", Text, primary_key=True, nullable=False)
-    role = Column(Integer, primary_key=True, nullable=False)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, index=True, autoincrement=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    username: Mapped[str] = mapped_column("user", Text, unique=True, nullable=False)
+    password: Mapped[str] = mapped_column("pass", Text, nullable=False)
+    role: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     
     # Nick table for user authentication and roles
     # Role 1: Admin, Role 0: Regular User
-    last_active = Column(DateTime, nullable=True)
-    reset_limit_at = Column(DateTime, nullable=True)
-    class_change_limit = Column(Integer, default=5, nullable=True)
+    full_name: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    last_active: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    reset_limit_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    class_change_limit: Mapped[Optional[int]] = mapped_column(Integer, default=5, nullable=True)
 
 class UserAccess(Base):
     __tablename__ = "user_access"
 
-    id = Column(BigInteger, primary_key=True, index=True)
-    user_id = Column(BigInteger, nullable=False) # No hard ForeignKey to avoid composite key error
-    access_date = Column(Date, server_default=func.current_date(), nullable=False)
-    last_update = Column(DateTime, server_default=func.now(), onupdate=func.now())
-    count = Column(Integer, default=1)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, index=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("nick.id"), nullable=False)
+    access_date: Mapped[date] = mapped_column(Date, server_default=func.current_date(), nullable=False)
+    last_update: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+    count: Mapped[int] = mapped_column(Integer, default=1)
 
 class ChatMessage(Base):
     __tablename__ = "chat_messages"

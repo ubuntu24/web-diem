@@ -1,8 +1,9 @@
+import os
+
+from dotenv import load_dotenv
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-import os
-from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -25,7 +26,7 @@ if not SQLALCHEMY_DATABASE_URL:
 
 # Create the SQLAlchemy engine
 if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
-    print("⚠️ WARNING: DATABASE_URL not found. Falling back to SQLite: students.db")
+    print("WARNING: DATABASE_URL not found. Falling back to SQLite: students.db")
 else:
     try:
         # Mask password: postgres://user:pass@host/db -> postgres://user:***@host/db
@@ -66,29 +67,40 @@ def sync_schema():
     try:
         print("[INFO] Sync: Starting schema synchronization...")
         inspector = inspect(engine)
+        table_names = inspector.get_table_names()
         
-        # 1. Đồng bộ bảng chat_messages
-        if 'chat_messages' in inspector.get_table_names():
-            columns = [c['name'] for c in inspector.get_columns('chat_messages')]
-            with engine.connect() as conn:
-                # Thêm cột ip_address nếu thiếu
+        with engine.connect() as conn:
+            # 1. Đồng bộ bảng chat_messages
+            if 'chat_messages' in table_names:
+                columns = [c['name'] for c in inspector.get_columns('chat_messages')]
                 if 'ip_address' not in columns:
                     print("[INFO] Sync: Adding 'ip_address' to chat_messages")
                     conn.execute(text("ALTER TABLE chat_messages ADD COLUMN ip_address TEXT"))
-                
-                # Thêm cột device_fingerprint nếu thiếu
                 if 'device_fingerprint' not in columns:
                     print("[INFO] Sync: Adding 'device_fingerprint' to chat_messages")
                     conn.execute(text("ALTER TABLE chat_messages ADD COLUMN device_fingerprint TEXT"))
-                
-                conn.commit()
-                print("[INFO] Sync: chat_messages table synchronized.")
+            
+            # 2. Đồng bộ bảng nick
+            if 'nick' in table_names:
+                columns = [c['name'] for c in inspector.get_columns('nick')]
+                if 'class_change_limit' not in columns:
+                    print("[INFO] Sync: Adding 'class_change_limit' to nick")
+                    conn.execute(text("ALTER TABLE nick ADD COLUMN class_change_limit INTEGER DEFAULT 5"))
+                if 'full_name' not in columns:
+                    print("[INFO] Sync: Adding 'full_name' to nick")
+                    conn.execute(text("ALTER TABLE nick ADD COLUMN full_name TEXT"))
+                if 'last_active' not in columns:
+                    print("[INFO] Sync: Adding 'last_active' to nick")
+                    conn.execute(text("ALTER TABLE nick ADD COLUMN last_active TIMESTAMP"))
+                if 'reset_limit_at' not in columns:
+                    print("[INFO] Sync: Adding 'reset_limit_at' to nick")
+                    conn.execute(text("ALTER TABLE nick ADD COLUMN reset_limit_at TIMESTAMP"))
+
+            conn.commit()
         
-        # 2. Đồng bộ bảng ban_records (nếu cần tương lai)
         # create_tables() sẽ tự động tạo bảng mới nếu chưa có
         print("[INFO] Sync: Ensuring all tables exist...")
         create_tables()
         print("[INFO] Sync: Schema synchronization complete.")
     except Exception as e:
         print(f"[ERROR] Sync: Schema synchronization failed: {e}")
-        # We don't re-raise to allow the server to start even if sync has issues

@@ -1,10 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy.orm import Session
+import logging
 from datetime import datetime, timedelta
 from typing import Optional
-import logging
-import models, database, security, schemas
-import cache as _cache
+
+import database
+import models
+import schemas
+import security
+from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy.orm import Session
+
 from .websocket import manager
 
 router = APIRouter(prefix="/api")

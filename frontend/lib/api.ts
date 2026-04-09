@@ -24,6 +24,7 @@ function authHeaders(tokenOverride?: string): HeadersInit {
 }
 
 // Fixed Key for "Black Box" decryption
+const OBFUSCATION_PAYLOAD_KEY = "PAYLOAD_OBFUSCATION_KEY_2026";
 
 /**
  * Fetches a URL and returns the raw encrypted payload string (NOT decrypted).
@@ -64,7 +65,7 @@ async function fetchBff<T = any>(url: string): Promise<T | null> {
     try {
         const res = await fetch(url, { credentials: 'include' });
         if (!res.ok) return null;
-        return await res.json() as T;
+        return await parseResponse<T>(res);
     } catch {
         return null;
     }
@@ -106,7 +107,13 @@ async function parseResponse<T>(res: Response): Promise<T> {
     if (text.startsWith('"')) {
         try { payload = JSON.parse(text); } catch { /* keep original */ }
     }
-    // silenced
+
+    // Try to decrypt if it looks like an obfuscated payload
+    const decrypted = decryptPayload(payload);
+    if (decrypted && typeof decrypted === 'object') {
+        return decrypted as T;
+    }
+
     // Last resort fallback
     try { return JSON.parse(text); } catch { return text as unknown as T; }
 }
@@ -132,8 +139,27 @@ export function decryptPayload(payload: unknown): any {
         } catch { /* fall through */ }
     }
 
-    // If payload is not JSON (or cannot be parsed), return raw text.
-    try { return JSON.parse(text); } catch { return text; }
+    // Actual XOR Decryption logic
+    try {
+        // base64url to base64
+        const base64 = text.replace(/-/g, '+').replace(/_/g, '/');
+        // Padding if needed
+        const padded = base64.padEnd(base64.length + (4 - base64.length % 4) % 4, '=');
+        
+        const decoded = atob(padded);
+        const key = new TextEncoder().encode(OBFUSCATION_PAYLOAD_KEY);
+        const bytes = new Uint8Array(decoded.length);
+        
+        for (let i = 0; i < decoded.length; i++) {
+            bytes[i] = decoded.charCodeAt(i) ^ key[i % key.length];
+        }
+        
+        const decryptedStr = new TextDecoder().decode(bytes);
+        return JSON.parse(decryptedStr);
+    } catch (e) {
+        // If decryption fails, it might be raw JSON or error message
+        try { return JSON.parse(text); } catch { return text; }
+    }
 }
 
 export async function getClasses(tokenOverride?: string): Promise<string[]> {
@@ -238,7 +264,9 @@ export async function searchStudentsBffRaw(query: string): Promise<string | null
 
 export interface User {
     id?: number;
-    username?: string;
+    username: string;
+    full_name?: string | null;
+    loginUsername?: string; // Correctly track real login ID separately from display name
     role?: number;
     created_at?: string;
     reset_limit_at?: string | null;
@@ -248,6 +276,7 @@ export interface User {
 export interface ChatMessage {
     id: number;
     username: string;
+    full_name?: string | null;
     message: string;
     timestamp: string;
     role?: number;
@@ -261,6 +290,7 @@ export async function getMe(tokenOverride?: string): Promise<User> {
     // Backend returns short field names: u=username, r=role, rl=reset_limit_at, ca=created_at, cl=class_change_limit
     return {
         username: data.u ?? data.username,
+        loginUsername: data.u ?? data.username,
         role: data.r ?? data.role,
         reset_limit_at: data.rl ?? data.reset_limit_at,
         created_at: data.ca ?? data.created_at,
@@ -282,6 +312,7 @@ export async function getProfile(tokenOverride?: string): Promise<User> {
     const data = await parseResponse<any>(res);
     return {
         username: data.u ?? data.username,
+        loginUsername: data.u ?? data.username,
         created_at: data.ca ?? data.created_at,
     };
 }
@@ -404,6 +435,8 @@ export async function getMeBff(): Promise<User | null> {
     if (!data) return null;
     return {
         username: data.u ?? data.username,
+        loginUsername: data.u ?? data.username,
+        full_name: data.fn ?? data.full_name,
         role: data.r ?? data.role,
         reset_limit_at: data.rl ?? data.reset_limit_at,
         created_at: data.ca ?? data.created_at,
@@ -416,6 +449,8 @@ export async function getProfileBff(): Promise<User | null> {
     if (!data) return null;
     return {
         username: data.u ?? data.username,
+        loginUsername: data.u ?? data.username,
+        full_name: data.fn ?? data.full_name,
         created_at: data.ca ?? data.created_at,
     };
 }
@@ -484,11 +519,17 @@ export async function registerUserBff(username: string, password: string): Promi
 }
 
 export async function logoutUserBff(): Promise<void> {
-    await fetch('/v/auth/logout', {
-        method: 'POST',
+    await fetch('/v/auth/logout', { method: 'POST', credentials: 'include' });
+}
+
+export async function updateProfileBff(fullName: string): Promise<void> {
+    const res = await fetch('/v/profile', {
+        method: 'PATCH',
+        headers: withCsrf({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ full_name: fullName }),
         credentials: 'include',
-        headers: withCsrf(),
     });
+    if (!res.ok) throw new Error('Failed to update profile');
 }
 
 export async function getUsersBff(): Promise<AdminUser[]> {
