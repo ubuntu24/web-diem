@@ -191,7 +191,7 @@ async def ban_user(
     
     # Enforce Live Kick across all devices/accounts matching these identifiers
     await manager.kick_by_identifiers(
-        user_id=(db.query(models.Nick.id).filter(models.Nick.username == target_username).scalar()),
+        username=target_username,
         ip=target_ip,
         fp=target_fp
     )

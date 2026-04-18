@@ -69,8 +69,15 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
                     }]);
                 }
                 if (data.type === 'user_banned') {
-                    if (user?.username === data.username) {
-                        window.location.reload();
+                    setMessages((prev: Message[]) => [...prev, {
+                        id: Date.now(),
+                        username: 'SYSTEM',
+                        full_name: '🛡️ HỆ THỐNG',
+                        message: `Người dùng ${data.username} đã bị cấm khỏi phòng chat do vi phạm nội quy.`,
+                        timestamp: new Date().toISOString()
+                    }]);
+                    if (user?.loginUsername === data.username) {
+                        setTimeout(() => window.location.reload(), 2000);
                     }
                 }
             } catch { }
@@ -160,39 +167,46 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
                                     </div>
                                 )}
                                 {messages.map((m) => {
-                                    const isMe = m.username?.toLowerCase() === user?.loginUsername?.toLowerCase();
+                                    const isSystem = m.username === 'SYSTEM';
+
                                     return (
                                         <motion.div
                                             initial={{ opacity: 0, y: 10, scale: 0.95 }}
                                             animate={{ opacity: 1, y: 0, scale: 1 }}
                                             key={m.id}
-                                            className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
+                                            className={`flex flex-col ${isSystem ? 'items-center py-2' : isMe ? 'items-end' : 'items-start'}`}
                                         >
-                                            <div className="flex items-center gap-2 mb-1 px-1">
-                                                {!isMe && <User className="w-3 h-3 text-slate-400" />}
-                                                <span className={`text-[10px] font-bold uppercase tracking-wider ${isMe ? 'text-indigo-500' : 'text-slate-500'}`}>
-                                                    {m.full_name || m.username}
-                                                </span>
-                                                {user?.role === 1 && !isMe && (
-                                                    <button
-                                                        onClick={() => handleBan(m)}
-                                                        className="text-[10px] text-red-500 hover:text-red-700 font-bold uppercase transition-colors flex items-center gap-0.5 bg-red-50 dark:bg-red-900/20 px-1.5 py-0.5 rounded"
-                                                        title="Ban tài khoản và thiết bị"
-                                                    >
-                                                        <ShieldAlert className="w-3 h-3" />
-                                                        Ban
-                                                    </button>
-                                                )}
-                                            </div>
-                                            <div className={`px-4 py-2 rounded-2xl max-w-[85%] text-sm shadow-sm transition-all hover:shadow-md ${isMe
-                                                    ? 'bg-gradient-to-br from-violet-600 to-indigo-600 text-white rounded-tr-none'
-                                                    : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-tl-none'
-                                                }`}>
+                                            {!isSystem && (
+                                                <div className="flex items-center gap-2 mb-1 px-1">
+                                                    {!isMe && <User className="w-3 h-3 text-slate-400" />}
+                                                    <span className={`text-[10px] font-bold uppercase tracking-wider ${isMe ? 'text-indigo-500' : 'text-slate-500'}`}>
+                                                        {m.full_name || m.username}
+                                                    </span>
+                                                    {user?.role === 1 && !isMe && (
+                                                        <button
+                                                            onClick={() => handleBan(m)}
+                                                            className="text-[10px] text-red-500 hover:text-red-700 font-bold uppercase transition-colors flex items-center gap-0.5 bg-red-50 dark:bg-red-900/20 px-1.5 py-0.5 rounded"
+                                                            title="Ban tài khoản và thiết bị"
+                                                        >
+                                                            <ShieldAlert className="w-3 h-3" />
+                                                            Ban
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            )}
+                                            <div className={`${isSystem
+                                                    ? 'bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/50 text-red-700 dark:text-red-400 text-xs px-4 py-1.5 rounded-full font-bold'
+                                                    : isMe
+                                                        ? 'bg-gradient-to-br from-violet-600 to-indigo-600 text-white rounded-tr-none px-4 py-2 rounded-2xl max-w-[85%] text-sm shadow-sm'
+                                                        : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-tl-none px-4 py-2 rounded-2xl max-w-[85%] text-sm shadow-sm'
+                                                } transition-all hover:shadow-md`}>
                                                 {m.message}
                                             </div>
-                                            <span className="text-[9px] text-slate-400 mt-1 font-medium px-1">
-                                                {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                            </span>
+                                            {!isSystem && (
+                                                <span className="text-[9px] text-slate-400 mt-1 font-medium px-1">
+                                                    {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                            )}
                                         </motion.div>
                                     );
                                 })}
