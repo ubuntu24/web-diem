@@ -159,7 +159,7 @@ async def ban_user(
     # Fallback to chat history if user is offline
     if not target_ip or not target_fp:
         last_msg = db.query(models.ChatMessage).filter(
-            models.ChatMessage.username == target_username
+            models.ChatMessage.user_id == (db.query(models.Nick.id).filter(models.Nick.username == target_username).scalar())
         ).order_by(models.ChatMessage.id.desc()).first()
         
         if last_msg:
@@ -168,19 +168,19 @@ async def ban_user(
 
     # 🛡️ SECURITY: Prevent duplicate bans
     existing_ban = db.query(models.BanRecord).filter(
-        (models.BanRecord.username == target_username) |
+        (models.BanRecord.user_id == (db.query(models.Nick.id).filter(models.Nick.username == target_username).scalar())) |
         ((models.BanRecord.ip_address == target_ip) & (models.BanRecord.ip_address != None)) |
         ((models.BanRecord.device_fingerprint == target_fp) & (models.BanRecord.device_fingerprint != None))
     ).first()
 
     if existing_ban:
         existing_ban.reason = reason
-        existing_ban.username = target_username or existing_ban.username
+        existing_ban.user_id = (db.query(models.Nick.id).filter(models.Nick.username == target_username).scalar()) if target_username else existing_ban.user_id
         existing_ban.ip_address = target_ip or existing_ban.ip_address
         existing_ban.device_fingerprint = target_fp or existing_ban.device_fingerprint
     else:
         ban = models.BanRecord(
-            username=target_username,
+            user_id=(db.query(models.Nick.id).filter(models.Nick.username == target_username).scalar()),
             ip_address=target_ip,
             device_fingerprint=target_fp,
             reason=reason
@@ -191,7 +191,7 @@ async def ban_user(
     
     # Enforce Live Kick across all devices/accounts matching these identifiers
     await manager.kick_by_identifiers(
-        username=target_username,
+        user_id=(db.query(models.Nick.id).filter(models.Nick.username == target_username).scalar()),
         ip=target_ip,
         fp=target_fp
     )
@@ -213,7 +213,24 @@ def get_bans(
 ):
     if current_user.role != 1:
         raise HTTPException(status_code=403, detail="Not authorized")
-    return db.query(models.BanRecord).order_by(models.BanRecord.id.desc()).all()
+    bans = (
+        db.query(models.BanRecord, models.Nick.username)
+        .outerjoin(models.Nick, models.BanRecord.user_id == models.Nick.id)
+        .order_by(models.BanRecord.id.desc())
+        .all()
+    )
+    result = []
+    for b, un in bans:
+        result.append({
+            "id": b.id,
+            "username": un,
+            "user_id": b.user_id,
+            "ip_address": b.ip_address,
+            "device_fingerprint": b.device_fingerprint,
+            "reason": b.reason,
+            "created_at": b.created_at.isoformat() if b.created_at else None
+        })
+    return result
 
 @router.delete("/admin/ban/{ban_id}")
 def unban_user(
@@ -272,7 +289,7 @@ def get_user_details(
         ban_rows = (
             db.query(models.BanRecord)
             .filter(
-                models.BanRecord.username == user.username,
+                models.BanRecord.user_id == user.id,
                 models.BanRecord.ip_address.isnot(None),
             )
             .all()

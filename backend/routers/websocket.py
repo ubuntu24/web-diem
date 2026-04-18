@@ -210,7 +210,7 @@ async def websocket_endpoint(websocket: WebSocket):
         if policy_ip:
             ban_filters.append(models.BanRecord.ip_address == policy_ip)
         if user_id:
-            ban_filters.append(models.BanRecord.username == user_id)
+            ban_filters.append(models.BanRecord.user_id == (db.query(models.Nick.id).filter(models.Nick.username == user_id).scalar()))
 
         if ban_filters:
             is_banned = db.query(models.BanRecord).filter(or_(*ban_filters)).first()
@@ -252,7 +252,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         # Ban Check again with username/FP
                         db = SessionLocal()
                         try:
-                            ban_filters = [models.BanRecord.username == username]
+                            ban_filters = [models.BanRecord.user_id == (db.query(models.Nick.id).filter(models.Nick.username == username).scalar())]
                             if policy_ip:
                                 ban_filters.append(models.BanRecord.ip_address == policy_ip)
                             if device_fp:
@@ -313,7 +313,7 @@ async def websocket_endpoint(websocket: WebSocket):
                             # Verify ban before storing (in case they were banned while online)
                             ban_filters = []
                             if sender:
-                                ban_filters.append(models.BanRecord.username == sender)
+                                ban_filters.append(models.BanRecord.user_id == (db.query(models.Nick.id).filter(models.Nick.username == sender).scalar()))
                             if sender_ip:
                                 ban_filters.append(models.BanRecord.ip_address == sender_ip)
                             if sender_fp:
@@ -331,7 +331,7 @@ async def websocket_endpoint(websocket: WebSocket):
                             # Store in DB using SQLAlchemy ORM (cleaner & more secure)
                             try:
                                 db_msg = models.ChatMessage(
-                                    username=sender, 
+                                    user_id=(db.query(models.Nick.id).filter(models.Nick.username == sender).scalar()), 
                                     message=content,
                                     ip_address=sender_ip,
                                     device_fingerprint=sender_fp
