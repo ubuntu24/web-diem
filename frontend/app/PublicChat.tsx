@@ -168,6 +168,7 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
                                 )}
                                 {messages.map((m) => {
                                     const isSystem = m.username === 'SYSTEM';
+                                    const isMe = m.username?.toLowerCase() === user?.loginUsername?.toLowerCase();
 
                                     return (
                                         <motion.div
