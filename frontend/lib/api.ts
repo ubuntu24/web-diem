@@ -363,6 +363,31 @@ export interface AdminUser {
     class_change_limit?: number;
 }
 
+export interface IpHistoryEntry {
+    ip: string;
+    hit_count: number;
+    first_seen: string | null;
+    last_seen: string | null;
+}
+
+export interface BanIpEntry {
+    ip: string;
+    reason: string | null;
+    banned_at: string | null;
+    device_fingerprint: string | null;
+}
+
+export interface UserDetails {
+    user_id: number;
+    username: string;
+    role: number;
+    last_active: string | null;
+    ip_history: IpHistoryEntry[];
+    ban_ips: BanIpEntry[];
+    access_history: AccessHistory[];
+    total_access: number;
+}
+
 export async function resetUserLimit(userId: number, tokenOverride?: string): Promise<void> {
     const res = await fetch(`${API_BASE_URL}/api/admin/user/${userId}/reset-limit`, {
         method: 'POST',
@@ -614,4 +639,9 @@ export async function unbanUserBff(banId: number): Promise<void> {
     if (!res.ok) throw new Error('Failed to unban user');
 }
 
+export async function getUserDetailsBff(userId: number): Promise<UserDetails | null> {
+    const res = await fetch(`/v/admin/user/${userId}/details`, { credentials: 'include' });
+    if (!res.ok) return null;
+    return res.json();
+}
 

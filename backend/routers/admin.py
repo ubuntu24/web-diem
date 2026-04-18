@@ -228,3 +228,95 @@ def unban_user(
     db.commit()
     return {"message": "Ban removed"}
 
+
+@router.get("/admin/user/{user_id}/details")
+def get_user_details(
+    user_id: int,
+    current_user: models.Nick = Depends(security.get_current_user),
+    db: Session = Depends(database.get_db)
+):
+    """Lấy chi tiết user: IP đã vào web (từ UserIpLog) + số lượt truy cập từng ngày."""
+    if current_user.role != 1:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    user = db.query(models.Nick).filter(models.Nick.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # --- IP History: lấy từ user_ip_log ---
+    # Bọc try-except: nếu bảng chưa tồn tại (migration chưa chạy) thì trả list rỗng
+    ip_history = []
+    try:
+        ip_rows = (
+            db.query(models.UserIpLog)
+            .filter(models.UserIpLog.user_id == user_id)
+            .order_by(models.UserIpLog.last_seen.desc())
+            .all()
+        )
+        ip_history = [
+            {
+                "ip": row.ip_address,
+                "hit_count": row.hit_count,
+                "first_seen": row.first_seen.isoformat() if row.first_seen else None,
+                "last_seen": row.last_seen.isoformat() if row.last_seen else None,
+            }
+            for row in ip_rows
+        ]
+    except Exception as e:
+        logger.warning(f"user_ip_log query failed for user_id={user_id}: {e}")
+        db.rollback()
+
+    # --- Lấy thêm IP từ ban_records nếu có ---
+    ban_ips = []
+    try:
+        ban_rows = (
+            db.query(models.BanRecord)
+            .filter(
+                models.BanRecord.username == user.username,
+                models.BanRecord.ip_address.isnot(None),
+            )
+            .all()
+        )
+        ban_ips = [
+            {
+                "ip": b.ip_address,
+                "reason": b.reason,
+                "banned_at": b.created_at.isoformat() if b.created_at else None,
+                "device_fingerprint": b.device_fingerprint,
+            }
+            for b in ban_rows
+        ]
+    except Exception as e:
+        logger.warning(f"ban_records query failed for user={user.username}: {e}")
+        db.rollback()
+
+    # --- Access stats: toàn bộ lịch sử vào web ---
+    access_history = []
+    try:
+        access_rows = (
+            db.query(models.UserAccess)
+            .filter(models.UserAccess.user_id == user_id)
+            .order_by(models.UserAccess.access_date.desc())
+            .all()
+        )
+        access_history = [
+            {"date": str(row.access_date), "count": row.count}
+            for row in access_rows
+        ]
+    except Exception as e:
+        logger.warning(f"user_access query failed for user_id={user_id}: {e}")
+        db.rollback()
+
+    total_access = sum(r["count"] for r in access_history)
+
+    return {
+        "user_id": user.id,
+        "username": user.username,
+        "role": user.role,
+        "last_active": user.last_active.isoformat() if user.last_active else None,
+        "ip_history": ip_history,
+        "ban_ips": ban_ips,
+        "access_history": access_history,
+        "total_access": total_access,
+    }
+

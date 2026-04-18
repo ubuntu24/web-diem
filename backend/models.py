@@ -140,3 +140,14 @@ class BanRecord(Base):
     reason = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+
+class UserIpLog(Base):
+    """Lưu lịch sử địa chỉ IP của từng user khi vào web (mỗi IP duy nhất = 1 bản ghi)."""
+    __tablename__ = "user_ip_log"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, index=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)  # no FK: Supabase pgBouncer compat
+    ip_address: Mapped[str] = mapped_column(Text, nullable=False)
+    first_seen: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    last_seen: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    hit_count: Mapped[int] = mapped_column(Integer, default=1)

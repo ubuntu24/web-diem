@@ -29,8 +29,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger("api")
 
-async def _update_access_logic(username: str):
-    """Background task to update user access stats without blocking the response."""
+async def _update_access_logic(username: str, ip_address: str = ""):
+    """Background task cập nhật access stats và ghi lại IP vào user_ip_log."""
     db = None
     try:
         now = datetime.now()
@@ -39,11 +39,12 @@ async def _update_access_logic(username: str):
         user = db.query(models.Nick).filter(models.Nick.username == username).first()
         if user:
             user.last_active = now
+
+            # --- Cập nhật UserAccess (số lượt vào theo ngày) ---
             access_record = db.query(models.UserAccess).filter(
                 models.UserAccess.user_id == user.id,
                 models.UserAccess.access_date == today
             ).first()
-            
             if access_record:
                 access_record.count += 1
             else:
@@ -53,6 +54,26 @@ async def _update_access_logic(username: str):
                     count=1
                 )
                 db.add(access_record)
+
+            # --- Ghi lại IP vào UserIpLog (upsert theo IP duy nhất) ---
+            clean_ip = (ip_address or "").strip()
+            if clean_ip and clean_ip not in ("unknown", ""):
+                ip_log = db.query(models.UserIpLog).filter(
+                    models.UserIpLog.user_id == user.id,
+                    models.UserIpLog.ip_address == clean_ip,
+                ).first()
+                if ip_log:
+                    ip_log.last_seen = now
+                    ip_log.hit_count += 1
+                else:
+                    db.add(models.UserIpLog(
+                        user_id=user.id,
+                        ip_address=clean_ip,
+                        first_seen=now,
+                        last_seen=now,
+                        hit_count=1,
+                    ))
+
             db.commit()
     except Exception as e:
         logger.error(f"Access update error for {username}: {e}")
@@ -87,6 +108,28 @@ async def lifespan(app: FastAPI):
             except Exception as e:
                 db.rollback()
                 logger.debug(f"Migration (full_name) skipped or already applied: {e}")
+
+            # Migration: Create user_ip_log table for web-access IP tracking
+            try:
+                db.execute(text("""
+                    CREATE TABLE IF NOT EXISTS user_ip_log (
+                        id BIGSERIAL PRIMARY KEY,
+                        user_id BIGINT NOT NULL REFERENCES nick(id) ON DELETE CASCADE,
+                        ip_address TEXT NOT NULL,
+                        first_seen TIMESTAMP DEFAULT NOW(),
+                        last_seen TIMESTAMP DEFAULT NOW(),
+                        hit_count INTEGER DEFAULT 1
+                    )
+                """))
+                db.execute(text(
+                    "CREATE INDEX IF NOT EXISTS idx_user_ip_log_user_id ON user_ip_log(user_id)"
+                ))
+                db.commit()
+                logger.info("Migration (user_ip_log): table ready.")
+            except Exception as e:
+                db.rollback()
+                logger.debug(f"Migration (user_ip_log) skipped or already applied: {e}")
+
         except Exception as e:
             logger.error(f"Migration error: {e}")
             
@@ -250,8 +293,16 @@ async def log_requests(request: Request, call_next):
         
         if not last_update or (now - last_update).total_seconds() > 60:
             _last_access_update[username] = now
+
+            # Trích xuất IP thật: ưu tiên Cloudflare → X-Forwarded-For → client.host
+            real_ip = (
+                request.headers.get("cf-connecting-ip")
+                or (request.headers.get("x-forwarded-for") or "").split(",")[0].strip()
+                or (request.client.host if request.client else "")
+            )
+
             # Track access in background tasks to avoid blocking the event loop
-            asyncio.create_task(_update_access_logic(username))
+            asyncio.create_task(_update_access_logic(username, real_ip))
     
     return response
 
