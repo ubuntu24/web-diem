@@ -52,7 +52,7 @@ class BangDiem(Base):
     thuc_hanh_1 = Column(Float)
     thuc_hanh_2 = Column(Float)
     tb_thuong_ky = Column(Float)
-    dieu_kien_thi = Column(Float)
+    dieu_kien_thi = Column(Text)
     diem_thi = Column(Float)
     tong_ket_10 = Column(Float)
     tong_ket_4 = Column(Float)
