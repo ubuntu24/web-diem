@@ -164,8 +164,45 @@ def format_student(sv: models.SinhVien, hide_details=False, role: int = 1):
         key=lambda r: (getattr(r, 'id', 0) or 0)
     ) if diem_loaded else []
 
+    # --- Backend semester normalization logic ---
+    def _get_semester(d):
+        """Backend version of getNormalizedSemester to match frontend exactly."""
+        hk = (getattr(d, 'hoc_ky', '') or '').strip()
+        ldl = (getattr(d, 'loai_du_lieu', '') or '').strip()
+        ten = (getattr(d, 'ten_mon', '') or '').strip().lower()
+
+        hk_up = hk.upper()
+        if hk and hk_up != 'HV' and 'hoc vuot' not in hk.lower():
+            return hk
+
+        is_hv = (
+            hk_up == 'HV' or
+            'hoc vuot' in hk.lower() or
+            ldl.upper() == 'HV' or
+            'hoc vuot' in ldl.lower() or
+            '_ hv' in ten or
+            '(hoc vuot)' in ten or
+            '(hv)' in ten
+        )
+        if is_hv: return 'Học vượt'
+        if not hk and ldl: return ldl
+        return hk or 'Khác'
+
+    def _normalize_name(name):
+        n = (name or '').strip().lower()
+        for sfx in ['_ hv', '_hv', '(hoc vuot)', '(hv)']:
+            if n.endswith(sfx):
+                n = n[:-len(sfx)].strip()
+        return n
+
+    def _subj_key(d):
+        ma_mon = (getattr(d, 'ma_mon', '') or '').strip()
+        norm = _normalize_name(getattr(d, 'ten_mon', ''))
+        return (f"N_{norm}" if norm else '') or ma_mon
+
     # --- Compute GPA from scratch (never trust summary fields) ---
     subject_map = {}  # key → {score4, score10, credit}
+    sem_subject_map = {} # (sem, key) → {score4, score10, credit}
 
     if diem_sorted:
         for d in diem_sorted:
@@ -177,17 +214,18 @@ def format_student(sv: models.SinhVien, hide_details=False, role: int = 1):
                 if credit <= 0 or s10 is None:
                     continue
 
-                # Normalize name
-                raw_name = (d.ten_mon or '').strip().lower()
-                for suffix in ['_ hv', '_hv', '(hoc vuot)', '(hv)']:
-                    if raw_name.endswith(suffix):
-                        raw_name = raw_name[:-len(suffix)].strip()
-                
-                key = (f"N_{raw_name}" if raw_name else '') or (d.ma_mon or '').strip()
+                key = _subj_key(d)
+                sem = _get_semester(d)
                 
                 # HIGHEST attempt wins for Cumulative GPA
                 if key not in subject_map or s10 > subject_map[key]['s10']:
                     subject_map[key] = {'s4': s4, 's10': s10, 'credit': credit}
+                
+                # HIGHEST attempt wins for Semester GPA (in case of double entries in same sem)
+                group_key = (sem, key)
+                if group_key not in sem_subject_map or s10 > sem_subject_map[group_key]['s10']:
+                    sem_subject_map[group_key] = {'s4': s4, 's10': s10, 'credit': credit}
+
             except (ValueError, TypeError):
                 pass
 
@@ -197,6 +235,28 @@ def format_student(sv: models.SinhVien, hide_details=False, role: int = 1):
 
     gpa_4 = round(tp4 / tc, 2) if tc > 0 else 0.0
     gpa_10 = round(tp10 / tc, 2) if tc > 0 else 0.0
+
+    # Calculate History GPA (hg) map
+    hg = {}
+    if sem_subject_map:
+        sem_totals = {} # {sem: {tp4, tp10, tc}}
+        for (sem, _), v in sem_subject_map.items():
+            if sem not in sem_totals:
+                sem_totals[sem] = {'tp4': 0, 'tp10': 0, 'tc': 0}
+            # Note: For semester GPA, we usually include all attempted credits in that semester,
+            # but frontend and common practice might only care about successful ones for some stats.
+            # However, looking at Dashboard.tsx, it calculates locally.
+            # We match the frontend logic: including all non-excluded grades in that semester.
+            sem_totals[sem]['tp4'] += v['s4'] * v['credit']
+            sem_totals[sem]['tp10'] += v['s10'] * v['credit']
+            sem_totals[sem]['tc'] += v['credit']
+        
+        for sem, totals in sem_totals.items():
+            if totals['tc'] > 0:
+                hg[sem] = {
+                    "g4": round(totals['tp4'] / totals['tc'], 2),
+                    "g10": round(totals['tp10'] / totals['tc'], 2)
+                }
 
     # --- Build response with Masked Fields (Privacy) ---
     display_msv = security.obfuscate_id(sv.msv) if role == 0 else sv.msv
@@ -211,46 +271,12 @@ def format_student(sv: models.SinhVien, hide_details=False, role: int = 1):
         "g": gpa_4,          # gpa
         "g10": gpa_10,       # gpa10
         "tc": tc,            # total_credits
+        "hg": hg,            # history_gpa map for ranking/sorting
     }
 
     if not hide_details and diem_sorted:
         # --- Deduplicate grades per semester: keep best score ---
-        def _normalize_name(name):
-            n = (name or '').strip().lower()
-            for sfx in ['_ hv', '_hv', '(hoc vuot)', '(hv)']:
-                if n.endswith(sfx):
-                    n = n[:-len(sfx)].strip()
-            return n
-
-        def _get_semester(d):
-            """Backend version of getNormalizedSemester to match frontend exactly."""
-            hk = (getattr(d, 'hoc_ky', '') or '').strip()
-            ldl = (getattr(d, 'loai_du_lieu', '') or '').strip()
-            ten = (getattr(d, 'ten_mon', '') or '').strip().lower()
-
-            hk_up = hk.upper()
-            if hk and hk_up != 'HV' and 'hoc vuot' not in hk.lower():
-                return hk
-
-            is_hv = (
-                hk_up == 'HV' or
-                'hoc vuot' in hk.lower() or
-                ldl.upper() == 'HV' or
-                'hoc vuot' in ldl.lower() or
-                '_ hv' in ten or
-                '(hoc vuot)' in ten or
-                '(hv)' in ten
-            )
-            if is_hv: return 'Học vượt'
-            if not hk and ldl: return ldl
-            return hk or 'Khác'
-
         sem_subject = {}  # (semester, subject_key) → best grade row
-        def _subj_key(d):
-            ma_mon = (getattr(d, 'ma_mon', '') or '').strip()
-            norm = _normalize_name(getattr(d, 'ten_mon', ''))
-            return (f"N_{norm}" if norm else '') or ma_mon
-
         for d in diem_sorted:
             sem = _get_semester(d)
             subj_key = _subj_key(d)
@@ -314,19 +340,7 @@ def format_student(sv: models.SinhVien, hide_details=False, role: int = 1):
         if diem_loaded:
              all_semesters = set()
              for d in diem_sorted:
-                 # Re-run normalizing logic to get correct semester names for list view tags
-                 hk = (getattr(d, 'hoc_ky', '') or '').strip()
-                 ldl = (getattr(d, 'loai_du_lieu', '') or '').strip()
-                 ten = (getattr(d, 'ten_mon', '') or '').strip().lower()
-                 hk_up = hk.upper()
-                 
-                 sem = hk
-                 if not (hk and hk_up != 'HV' and 'hoc vuot' not in hk.lower()):
-                     is_hv = (hk_up == 'HV' or 'hoc vuot' in hk.lower() or ldl.upper() == 'HV' or 'hoc vuot' in ldl.lower() or '_ hv' in ten or '(hoc vuot)' in ten or '(hv)' in ten)
-                     if is_hv: sem = 'Học vượt'
-                     elif not hk and ldl: sem = ldl
-                     else: sem = hk or 'Khác'
-                 
+                 sem = _get_semester(d)
                  if sem: all_semesters.add(sem)
              result['hs'] = sorted(list(all_semesters))
 
