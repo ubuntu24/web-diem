@@ -18,13 +18,14 @@ class ConnectionManager:
     def __init__(self):
         self.active_connections: List[dict] = []
 
-    async def connect(self, websocket: WebSocket, user_identifier: str, ip: Optional[str], fp: Optional[str] = None):
+    async def connect(self, websocket: WebSocket, user_identifier: str, ip: Optional[str], is_admin: bool = False, fp: Optional[str] = None):
         await websocket.accept()
         self.active_connections.append({
             "ws": websocket,
             "user": user_identifier,
             "ip": ip,
-            "fp": fp
+            "fp": fp,
+            "is_admin": is_admin
         })
         await self.broadcast_online_count()
 
@@ -54,6 +55,16 @@ class ConnectionManager:
         
         if to_kick:
             await self.broadcast_online_count()
+
+    async def broadcast_to_admins(self, message: dict):
+        """Sends a message ONLY to authenticated administrators."""
+        msg_str = json.dumps(message)
+        for connection in self.active_connections:
+            if connection.get("is_admin"):
+                try:
+                    await connection["ws"].send_text(msg_str)
+                except Exception:
+                    pass
 
     async def broadcast(self, message: dict):
         msg_str = json.dumps(message)
@@ -186,14 +197,18 @@ async def websocket_endpoint(websocket: WebSocket):
     user_id = None
     device_fp = None
     
-    # Extract token from cookies
+    # Extract token from cookies & check initial role
+    is_admin = False
     token = websocket.cookies.get("stoken")
     if token:
         try:
             payload = jwt.decode(token, security.SECRET_KEY, algorithms=[security.ALGORITHM])
             username = payload.get("sub")
+            role = payload.get("role")
             if username:
                 user_id = username
+                if role == 1:
+                    is_admin = True
         except JWTError:
             pass
 
@@ -225,7 +240,7 @@ async def websocket_endpoint(websocket: WebSocket):
     # Rate limiting state
     last_chat_time = datetime.min
     
-    await manager.connect(websocket, user_id, policy_ip)
+    await manager.connect(websocket, user_id, policy_ip, is_admin=is_admin)
 
     try:
         while True:
@@ -272,6 +287,13 @@ async def websocket_endpoint(websocket: WebSocket):
                                 old_user = conn["user"]
                                 conn["user"] = username
                                 conn["fp"] = device_fp
+                                # Re-verify admin status on ticket/auth update
+                                try:
+                                    # We get role from payload if it was JWT auth
+                                    role = payload.get("role") if 'payload' in locals() else None
+                                    if role == 1:
+                                        conn["is_admin"] = True
+                                except: pass
                                 break
                         if old_user != username:
                             await manager.broadcast_online_count()

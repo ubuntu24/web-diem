@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { User as UserType, getChatHistoryBff, banUserBff, ChatMessage } from '../lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, X, ShieldAlert, MessageCircle, User } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 // Local Message mapping
 type Message = ChatMessage;
@@ -20,6 +21,9 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
     const [input, setInput] = useState('');
     const [status, setStatus] = useState<number>(socket?.readyState ?? 0);
     const scrollRef = useRef<HTMLDivElement>(null);
+
+    const [banModal, setBanModal] = useState<{ isOpen: boolean; msg: Message | null }>({ isOpen: false, msg: null });
+    const [banReason, setBanReason] = useState('Hành vi không chuẩn mực khi chat');
 
     // Monitor socket state changes
     useEffect(() => {
@@ -77,6 +81,7 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
                         timestamp: new Date().toISOString()
                     }]);
                     if (user?.loginUsername === data.username) {
+                        toast.error('Bạn đã bị cấm khỏi phòng chat!', { duration: 5000 });
                         setTimeout(() => window.location.reload(), 2000);
                     }
                 }
@@ -99,15 +104,23 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
         setInput('');
     };
 
-    const handleBan = async (msg: Message) => {
-        if (user?.role !== 1) return;
-        if (!confirm(`Bạn có chắc muốn BAN người dùng "${msg.username}"?`)) return;
+    const handleBanClick = (msg: Message) => {
+        setBanModal({ isOpen: true, msg });
+        setBanReason('Hành vi không chuẩn mực khi chat');
+    };
 
+    const executeBan = async () => {
+        if (!banModal.msg) return;
+        const targetUsername = banModal.msg.username;
+        
+        setBanModal({ isOpen: false, msg: null });
+        const loadingToast = toast.loading(`Đang thực hiện cấm ${targetUsername}...`);
+        
         try {
-            await banUserBff(msg.username, undefined, undefined, 'Hành vi không chừng mực trong chat');
-            alert('Đã ban người dùng!');
+            await banUserBff(targetUsername, undefined, undefined, banReason || 'Vi phạm nội quy chat');
+            toast.success(`Đã ban ${targetUsername} thành công!`, { id: loadingToast });
         } catch (e) {
-            alert('Lỗi: ' + e);
+            toast.error('Lỗi khi thực hiện lệnh cấm: ' + e, { id: loadingToast });
         }
     };
 
@@ -115,14 +128,75 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
         <AnimatePresence>
             {isOpen && (
                 <>
-                    {/* Modal Overlay (optional, but keep it consistent with feedback if needed) */}
+                    {/* Modal Overlay */}
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black/20 backdrop-blur-[2px] z-[60]"
+                        className="fixed inset-0 bg-black/40 backdrop-blur-[4px] z-[60]"
                         onClick={onClose}
                     />
+
+                    {/* Ban Confirmation Modal (Highest Z-Index) */}
+                    <AnimatePresence>
+                        {banModal.isOpen && (
+                            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                                <motion.div
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                                    onClick={() => setBanModal({ isOpen: false, msg: null })}
+                                />
+                                <motion.div
+                                    initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                                    className="relative bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden border border-slate-200 dark:border-slate-800"
+                                >
+                                    <div className="p-6">
+                                        <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-2xl flex items-center justify-center mb-5 mx-auto">
+                                            <ShieldAlert className="w-8 h-8 text-red-600 dark:text-red-500" />
+                                        </div>
+                                        
+                                        <h4 className="text-lg font-bold text-center text-slate-900 dark:text-white mb-2">Xác nhận cấm tài khoản?</h4>
+                                        <p className="text-sm text-center text-slate-500 dark:text-slate-400 mb-6 px-4">
+                                            Bạn đang thực hiện cấm <span className="font-bold text-red-600">"{banModal.msg?.username}"</span>. 
+                                            Tài khoản, IP và thiết bị của người này sẽ không thể truy cập chat.
+                                        </p>
+
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider ml-1 mb-1.5 block">Lý do cấm</label>
+                                                <textarea 
+                                                    value={banReason}
+                                                    onChange={(e) => setBanReason(e.target.value)}
+                                                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all dark:text-white resize-none"
+                                                    rows={3}
+                                                    placeholder="Nhập lý do cụ thể..."
+                                                />
+                                            </div>
+
+                                            <div className="flex gap-3 pt-2">
+                                                <button 
+                                                    onClick={() => setBanModal({ isOpen: false, msg: null })}
+                                                    className="flex-1 px-4 py-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-sm font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                                                >
+                                                    Hủy bỏ
+                                                </button>
+                                                <button 
+                                                    onClick={executeBan}
+                                                    className="flex-1 px-4 py-3 rounded-xl bg-red-600 text-white text-sm font-bold hover:bg-red-700 shadow-lg shadow-red-500/30 transition-all active:scale-95"
+                                                >
+                                                    Xác nhận Ban
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            </div>
+                        )}
+                    </AnimatePresence>
 
                     {/* Chat Modal */}
                     <motion.div
@@ -185,7 +259,7 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
                                                     </span>
                                                     {user?.role === 1 && !isMe && (
                                                         <button
-                                                            onClick={() => handleBan(m)}
+                                                            onClick={() => handleBanClick(m)}
                                                             className="text-[10px] text-red-500 hover:text-red-700 font-bold uppercase transition-colors flex items-center gap-0.5 bg-red-50 dark:bg-red-900/20 px-1.5 py-0.5 rounded"
                                                             title="Ban tài khoản và thiết bị"
                                                         >
@@ -230,7 +304,7 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
                                     <button
                                         onClick={send}
                                         disabled={!user || !input.trim()}
-                                        className="p-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl shadow-lg shadow-violet-500/20 active:scale-90 transition-all disabled:opacity-50 disabled:grayscale flex-shrink-0"
+                                        className="p-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl shadow-lg shadow-violet-500/20 active:scale-95 transition-all disabled:opacity-50 disabled:grayscale flex-shrink-0"
                                     >
                                         <Send className="w-5 h-5" />
                                     </button>
