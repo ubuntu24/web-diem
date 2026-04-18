@@ -110,7 +110,6 @@ function GradeRow({ grade, isPass, isHigh }: { grade: Grade; isPass: boolean; is
         { label: 'Thực Hành 2', value: grade.thuc_hanh_2 },
         { label: 'TB Thường Kỳ', value: grade.tb_thuong_ky },
         { label: 'Vắng Thi', value: grade.vang_thi },
-        { label: 'Kết Quả', value: grade.ket_qua },
         { label: 'Xếp Loại', value: grade.xep_loai },
         { label: 'Thi KN 1', value: grade.diem_thi_kn_1 },
         { label: 'Thi KN 2', value: grade.diem_thi_kn_2 },
