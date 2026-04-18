@@ -71,30 +71,30 @@ def sync_schema():
         
         with engine.connect() as conn:
             # 1. Đồng bộ bảng chat_messages
-            if 'chat_messages_v2' in table_names:
-                columns = [c['name'] for c in inspector.get_columns('chat_messages_v2')]
+            if 'chat_messages' in table_names:
+                columns = [c['name'] for c in inspector.get_columns('chat_messages')]
                 if 'ip_address' not in columns:
-                    print("[INFO] Sync: Adding 'ip_address' to chat_messages_v2")
-                    conn.execute(text("ALTER TABLE chat_messages_v2 ADD COLUMN ip_address TEXT"))
+                    print("[INFO] Sync: Adding 'ip_address' to chat_messages")
+                    conn.execute(text("ALTER TABLE chat_messages ADD COLUMN ip_address TEXT"))
                 if 'device_fingerprint' not in columns:
-                    print("[INFO] Sync: Adding 'device_fingerprint' to chat_messages_v2")
-                    conn.execute(text("ALTER TABLE chat_messages_v2 ADD COLUMN device_fingerprint TEXT"))
+                    print("[INFO] Sync: Adding 'device_fingerprint' to chat_messages")
+                    conn.execute(text("ALTER TABLE chat_messages ADD COLUMN device_fingerprint TEXT"))
             
             # 2. Đồng bộ bảng nick
-            if 'nick_v2' in table_names:
-                columns = [c['name'] for c in inspector.get_columns('nick_v2')]
+            if 'nick' in table_names:
+                columns = [c['name'] for c in inspector.get_columns('nick')]
                 if 'class_change_limit' not in columns:
-                    print("[INFO] Sync: Adding 'class_change_limit' to nick_v2")
-                    conn.execute(text("ALTER TABLE nick_v2 ADD COLUMN class_change_limit INTEGER DEFAULT 5"))
+                    print("[INFO] Sync: Adding 'class_change_limit' to nick")
+                    conn.execute(text("ALTER TABLE nick ADD COLUMN class_change_limit INTEGER DEFAULT 5"))
                 if 'full_name' not in columns:
-                    print("[INFO] Sync: Adding 'full_name' to nick_v2")
-                    conn.execute(text("ALTER TABLE nick_v2 ADD COLUMN full_name TEXT"))
+                    print("[INFO] Sync: Adding 'full_name' to nick")
+                    conn.execute(text("ALTER TABLE nick ADD COLUMN full_name TEXT"))
                 if 'last_active' not in columns:
-                    print("[INFO] Sync: Adding 'last_active' to nick_v2")
-                    conn.execute(text("ALTER TABLE nick_v2 ADD COLUMN last_active TIMESTAMP"))
+                    print("[INFO] Sync: Adding 'last_active' to nick")
+                    conn.execute(text("ALTER TABLE nick ADD COLUMN last_active TIMESTAMP"))
                 if 'reset_limit_at' not in columns:
-                    print("[INFO] Sync: Adding 'reset_limit_at' to nick_v2")
-                    conn.execute(text("ALTER TABLE nick_v2 ADD COLUMN reset_limit_at TIMESTAMP"))
+                    print("[INFO] Sync: Adding 'reset_limit_at' to nick")
+                    conn.execute(text("ALTER TABLE nick ADD COLUMN reset_limit_at TIMESTAMP"))
 
             conn.commit()
         

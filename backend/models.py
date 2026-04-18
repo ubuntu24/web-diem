@@ -31,7 +31,7 @@ class SinhVien(Base):
     diem = relationship("BangDiem", back_populates="sinh_vien", cascade="all, delete")
 
 class BangDiem(Base):
-    __tablename__ = "bang_diem_v2"
+    __tablename__ = "bang_diem"
 
     id = Column(BigInteger, primary_key=True, index=True) 
     msv = Column(Text, ForeignKey("sinh_vien.msv"), nullable=False)
@@ -97,7 +97,7 @@ class BangDiem(Base):
     sinh_vien = relationship("SinhVien", back_populates="diem")
 
 class Nick(Base):
-    __tablename__ = "nick_v2"
+    __tablename__ = "nick"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, index=True, autoincrement=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -113,42 +113,44 @@ class Nick(Base):
     class_change_limit: Mapped[Optional[int]] = mapped_column(Integer, default=5, nullable=True)
 
 class UserAccess(Base):
-    __tablename__ = "user_access_v2"
+    __tablename__ = "user_access"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, index=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("nick_v2.id", ondelete="CASCADE"), nullable=False)
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("nick.id", ondelete="CASCADE"), nullable=False)
     access_date: Mapped[date] = mapped_column(Date, server_default=func.current_date(), nullable=False)
     last_update: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
     count: Mapped[int] = mapped_column(Integer, default=1)
 
 class ChatMessage(Base):
-    __tablename__ = "chat_messages_v2"
+    __tablename__ = "chat_messages"
 
     id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
-    user_id = Column(BigInteger, ForeignKey("nick_v2.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(BigInteger, ForeignKey("nick.id", ondelete="CASCADE"), nullable=False)
     message = Column(Text, nullable=False)
     ip_address = Column(Text, nullable=True)
     device_fingerprint = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 class BanRecord(Base):
-    __tablename__ = "ban_records_v2"
+    __tablename__ = "ban_records"
 
     id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
-    user_id = Column(BigInteger, ForeignKey("nick_v2.id", ondelete="CASCADE"), nullable=True)
+    user_id = Column(BigInteger, ForeignKey("nick.id", ondelete="CASCADE"), nullable=True)
     ip_address = Column(Text, nullable=True)
     device_fingerprint = Column(Text, nullable=True)
     reason = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
+
 class UserIpLog(Base):
     """Lưu lịch sử địa chỉ IP của từng user khi vào web (mỗi IP duy nhất = 1 bản ghi)."""
-    __tablename__ = "user_ip_log_v2"
+    __tablename__ = "user_ip_log"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, index=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("nick_v2.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("nick.id", ondelete="CASCADE"), nullable=False, index=True)
     ip_address: Mapped[str] = mapped_column(Text, nullable=False)
     first_seen: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     last_seen: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     hit_count: Mapped[int] = mapped_column(Integer, default=1)
+
