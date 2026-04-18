@@ -53,7 +53,7 @@ function getStore(): Store {
     return g.__bffStoreV3;
 }
 
-export async function authHeadersFromCookies(extra?: HeadersInit): Promise<HeadersInit> {
+export async function authHeadersFromCookies(extra?: HeadersInit, clientRequest?: Request): Promise<HeadersInit> {
     const token = (await cookies()).get('stoken')?.value;
     const merged: Record<string, string> = {};
     if (extra && typeof extra === 'object' && !Array.isArray(extra)) {
@@ -62,6 +62,24 @@ export async function authHeadersFromCookies(extra?: HeadersInit): Promise<Heade
         }
     }
     if (token) merged.Authorization = `Bearer ${token}`;
+
+    // Forward real client IP to backend (avoids Docker internal 172.x.x.x)
+    // Extract using Next.js headers() utility for all server-side contexts
+    try {
+        const reqHeaders = await headers();
+        const fwd = (clientRequest ? clientRequest.headers.get('x-forwarded-for') : null) || reqHeaders.get('x-forwarded-for');
+        const realIp =
+            (clientRequest ? clientRequest.headers.get('cf-connecting-ip') : null) ||
+            reqHeaders.get('cf-connecting-ip') ||
+            (fwd ? fwd.split(',')[0].trim() : null) ||
+            (clientRequest ? clientRequest.headers.get('x-real-ip') : null) ||
+            reqHeaders.get('x-real-ip');
+            
+        if (realIp) merged['X-Real-IP'] = realIp;
+    } catch (e) {
+        // Fallback for cases outside request context
+    }
+
     return merged;
 }
 

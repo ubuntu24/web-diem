@@ -294,10 +294,13 @@ async def log_requests(request: Request, call_next):
         if not last_update or (now - last_update).total_seconds() > 60:
             _last_access_update[username] = now
 
-            # Trích xuất IP thật: ưu tiên Cloudflare → X-Forwarded-For → client.host
+            # Trích xuất IP thật: ưu tiên X-Real-IP (do BFF/Next.js forward từ Cloudflare)
+            # → X-Forwarded-For → cf-connecting-ip → client.host (cuối cùng mới lấy Docker IP)
+            raw_fwd = request.headers.get("x-forwarded-for") or ""
             real_ip = (
-                request.headers.get("cf-connecting-ip")
-                or (request.headers.get("x-forwarded-for") or "").split(",")[0].strip()
+                request.headers.get("x-real-ip")               # Set by Next.js BFF from Cloudflare header
+                or request.headers.get("cf-connecting-ip")     # Cloudflare native (direct access)
+                or raw_fwd.split(",")[0].strip()               # First hop in X-Forwarded-For
                 or (request.client.host if request.client else "")
             )
 
