@@ -23,7 +23,8 @@ if not SQLALCHEMY_DATABASE_URL:
         SQLALCHEMY_DATABASE_URL = f"postgresql://{USER}:{PASSWORD}@{HOST}:{PORT}/{DBNAME}"
     elif IS_PRODUCTION:
         print("[CRITICAL] DATABASE_URL is missing in PRODUCTION environment!")
-        raise RuntimeError("DATABASE_URL environment variable is required for production")
+        # We no longer raise RuntimeError to allow the app to start and provide diagnostic /api/health
+        SQLALCHEMY_DATABASE_URL = "postgresql://missing_url_placeholder" 
     else:
         # Fallback to SQLite ONLY for local development if no Postgres config found
         print("[WARNING] DATABASE_URL not found. Falling back to SQLite: students.db (Local Mode Only)")
@@ -68,6 +69,11 @@ def create_tables():
 
 def sync_schema():
     """Tự động đồng bộ hóa cấu trúc bảng cho môi trường Production (Postgres/SQLite)"""
+    # 🕵️ RESCUE: Bỏ qua nếu chưa cấu hình URL để tránh treo Server
+    if not SQLALCHEMY_DATABASE_URL or "missing_url_placeholder" in SQLALCHEMY_DATABASE_URL:
+        print("[SKIP] Sync: Skipping schema sync because DATABASE_URL is not configured.")
+        return
+
     try:
         print("[INFO] Sync: Starting schema synchronization...")
         inspector = inspect(engine)

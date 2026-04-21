@@ -10,7 +10,8 @@ import database
 import models
 import security
 from dotenv import load_dotenv
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
+from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
@@ -177,6 +178,8 @@ def _build_allowed_hosts() -> list[str]:
     hosts: list[str] = [
         "localhost",
         "127.0.0.1",
+        "localhost:8000",
+        "127.0.0.1:8000",
         "backend",
         "web-diem-backend",
         "frontend",
@@ -239,6 +242,31 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type", "X-CSRF-Token"],
 )
 
+
+@app.get("/health")
+async def simple_health():
+    """Endpoint cho Docker Healthcheck - chỉ kiểm tra server có sống không."""
+    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
+
+@app.get("/api/health")
+def database_health(db: Session = Depends(database.get_db)):
+    """Trang chẩn đoán lỗi Database - dùng để phát hiện pass sai, host sai..."""
+    try:
+        from sqlalchemy import text
+        db.execute(text("SELECT 1"))
+        return {
+            "status": "healthy",
+            "database": "connected",
+            "environment": os.getenv("NODE_ENV", "development"),
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        return {
+            "status": "unhealthy",
+            "database": str(e),
+            "detail": "Database connection failed - Check your credentials!"
+        }
 
 # Track last access update time per user to avoid DB writes on every request
 _last_access_update: dict[str, datetime] = {}  # username -> datetime
@@ -329,33 +357,6 @@ app.include_router(admin.router, tags=["Admin"])
 app.include_router(chat.router, tags=["Chat"])
 app.include_router(websocket.router, tags=["WebSocket"])
 
-@app.get("/health")
-async def simple_health():
-    """Endpoint cho Docker Healthcheck - chỉ kiểm tra server có sống không."""
-    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
-
-@app.get("/api/health")
-def database_health(db: Session = Depends(database.get_db)):
-    """Trang chẩn đoán lỗi Database - dùng để phát hiện pass sai, host sai..."""
-    try:
-        from sqlalchemy import text
-        db.execute(text("SELECT 1"))
-        return {
-            "status": "healthy",
-            "database": "connected",
-            "environment": os.getenv("NODE_ENV", "development"),
-            "timestamp": datetime.utcnow().isoformat()
-        }
-    except Exception as e:
-        logger.error(f"Health check failed: {e}")
-        return JSONResponse(
-            status_code=200, # Trả về 200 kèm lỗi để BFF không chặn, hiển thị rõ nội dung lỗi
-            content={
-                "status": "unhealthy",
-                "database": str(e),
-                "detail": "Database connection failed - Check your credentials!"
-            }
-        )
 
 if __name__ == "__main__":
     import uvicorn
