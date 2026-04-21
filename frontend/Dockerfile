@@ -14,6 +14,8 @@ ARG API_URL=http://backend:8000
 ENV API_URL=${API_URL}
 # Ensure standalone mode is used
 ENV NEXT_OUTPUT_STANDALONE=true
+# ⚡ OPTIMIZATION: Limit Node memory to avoid OOM on limited runners
+ENV NODE_OPTIONS="--max-old-space-size=1536"
 RUN npm run build
 
 # Stage 3: Runner
