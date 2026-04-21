@@ -31,16 +31,29 @@ if not SQLALCHEMY_DATABASE_URL:
         SQLALCHEMY_DATABASE_URL = "sqlite:///./students.db"
 
 # Create the SQLAlchemy engine
+if not SQLALCHEMY_DATABASE_URL or "missing_url_placeholder" in SQLALCHEMY_DATABASE_URL:
+    # Use a dummy SQLite in memory or file to prevent engine crash
+    SQLALCHEMY_DATABASE_URL = "sqlite:///./fallback_disaster.db"
+
 if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
     print("[INFO] DB_CONNECTION: Using local SQLite database")
 else:
+    # 🕵️ AUTO-FIX: Encode password if it contains special characters (@, #, !, etc.)
+    # This prevents the Connection String from breaking.
     try:
-        # Mask password: postgres://user:pass@host/db -> postgres://user:***@host/db
-        parts = SQLALCHEMY_DATABASE_URL.split('@')
-        host_info = parts[-1]
+        from urllib.parse import quote_plus, urlparse
+        parsed = urlparse(SQLALCHEMY_DATABASE_URL)
+        if parsed.password:
+            encoded_password = quote_plus(parsed.password)
+            SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace(
+                f":{parsed.password}@", 
+                f":{encoded_password}@"
+            )
+        
+        host_info = parsed.hostname or "unknown"
         print(f"[INFO] DB_CONNECTION: Connected to Postgres at {host_info}")
-    except Exception:
-        print("[INFO] DB_CONNECTION: Connected to Postgres")
+    except Exception as e:
+        print(f"[WARNING] SQLALCHEMY_DATABASE_URL parsing/encoding error: {e}")
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
