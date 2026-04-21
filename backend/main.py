@@ -330,12 +330,13 @@ app.include_router(chat.router, tags=["Chat"])
 app.include_router(websocket.router, tags=["WebSocket"])
 
 @app.get("/health")
-async def health_check():
+async def simple_health():
+    """Endpoint cho Docker Healthcheck - chỉ kiểm tra server có sống không."""
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
 @app.get("/api/health")
-def health_check(db: Session = Depends(database.get_db)):
-    """Kiểm tra tình trạng hệ thống và kết nối Database."""
+def database_health(db: Session = Depends(database.get_db)):
+    """Trang chẩn đoán lỗi Database - dùng để phát hiện pass sai, host sai..."""
     try:
         from sqlalchemy import text
         db.execute(text("SELECT 1"))
@@ -348,11 +349,11 @@ def health_check(db: Session = Depends(database.get_db)):
     except Exception as e:
         logger.error(f"Health check failed: {e}")
         return JSONResponse(
-            status_code=503,
+            status_code=200, # Trả về 200 kèm lỗi để BFF không chặn, hiển thị rõ nội dung lỗi
             content={
                 "status": "unhealthy",
                 "database": str(e),
-                "detail": "Database connection failed"
+                "detail": "Database connection failed - Check your credentials!"
             }
         )
 
