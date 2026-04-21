@@ -44,9 +44,9 @@ export default function GradeTable({ grades }: GradeTableProps) {
                     <tr>
                         <th className="px-3 md:px-6 py-3 md:py-4 font-bold tracking-wider">Môn Học</th>
                         <th className="px-2 md:px-6 py-3 md:py-4 font-bold tracking-wider text-center">Tín Chỉ</th>
-                        <th className="px-2 md:px-6 py-3 md:py-4 font-bold tracking-wider text-center">Điểm Thi</th>
+                        <th className="px-2 md:px-6 py-3 md:py-4 font-bold tracking-wider text-center">Performance</th>
                         <th className="px-2 md:px-6 py-3 md:py-4 font-bold tracking-wider text-center">Tổng Kết</th>
-                        <th className="px-2 md:px-6 py-3 md:py-4 font-bold tracking-wider text-center">Điểm Chữ</th>
+                        <th className="px-2 md:px-6 py-3 md:py-4 font-bold tracking-wider text-center">Result</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -134,13 +134,13 @@ function GradeRow({ grade, isPass, isHigh }: { grade: Grade; isPass: boolean; is
                         {isRetake && (
                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-tight bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800 shrink-0 mt-0.5">
                                 <RotateCcw className="w-2.5 h-2.5" />
-                                Thi lại
+                                Review
                             </span>
                         )}
                         {isRelearn && (
                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-tight bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 shrink-0 mt-0.5">
                                 <BookX className="w-2.5 h-2.5" />
-                                Học lại
+                                Retry
                             </span>
                         )}
 

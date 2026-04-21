@@ -348,6 +348,17 @@ async def log_requests(request: Request, call_next):
             asyncio.create_task(_update_access_logic(username, real_ip))
     
     return response
+ 
+@app.get("/api/health", tags=["System"])
+async def health_check():
+    """Endpoint for monitoring system health."""
+    return {
+        "status": "online",
+        "timestamp": datetime.now().isoformat(),
+        "brand": "LifeSuck",
+        "environment": os.getenv("NODE_ENV", "production")
+    }
+ 
 
 
 # Include Routers

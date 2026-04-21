@@ -105,6 +105,10 @@ const nextConfig: NextConfig = {
         source: '/v/:path*',
         destination: '/api/bff/:path*', // Global API Cloaking Path
       },
+      {
+        source: '/health',
+        destination: `${apiBase}/api/health`, // Map public health to backend health
+      },
     ]
   },
   output: 'standalone',

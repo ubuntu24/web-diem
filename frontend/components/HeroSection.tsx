@@ -37,8 +37,8 @@ export default function HeroSection({ username, totalClasses, totalStudents, onl
                     </h1>
                     <p className="text-indigo-100 text-base md:text-lg opacity-90">
                         {isStudent
-                            ? "Xem kết quả học tập và theo dõi tiến độ cá nhân của bạn."
-                            : "Quản lý dữ liệu điểm và theo dõi tiến độ của các lớp học."}
+                            ? "Xem kết quả Performance và theo dõi tiến độ cá nhân của bạn."
+                            : "Quản lý dữ liệu Metric và theo dõi tiến độ của các lớp học."}
                     </p>
                 </div>
 
