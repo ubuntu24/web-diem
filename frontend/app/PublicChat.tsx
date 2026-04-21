@@ -25,6 +25,8 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
     const [banModal, setBanModal] = useState<{ isOpen: boolean; msg: Message | null }>({ isOpen: false, msg: null });
     const [banReason, setBanReason] = useState('Hành vi không chuẩn mực khi chat');
 
+    const [replyTo, setReplyTo] = useState<Message | null>(null);
+
     // Monitor socket state changes
     useEffect(() => {
         if (!socket) {
@@ -69,7 +71,9 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
                         username: data.username,
                         full_name: data.full_name,
                         message: data.message,
-                        timestamp: data.timestamp
+                        timestamp: data.timestamp,
+                        reply_to: data.reply_to,
+                        reply_metadata: data.reply_metadata
                     }]);
                 }
                 if (data.type === 'user_banned') {
@@ -100,8 +104,13 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
 
     const send = () => {
         if (!input.trim() || !socket || socket.readyState !== WebSocket.OPEN) return;
-        socket.send(JSON.stringify({ type: 'chat', message: input }));
+        socket.send(JSON.stringify({ 
+            type: 'chat', 
+            message: input,
+            reply_to: replyTo?.id
+        }));
         setInput('');
+        setReplyTo(null);
     };
 
     const handleBanClick = (msg: Message) => {
@@ -249,7 +258,7 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
                                             initial={{ opacity: 0, y: 10, scale: 0.95 }}
                                             animate={{ opacity: 1, y: 0, scale: 1 }}
                                             key={m.id}
-                                            className={`flex flex-col ${isSystem ? 'items-center py-2' : isMe ? 'items-end' : 'items-start'}`}
+                                            className={`flex flex-col group ${isSystem ? 'items-center py-2' : isMe ? 'items-end' : 'items-start'}`}
                                         >
                                             {!isSystem && (
                                                 <div className="flex items-center gap-2 mb-1 px-1">
@@ -269,14 +278,52 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
                                                     )}
                                                 </div>
                                             )}
-                                            <div className={`${isSystem
-                                                    ? 'bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/50 text-red-700 dark:text-red-400 text-xs px-4 py-1.5 rounded-full font-bold'
-                                                    : isMe
-                                                        ? 'bg-gradient-to-br from-violet-600 to-indigo-600 text-white rounded-tr-none px-4 py-2 rounded-2xl max-w-[85%] text-sm shadow-sm'
-                                                        : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-tl-none px-4 py-2 rounded-2xl max-w-[85%] text-sm shadow-sm'
-                                                } transition-all hover:shadow-md`}>
-                                                {m.message}
+
+                                            {/* Quoted Message Rendering */}
+                                            {m.reply_metadata && (
+                                                <div className={`mb-1 max-w-[80%] text-[11px] px-3 py-1.5 rounded-xl border-l-4 ${
+                                                    isMe 
+                                                        ? 'bg-indigo-50/50 dark:bg-indigo-900/20 border-indigo-400 text-indigo-700 dark:text-indigo-300' 
+                                                        : 'bg-slate-100/50 dark:bg-slate-800/50 border-slate-400 text-slate-600 dark:text-slate-400'
+                                                } truncate shadow-sm`}>
+                                                    <span className="font-bold block mb-0.5">
+                                                        {m.reply_metadata.full_name || m.reply_metadata.username}
+                                                    </span>
+                                                    <span className="italic">{m.reply_metadata.message}</span>
+                                                </div>
+                                            )}
+
+                                            <div className="relative flex items-center gap-2 max-w-[90%]">
+                                                {!isSystem && isMe && (
+                                                    <button 
+                                                        onClick={() => setReplyTo(m)}
+                                                        className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-all text-slate-400 hover:text-indigo-500"
+                                                        title="Phản hồi"
+                                                    >
+                                                        <MessageCircle className="w-3.5 h-3.5" />
+                                                    </button>
+                                                )}
+
+                                                <div className={`${isSystem
+                                                        ? 'bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/50 text-red-700 dark:text-red-400 text-xs px-4 py-1.5 rounded-full font-bold'
+                                                        : isMe
+                                                            ? 'bg-gradient-to-br from-violet-600 to-indigo-600 text-white rounded-tr-none px-4 py-2 rounded-2xl text-sm shadow-sm'
+                                                            : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-tl-none px-4 py-2 rounded-2xl text-sm shadow-sm'
+                                                    } transition-all hover:shadow-md relative`}>
+                                                    {m.message}
+                                                </div>
+
+                                                {!isSystem && !isMe && (
+                                                    <button 
+                                                        onClick={() => setReplyTo(m)}
+                                                        className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-all text-slate-400 hover:text-indigo-500"
+                                                        title="Phản hồi"
+                                                    >
+                                                        <MessageCircle className="w-3.5 h-3.5" />
+                                                    </button>
+                                                )}
                                             </div>
+
                                             {!isSystem && (
                                                 <span className="text-[9px] text-slate-400 mt-1 font-medium px-1">
                                                     {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -289,7 +336,30 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
 
                             {/* Input Area */}
                             <div className="p-4 bg-white dark:bg-slate-800 border-t border-slate-100 dark:border-slate-700">
-                                <div className="relative flex items-center gap-2">
+                                {/* Reply Preview */}
+                                <AnimatePresence>
+                                    {replyTo && (
+                                        <motion.div 
+                                            initial={{ height: 0, opacity: 0 }}
+                                            animate={{ height: 'auto', opacity: 1 }}
+                                            exit={{ height: 0, opacity: 0 }}
+                                            className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-t-xl px-3 py-2 flex items-center justify-between mb-0 border-b-0 overflow-hidden"
+                                        >
+                                            <div className="flex flex-col truncate pr-4">
+                                                <span className="text-[10px] font-bold text-violet-600 dark:text-violet-400 uppercase tracking-wider">Phản hồi {replyTo.full_name || replyTo.username}</span>
+                                                <span className="text-xs text-slate-500 dark:text-slate-400 truncate italic">"{replyTo.message}"</span>
+                                            </div>
+                                            <button 
+                                                onClick={() => setReplyTo(null)}
+                                                className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors text-slate-400"
+                                            >
+                                                <X className="w-3.5 h-3.5" />
+                                            </button>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+
+                                <div className={`relative flex items-center gap-2 ${replyTo ? 'border-r border-l border-b border-slate-200 dark:border-slate-700 rounded-b-xl p-2 bg-slate-50/30' : ''}`}>
                                     <div className="relative flex-1">
                                         <input
                                             type="text"
@@ -298,7 +368,7 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
                                             onKeyDown={(e) => e.key === 'Enter' && send()}
                                             placeholder={user ? "Nhập nội dung chat..." : "Đăng nhập để chat..."}
                                             disabled={!user}
-                                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all disabled:opacity-50 dark:text-slate-100 placeholder:text-slate-400 font-medium"
+                                            className={`w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all disabled:opacity-50 dark:text-slate-100 placeholder:text-slate-400 font-medium ${replyTo ? 'border-none bg-transparent' : ''}`}
                                         />
                                     </div>
                                     <button

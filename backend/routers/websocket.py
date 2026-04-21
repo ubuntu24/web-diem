@@ -350,13 +350,30 @@ async def websocket_endpoint(websocket: WebSocket):
                                 await websocket.close()
                                 return
 
+                            # 🔄 Handle Replies
+                            reply_to_id = msg.get("reply_to")
+                            reply_metadata = None
+                            if reply_to_id:
+                                try:
+                                    parent_msg = db.query(models.ChatMessage).filter(models.ChatMessage.id == reply_to_id).first()
+                                    if parent_msg:
+                                        parent_user = db.query(models.Nick).filter(models.Nick.id == parent_msg.user_id).first()
+                                        reply_metadata = {
+                                            "username": parent_user.username if parent_user else "An danh",
+                                            "full_name": parent_user.full_name if parent_user else None,
+                                            "message": parent_msg.message
+                                        }
+                                except Exception as e:
+                                    logger.error(f"Reply metadata fetch error: {e}")
+
                             # Store in DB using SQLAlchemy ORM (cleaner & more secure)
                             try:
                                 db_msg = models.ChatMessage(
                                     user_id=(db.query(models.Nick.id).filter(models.Nick.username == sender).scalar()), 
                                     message=content,
                                     ip_address=sender_ip,
-                                    device_fingerprint=sender_fp
+                                    device_fingerprint=sender_fp,
+                                    parent_id=reply_to_id if reply_metadata else None
                                 )
                                 db.add(db_msg)
                                 db.commit()
@@ -386,10 +403,13 @@ async def websocket_endpoint(websocket: WebSocket):
                                 "username": sender,
                                 "full_name": sender_full_name,
                                 "message": content,
-                                "timestamp": last_time
+                                "timestamp": last_time,
+                                "reply_to": reply_to_id if reply_metadata else None,
+                                "reply_metadata": reply_metadata
                             })
                         finally:
                             db.close()
+
 
             except json.JSONDecodeError:
                 logger.warning("WebSocket: Received invalid JSON")

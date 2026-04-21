@@ -79,6 +79,10 @@ def sync_schema():
                 if 'device_fingerprint' not in columns:
                     print("[INFO] Sync: Adding 'device_fingerprint' to chat_messages")
                     conn.execute(text("ALTER TABLE chat_messages ADD COLUMN device_fingerprint TEXT"))
+                if 'parent_id' not in columns:
+                    print("[INFO] Sync: Adding 'parent_id' to chat_messages")
+                    conn.execute(text("ALTER TABLE chat_messages ADD COLUMN parent_id BIGINT"))
+
             
             # 2. Đồng bộ bảng nick
             if 'nick' in table_names:

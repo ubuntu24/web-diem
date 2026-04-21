@@ -129,7 +129,9 @@ class ChatMessage(Base):
     message = Column(Text, nullable=False)
     ip_address = Column(Text, nullable=True)
     device_fingerprint = Column(Text, nullable=True)
+    parent_id = Column(BigInteger, ForeignKey("chat_messages.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
 
 class BanRecord(Base):
     __tablename__ = "ban_records"

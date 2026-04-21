@@ -280,6 +280,12 @@ export interface ChatMessage {
     message: string;
     timestamp: string;
     role?: number;
+    reply_to?: number | null;
+    reply_metadata?: {
+        username: string;
+        full_name?: string | null;
+        message: string;
+    } | null;
 }
 
 export async function getMe(tokenOverride?: string): Promise<User> {
