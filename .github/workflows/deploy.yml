@@ -51,30 +51,43 @@ jobs:
 
       - name: Create .env files
         run: |
+          # 📝 Prepare Frontend Env
           echo "$FRONTEND_ENV" > frontend/.env
+          [ -n "$TELEGRAM_BOT_TOKEN" ] && echo "TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN" >> frontend/.env
+          [ -n "$TELEGRAM_CHAT_ID" ] && echo "TELEGRAM_CHAT_ID=$TELEGRAM_CHAT_ID" >> frontend/.env
+          
+          # 📝 Prepare Backend Env
           echo "$BACKEND_ENV" > backend/.env
-          # 🚀 CLEAN & EXTRACT TOKEN
+          [ -n "$DATABASE_URL" ] && echo "DATABASE_URL=$DATABASE_URL" >> backend/.env
+          [ -n "$ADMIN_PASSWORD" ] && echo "ADMIN_PASSWORD=$ADMIN_PASSWORD" >> backend/.env
+
+          # 🚀 CLEAN & EXTRACT CF TOKEN
           CLEAN_TOKEN=$(echo "$CF_TOKEN" | grep -oE "ey[a-zA-Z0-9+/=_.-]+" | head -n 1 || echo "$CF_TOKEN" | tr -d '[:space:]')
-          
-          # SAFE DEBUG: Verify integrity without leaking secret
-          echo "DEBUG: Token Length is ${#CLEAN_TOKEN}"
-          echo "DEBUG: Token starts with ${CLEAN_TOKEN:0:8}..."
-          echo "DEBUG: Token ends with ...${CLEAN_TOKEN: -8}"
-          
-          # Create dedicated tunnel env file
           printf "TUNNEL_TOKEN=%s\n" "$CLEAN_TOKEN" > .env.tunnel
-          # Keep root .env for compatibility
           printf "CF_TOKEN=%s\n" "$CLEAN_TOKEN" > .env
         env:
           FRONTEND_ENV: ${{ secrets.FRONTEND_ENV }}
           BACKEND_ENV: ${{ secrets.BACKEND_ENV }}
           CF_TOKEN: ${{ secrets.CF_TOKEN }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
 
       - name: Deploy
         run: |
-          docker compose up -d --build --remove-orphans
-          docker image prune -f
+          # 🧹 Total Cleanup to prevent stale images
+          docker compose down --remove-orphans
+          # 🏗️ Force Fresh Build
+          docker compose build --no-cache
+          # 🚀 Launch
+          docker compose up -d --remove-orphans
+          # ♻️ Prune
+          docker image prune -a -f --filter "until=24h"
         env:
           FRONTEND_ENV: ${{ secrets.FRONTEND_ENV }}
           BACKEND_ENV: ${{ secrets.BACKEND_ENV }}
           CF_TOKEN: ${{ secrets.CF_TOKEN }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
