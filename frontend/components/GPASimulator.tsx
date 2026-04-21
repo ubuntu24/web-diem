@@ -60,7 +60,7 @@ export default function GPASimulator({ currentCredits, currentPoints }: GPASimul
                     <Calculator className="w-5 h-5" />
                 </div>
                 <div>
-                    <h3 className="font-bold text-slate-900 dark:text-white">Tính điểm tích lũy dự kiến</h3>
+                    <h3 className="font-bold text-slate-900 dark:text-white">Dự báo Performance tích lũy</h3>
                     <p className="text-sm text-slate-500 dark:text-slate-400">Thêm các môn học kỳ tới để xem GPA thay đổi thế nào</p>
                 </div>
             </div>
@@ -80,7 +80,7 @@ export default function GPASimulator({ currentCredits, currentPoints }: GPASimul
                             />
                         </div>
                         <div className="flex-1">
-                            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Điểm (hệ 4)</label>
+                            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Metric (hệ 4)</label>
                             <input
                                 type="number"
                                 value={newScore}

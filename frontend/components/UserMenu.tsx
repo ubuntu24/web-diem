@@ -49,7 +49,7 @@ export default function UserMenu({ username, onLogout }: UserMenuProps) {
                                         } group flex w-full items-center rounded-lg px-2 py-2 text-sm transition-colors`}
                                 >
                                     <User className="mr-2 h-4 w-4" />
-                                    Hồ sơ sinh viên
+                                    Hồ sơ cá nhân
                                 </Link>
                             )}
                         </Menu.Item>

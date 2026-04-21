@@ -201,7 +201,7 @@ export default function StudentCharts({ student, scale }: StudentChartsProps) {
                                     label === 'C' ? 'bg-amber-500' : 
                                     label === 'D' ? 'bg-rose-500' : 'bg-slate-400'
                                 }"></span>
-                                <b class="text-slate-700 dark:text-slate-300">Điểm ${label}</b>
+                                <b class="text-slate-700 dark:text-slate-300">Metric ${label}</b>
                             </span>
                             <span class="font-medium text-slate-900 dark:text-white">${count} môn</span>
                         </div>
@@ -346,7 +346,7 @@ export default function StudentCharts({ student, scale }: StudentChartsProps) {
                     </div>
                     <div>
                         <h3 className="font-bold text-slate-900 dark:text-white">
-                            {chartType === 'trend' ? 'Xu hướng GPA' : 'Phân bổ Điểm chữ'}
+                            {chartType === 'trend' ? 'Xu hướng GPA' : 'Phân bổ Result'}
                         </h3>
                         <p className="text-xs text-slate-500">Trực quan hóa kết quả học tập</p>
                     </div>
