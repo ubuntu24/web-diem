@@ -157,7 +157,8 @@ async def lifespan(app: FastAPI):
                 logger.info("Admin role synchronized.")
         db.close()
     except Exception as startup_err:
-        logger.error(f"FATAL STARTUP ERROR: {startup_err}")
+        logger.error(f"STARTUP: Database sync/init partially failed: {startup_err}")
+        logger.warning("Application starting in LIMITED MODE (Database dependent features may fail).")
     
     yield
     # SHUTDOWN
@@ -248,7 +249,7 @@ async def simple_health():
     """Endpoint cho Docker Healthcheck - chỉ kiểm tra server có sống không."""
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
-@app.get("/api/health")
+@app.get("/api/health", tags=["System"])
 def database_health(db: Session = Depends(database.get_db)):
     """Trang chẩn đoán lỗi Database - dùng để phát hiện pass sai, host sai..."""
     try:
@@ -257,15 +258,22 @@ def database_health(db: Session = Depends(database.get_db)):
         return {
             "status": "healthy",
             "database": "connected",
-            "environment": os.getenv("NODE_ENV", "development"),
+            "brand": "LifeSuck",
+            "environment": os.getenv("NODE_ENV", "production"),
             "timestamp": datetime.utcnow().isoformat()
         }
     except Exception as e:
+        error_msg = str(e)
+        status_info = "unhealthy"
+        if "Circuit breaker open" in error_msg:
+            status_info = "blocked_by_circuit_breaker"
+        
         logger.error(f"Health check failed: {e}")
         return {
-            "status": "unhealthy",
-            "database": str(e),
-            "detail": "Database connection failed - Check your credentials!"
+            "status": status_info,
+            "database": "disconnected",
+            "error": error_msg,
+            "detail": "Check credentials and wait for circuit breaker cooldown!"
         }
 
 # Track last access update time per user to avoid DB writes on every request
@@ -349,15 +357,7 @@ async def log_requests(request: Request, call_next):
     
     return response
  
-@app.get("/api/health", tags=["System"])
-async def health_check():
-    """Endpoint for monitoring system health."""
-    return {
-        "status": "online",
-        "timestamp": datetime.now().isoformat(),
-        "brand": "LifeSuck",
-        "environment": os.getenv("NODE_ENV", "production")
-    }
+# (Duplicate health endpoint removed)
  
 
 

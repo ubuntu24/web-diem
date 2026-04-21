@@ -26,6 +26,7 @@ Maintain the **lifesuck** brand as a neutral, premium, and professional data pla
 ### 4. Security
 - **Sensitive Data**: Never log passwords, tokens, or personal identifiers.
 - **Shield**: If modifying backend routes, ensure they are protected by the `Shield` middleware if they handle sensitive data.
+- **Environment Files**: **NEVER** modify `.env` files. You are only permitted to read them for configuration. If changes are needed, instruct the user to make them.
 
 ---
 

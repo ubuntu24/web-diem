@@ -35,30 +35,22 @@ if not SQLALCHEMY_DATABASE_URL or "missing_url_placeholder" in SQLALCHEMY_DATABA
     # Use a dummy SQLite in memory or file to prevent engine crash
     SQLALCHEMY_DATABASE_URL = "sqlite:///./fallback_disaster.db"
 
-if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
-    print("[INFO] DB_CONNECTION: Using local SQLite database")
-else:
-    # 🕵️ AUTO-FIX: Encode password if it contains special characters (@, #, !, etc.)
-    # This prevents the Connection String from breaking.
-    try:
-        from urllib.parse import quote_plus, urlparse
-        parsed = urlparse(SQLALCHEMY_DATABASE_URL)
-        if parsed.password:
-            encoded_password = quote_plus(parsed.password)
-            SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace(
-                f":{parsed.password}@", 
-                f":{encoded_password}@"
-            )
-        
-        host_info = parsed.hostname or "unknown"
-        print(f"[INFO] DB_CONNECTION: Connected to Postgres at {host_info}")
-    except Exception as e:
-        print(f"[WARNING] SQLALCHEMY_DATABASE_URL parsing/encoding error: {e}")
+# 🕵️ DATABASE_URL PRE-PROCESSOR
+# Ensure we use raw URL if possible, fallback to Konstruksi manual if needed
+raw_url = os.getenv("DATABASE_URL")
+if raw_url:
+    SQLALCHEMY_DATABASE_URL = raw_url
+    if SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
+        # Fix for old Heroku/Supabase format which SQLAlchemy doesn't like
+        SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgres://", "postgresql://", 1)
+    print(f"[INFO] DB_CONNECTION: Using DATABASE_URL from .env")
+elif not SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
+    print(f"[INFO] DB_CONNECTION: Using manually constructed URL")
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
-    pool_size=10,       # tăng từ 5 → 10 concurrent DB connections
-    max_overflow=20,    # tăng từ 10 → 20 overflow connections
+    pool_size=10,
+    max_overflow=20,
     pool_pre_ping=True,
     pool_recycle=1800,
 )
@@ -130,6 +122,16 @@ def sync_schema():
         create_tables()
         print("[INFO] Sync: Schema synchronization complete.")
     except Exception as e:
-        print(f"[CRITICAL] Sync: Schema synchronization failed: {e}")
-        import traceback
-        traceback.print_exc()
+        error_msg = str(e)
+        if "Circuit breaker open" in error_msg:
+            print("\n" + "!"*60)
+            print("[CRITICAL] DATABASE CONNECTION BLOCKED BY SUPABASE")
+            print("The 'Circuit breaker open' error means too many authentication failures.")
+            print("1. Check if your password in .env is correct.")
+            print("2. STOP all connection attempts for 5-10 minutes.")
+            print("3. Restart the backend once the cooldown is over.")
+            print("!"*60 + "\n")
+        else:
+            print(f"[CRITICAL] Sync: Schema synchronization failed: {e}")
+        # We don't re-raise to allows the server to start (even in limited mode)
+        # so diagnostic endpoints (/health) remain accessible.
