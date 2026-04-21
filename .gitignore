@@ -55,7 +55,15 @@ Thumbs.db
 *.cert
 *.crt
 id_rsa*
-secrets.json
+# Security & Reports
+reports/
+infrastructure/reports/
+*.json
+*.txt
+!package.json
+!tsconfig.json
+!composer.json
+!package-lock.json
 
 # Local Logs
 *.log
@@ -64,8 +72,6 @@ yarn-debug.log*
 
 # Backups
 backend/backups/
-backend/*.txt
-backend/*.json
 fix_seq.py
 
 # Infrastructure Tools (Binaries)
