@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Loader2, Lock, User, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Loader2, Lock, User, CheckCircle2, AlertCircle, Award } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { loginUserBff } from '@/lib/api';
@@ -43,58 +43,62 @@ export default function LoginPage() {
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 relative overflow-hidden transition-colors">
+        <div className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden transition-colors selection:bg-indigo-500/30">
             {/* Theme Toggle */}
-            <div className="absolute top-4 right-4 z-50">
+            <div className="absolute top-6 right-6 z-50">
                 <ThemeToggle />
             </div>
 
             {/* Background blobs */}
-            <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
-                <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-100 dark:bg-blue-900/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 opacity-50"></div>
-                <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-indigo-100 dark:bg-indigo-900/20 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2 opacity-50"></div>
+            <div className="absolute inset-0 overflow-hidden z-0 pointer-events-none">
+                <div className="absolute top-[-10%] right-[-10%] w-[600px] h-[600px] bg-indigo-600/10 dark:bg-indigo-600/20 rounded-full blur-[120px] animate-pulse"></div>
+                <div className="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] bg-violet-600/10 dark:bg-violet-600/20 rounded-full blur-[120px] animate-pulse delay-1000"></div>
             </div>
 
             <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-                className="bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-xl w-full max-w-md border border-slate-100 dark:border-slate-800 relative z-10 transition-colors"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: "spring", duration: 0.6 }}
+                className="premium-glass p-10 rounded-[2.5rem] shadow-2xl w-full max-w-md border-border/50 relative z-10 mx-4"
             >
-                <div className="text-center mb-8">
-                    <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-200 dark:shadow-blue-900/50 rotate-3 text-white">
-                        <Lock className="w-8 h-8" />
-                    </div>
-                    <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Đăng Nhập Hệ Thống</h1>
-                    <p className="text-slate-500 dark:text-slate-400 text-sm mt-2">Vui lòng đăng nhập</p>
+                <div className="text-center mb-10">
+                    <motion.div 
+                        initial={{ rotate: -10 }}
+                        animate={{ rotate: 0 }}
+                        className="w-16 h-16 bg-gradient-to-br from-indigo-600 to-violet-700 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-indigo-500/30 text-white"
+                    >
+                        <Award className="w-8 h-8" />
+                    </motion.div>
+                    <h1 className="text-3xl font-black text-foreground tracking-tight">Chào mừng trở lại</h1>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm mt-2 font-bold uppercase tracking-widest italic">System Authentication</p>
                 </div>
 
-                <form onSubmit={handleLogin} className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Tên đăng nhập</label>
-                        <div className="relative">
-                            <User className="w-5 h-5 text-slate-400 dark:text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <form onSubmit={handleLogin} className="space-y-6">
+                    <div className="space-y-2">
+                        <label className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1">Tài khoản</label>
+                        <div className="relative group">
+                            <User className="w-5 h-5 text-slate-400 dark:text-slate-500 absolute left-4 top-1/2 -translate-y-1/2 group-focus-within:text-indigo-500 transition-colors" />
                             <input
                                 type="text"
                                 value={username}
                                 onChange={(e) => setUsername(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-slate-900 dark:text-white font-medium placeholder-slate-400"
-                                placeholder="Tên đăng nhập"
+                                className="w-full pl-12 pr-4 py-3.5 bg-background dark:bg-slate-900 border-2 border-border group-focus-within:border-indigo-500/50 group-focus-within:ring-4 group-focus-within:ring-indigo-500/10 rounded-2xl outline-none transition-all text-foreground font-bold placeholder-slate-500 shadow-inner"
+                                placeholder="Nhập tên đăng nhập..."
                                 required
                             />
                         </div>
                     </div>
 
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Mật khẩu</label>
-                        <div className="relative">
-                            <Lock className="w-5 h-5 text-slate-400 dark:text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <div className="space-y-2">
+                        <label className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1">Mật khẩu</label>
+                        <div className="relative group">
+                            <Lock className="w-5 h-5 text-slate-400 dark:text-slate-500 absolute left-4 top-1/2 -translate-y-1/2 group-focus-within:text-indigo-500 transition-colors" />
                             <input
                                 type="password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-slate-900 dark:text-white font-medium placeholder-slate-400"
-                                placeholder="Mật khẩu"
+                                className="w-full pl-12 pr-4 py-3.5 bg-background dark:bg-slate-900 border-2 border-border group-focus-within:border-indigo-500/50 group-focus-within:ring-4 group-focus-within:ring-indigo-500/10 rounded-2xl outline-none transition-all text-foreground font-bold placeholder-slate-500 shadow-inner"
+                                placeholder="••••••••"
                                 required
                             />
                         </div>
@@ -102,11 +106,11 @@ export default function LoginPage() {
 
                     {error && (
                         <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            className="flex items-center gap-2 text-red-600 dark:text-red-400 text-sm bg-red-50 dark:bg-red-900/30 p-3 rounded-lg border border-red-100 dark:border-red-900/50"
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className="flex items-center gap-3 text-rose-600 dark:text-rose-400 text-sm bg-rose-500/10 p-4 rounded-2xl border border-rose-500/20 font-bold"
                         >
-                            <AlertCircle className="w-4 h-4 shrink-0" />
+                            <AlertCircle className="w-5 h-5 shrink-0" />
                             <span>{error}</span>
                         </motion.div>
                     )}
@@ -114,23 +118,23 @@ export default function LoginPage() {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-all shadow-md hover:shadow-lg hover:shadow-blue-200 dark:hover:shadow-blue-900/50 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        className="w-full bg-gradient-to-r from-indigo-600 to-violet-700 hover:scale-[1.02] active:scale-[0.98] text-white font-black py-4 rounded-2xl transition-all shadow-xl shadow-indigo-500/20 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 tracking-widest uppercase text-sm"
                     >
                         {loading ? (
                             <>
                                 <Loader2 className="w-5 h-5 animate-spin" />
-                                <span>Đang xử lý...</span>
+                                <span>ĐANG XÁC THỰC...</span>
                             </>
                         ) : (
-                            <span>Đăng Nhập</span>
+                            <span>Đăng Nhập Ngay</span>
                         )}
                     </button>
                 </form>
 
-                <div className="mt-6 text-center text-sm text-slate-500 dark:text-slate-400">
-                    <p className="mb-2">Chưa có tài khoản?</p>
-                    <a href="/register" className="font-semibold text-blue-600 hover:text-blue-500 hover:underline transition-all">
-                        Tạo tài khoản mới
+                <div className="mt-8 text-center">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest mb-3">Lần đầu truy cập?</p>
+                    <a href="/register" className="inline-block font-black text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 underline underline-offset-8 decoration-2 transition-all">
+                        Kiến tạo tài khoản mới
                     </a>
                 </div>
             </motion.div>

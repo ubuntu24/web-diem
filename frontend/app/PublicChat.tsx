@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
 import React, { useState, useEffect, useRef } from 'react';
 import { User as UserType, getChatHistoryBff, banUserBff, ChatMessage } from '../lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, X, ShieldAlert, MessageCircle, User } from 'lucide-react';
+import { Send, X, ShieldAlert, MessageCircle, User, Sparkles, Zap } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 // Local Message mapping
@@ -19,7 +19,7 @@ interface PublicChatProps {
 export default function PublicChat({ user, socket, isOpen, onClose }: PublicChatProps) {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
-    const [status, setStatus] = useState<number>(socket?.readyState ?? 0);
+    const [status, setStatus] = useState<number>(socket?.readyState ?? 3);
     const scrollRef = useRef<HTMLDivElement>(null);
 
     const [banModal, setBanModal] = useState<{ isOpen: boolean; msg: Message | null }>({ isOpen: false, msg: null });
@@ -142,7 +142,7 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black/40 backdrop-blur-[4px] z-[60]"
+                        className="fixed inset-0 bg-black/40 backdrop-blur-[6px] z-[60]"
                         onClick={onClose}
                     />
 
@@ -161,43 +161,42 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
                                     initial={{ opacity: 0, scale: 0.9, y: 20 }}
                                     animate={{ opacity: 1, scale: 1, y: 0 }}
                                     exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                                    className="relative bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden border border-slate-200 dark:border-slate-800"
+                                    className="relative bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-w-sm overflow-hidden border border-slate-200 dark:border-slate-800 p-8"
                                 >
-                                    <div className="p-6">
-                                        <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-2xl flex items-center justify-center mb-5 mx-auto">
-                                            <ShieldAlert className="w-8 h-8 text-red-600 dark:text-red-500" />
+                                    <div className="text-center">
+                                        <div className="w-20 h-20 bg-rose-500/10 dark:bg-rose-500/20 rounded-3xl flex items-center justify-center mb-6 mx-auto">
+                                            <ShieldAlert className="w-10 h-10 text-rose-600 dark:text-rose-500" />
                                         </div>
                                         
-                                        <h4 className="text-lg font-bold text-center text-slate-900 dark:text-white mb-2">Xác nhận cấm tài khoản?</h4>
-                                        <p className="text-sm text-center text-slate-500 dark:text-slate-400 mb-6 px-4">
-                                            Bạn đang thực hiện cấm <span className="font-bold text-red-600">"{banModal.msg?.username}"</span>. 
-                                            Tài khoản, IP và thiết bị của người này sẽ không thể truy cập chat.
+                                        <h4 className="text-2xl font-black text-slate-900 dark:text-white mb-2 tracking-tight">Xác nhận cấm?</h4>
+                                        <p className="text-sm text-slate-500 dark:text-slate-400 mb-8 font-bold italic">
+                                            Quyền trượng đang trừng phạt <span className="text-rose-600 font-black">"{banModal.msg?.username}"</span>. 
                                         </p>
 
-                                        <div className="space-y-4">
-                                            <div>
-                                                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider ml-1 mb-1.5 block">Lý do cấm</label>
+                                        <div className="space-y-6">
+                                            <div className="text-left">
+                                                <label className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1 mb-2 block">Lý do hành quyết</label>
                                                 <textarea 
                                                     value={banReason}
                                                     onChange={(e) => setBanReason(e.target.value)}
-                                                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all dark:text-white resize-none"
+                                                    className="w-full bg-slate-50 dark:bg-slate-950 border-2 border-border rounded-2xl px-4 py-3 text-sm focus:ring-4 focus:ring-rose-500/10 focus:border-rose-500 outline-none transition-all dark:text-white resize-none font-bold"
                                                     rows={3}
                                                     placeholder="Nhập lý do cụ thể..."
                                                 />
                                             </div>
 
-                                            <div className="flex gap-3 pt-2">
+                                            <div className="flex gap-4">
                                                 <button 
                                                     onClick={() => setBanModal({ isOpen: false, msg: null })}
-                                                    className="flex-1 px-4 py-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-sm font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                                                    className="flex-1 px-4 py-4 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-700 transition-all active:scale-95"
                                                 >
-                                                    Hủy bỏ
+                                                    Hủy
                                                 </button>
                                                 <button 
                                                     onClick={executeBan}
-                                                    className="flex-1 px-4 py-3 rounded-xl bg-red-600 text-white text-sm font-bold hover:bg-red-700 shadow-lg shadow-red-500/30 transition-all active:scale-95"
+                                                    className="flex-1 px-4 py-4 rounded-2xl bg-rose-600 text-white text-xs font-black uppercase tracking-widest hover:bg-rose-700 shadow-xl shadow-rose-500/30 transition-all active:scale-95"
                                                 >
-                                                    Xác nhận Ban
+                                                    Thực thi
                                                 </button>
                                             </div>
                                         </div>
@@ -209,44 +208,44 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
 
                     {/* Chat Modal */}
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.9, y: 30 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.9, y: 30 }}
+                        initial={{ opacity: 0, y: 100, scale: 0.9 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 100, scale: 0.9 }}
                         transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                        className="fixed bottom-24 right-6 z-[70] w-[calc(100vw-3rem)] max-w-md h-[500px] flex flex-col"
+                        className="fixed inset-x-0 bottom-0 sm:bottom-28 sm:right-8 sm:left-auto z-[70] w-full sm:w-96 h-[85vh] sm:h-[600px] flex flex-col mx-auto sm:mx-0"
                     >
-                        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col h-full">
+                        <div className="premium-glass rounded-t-[3rem] sm:rounded-[2.5rem] shadow-2xl border-border/50 overflow-hidden flex flex-col h-full">
                             {/* Header */}
-                            <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
-                                        <MessageCircle className="w-5 h-5 text-white" />
+                            <div className="flex items-center justify-between px-7 py-6 sm:px-6 sm:py-5 bg-gradient-to-r from-indigo-600 to-violet-700 text-white shadow-xl">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 sm:w-10 sm:h-10 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md shadow-inner border border-white/10 group animate-pulse">
+                                        <Zap className="w-6 h-6 sm:w-5 h-5 text-white fill-white/20" />
                                     </div>
                                     <div>
-                                        <h3 className="font-bold text-sm tracking-tight">Chat Công Cộng</h3>
-                                        <div className="flex items-center gap-1.5">
-                                            <span className={`w-1.5 h-1.5 rounded-full animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.5)] ${status === 1 ? 'bg-green-400' : status === 0 ? 'bg-amber-400' : 'bg-red-500'
+                                        <h3 className="font-black text-sm uppercase tracking-widest italic">lifesuck Stream</h3>
+                                        <div className="flex items-center gap-2">
+                                            <span className={`w-2 h-2 rounded-full shadow-[0_0_10px_rgba(74,222,128,0.8)] ${status === 1 ? 'bg-emerald-400' : status === 0 ? 'bg-amber-400' : 'bg-rose-500'
                                                 }`}></span>
-                                            <span className="text-[10px] text-white/80 font-medium">
-                                                {status === 1 ? 'Trực tiếp' : status === 0 ? 'Đang kết nối...' : 'Ngoại tuyến'}
+                                            <span className="text-[10px] text-white/90 font-black uppercase tracking-tighter">
+                                                {status === 1 ? 'Chế độ trực tiếp' : status === 0 ? 'Đang chuẩn bị...' : 'Ngoại tuyến'}
                                             </span>
                                         </div>
                                     </div>
                                 </div>
                                 <button
                                     onClick={onClose}
-                                    className="p-1.5 rounded-full hover:bg-white/20 transition-colors"
+                                    className="p-3 sm:p-2 rounded-2xl hover:bg-white/20 transition-all active:scale-90 bg-black/10 border border-white/5 shadow-inner"
                                 >
-                                    <X className="w-4 h-4" />
+                                    <X className="w-5 h-5 sm:w-4 sm:h-4" />
                                 </button>
                             </div>
 
                             {/* Messages Area */}
-                            <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-5 bg-slate-50/30 dark:bg-slate-900/10">
+                            <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50/10 dark:bg-slate-900/10 scrollbar-none">
                                 {messages.length === 0 && (
-                                    <div className="flex flex-col items-center justify-center h-full text-center space-y-3 opacity-30 py-20">
-                                        <MessageCircle className="w-10 h-10 text-slate-400" />
-                                        <p className="text-xs font-semibold text-slate-500">Mở lời trước đi nào!</p>
+                                    <div className="flex flex-col items-center justify-center h-full text-center space-y-4 opacity-50 py-20 animate-pulse">
+                                        <Sparkles className="w-12 h-12 text-indigo-400" />
+                                        <p className="text-xs font-black uppercase tracking-widest text-slate-500 italic">Khởi thủy dòng chảy tri thức</p>
                                     </div>
                                 )}
                                 {messages.map((m) => {
@@ -255,77 +254,76 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
 
                                     return (
                                         <motion.div
-                                            initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                                            initial={{ opacity: 0, scale: 0.8, y: 20 }}
+                                            animate={{ opacity: 1, scale: 1, y: 0 }}
                                             key={m.id}
-                                            className={`flex flex-col group ${isSystem ? 'items-center py-2' : isMe ? 'items-end' : 'items-start'}`}
+                                            className={`flex flex-col group ${isSystem ? 'items-center py-4' : isMe ? 'items-end' : 'items-start'}`}
                                         >
                                             {!isSystem && (
-                                                <div className="flex items-center gap-2 mb-1 px-1">
-                                                    {!isMe && <User className="w-3 h-3 text-slate-400" />}
-                                                    <span className={`text-[10px] font-bold uppercase tracking-wider ${isMe ? 'text-indigo-500' : 'text-slate-500'}`}>
+                                                <div className="flex items-center gap-3 mb-2 px-1">
+                                                    {!isMe && <User className="w-3.5 h-3.5 text-slate-400" />}
+                                                    <span className={`text-[11px] font-black uppercase tracking-[0.15em] ${isMe ? 'text-indigo-500 italic' : 'text-slate-500'}`}>
                                                         {m.full_name || m.username}
                                                     </span>
                                                     {user?.role === 1 && !isMe && (
                                                         <button
                                                             onClick={() => handleBanClick(m)}
-                                                            className="text-[10px] text-red-500 hover:text-red-700 font-bold uppercase transition-colors flex items-center gap-0.5 bg-red-50 dark:bg-red-900/20 px-1.5 py-0.5 rounded"
-                                                            title="Ban tài khoản và thiết bị"
+                                                            className="text-[9px] text-rose-500 hover:text-white hover:bg-rose-600 font-black uppercase transition-all flex items-center gap-1 bg-rose-500/10 px-2 py-1 rounded-lg border border-rose-500/20 active:scale-95"
+                                                            title="Trừng phạt"
                                                         >
                                                             <ShieldAlert className="w-3 h-3" />
-                                                            Ban
+                                                            BAN
                                                         </button>
                                                     )}
                                                 </div>
                                             )}
 
-                                            {/* Quoted Message Rendering */}
+                                            {/* Quoted Message */}
                                             {m.reply_metadata && (
-                                                <div className={`mb-1 max-w-[80%] text-[11px] px-3 py-1.5 rounded-xl border-l-4 ${
+                                                <div className={`mb-2 max-w-[85%] text-[11px] px-4 py-2.5 rounded-2xl border-l-[6px] shadow-sm ${
                                                     isMe 
-                                                        ? 'bg-indigo-50/50 dark:bg-indigo-900/20 border-indigo-400 text-indigo-700 dark:text-indigo-300' 
-                                                        : 'bg-slate-100/50 dark:bg-slate-800/50 border-slate-400 text-slate-600 dark:text-slate-400'
-                                                } truncate shadow-sm`}>
-                                                    <span className="font-bold block mb-0.5">
-                                                        {m.reply_metadata.full_name || m.reply_metadata.username}
+                                                        ? 'bg-indigo-500/5 dark:bg-indigo-500/10 border-indigo-400 text-indigo-700/80 dark:text-indigo-300 font-bold' 
+                                                        : 'bg-slate-500/5 dark:bg-slate-800/80 border-slate-400 text-slate-500 dark:text-slate-400 font-bold'
+                                                } truncate`}>
+                                                    <span className="font-black block text-[9px] uppercase tracking-widest mb-1 opacity-70 italic">
+                                                        @{m.reply_metadata.full_name || m.reply_metadata.username}
                                                     </span>
-                                                    <span className="italic">{m.reply_metadata.message}</span>
+                                                    <span className="italic">"{m.reply_metadata.message}"</span>
                                                 </div>
                                             )}
 
-                                            <div className="relative flex items-center gap-2 max-w-[90%]">
+                                            <div className="relative flex items-center gap-3 max-w-[95%]">
                                                 {!isSystem && isMe && (
                                                     <button 
                                                         onClick={() => setReplyTo(m)}
-                                                        className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-all text-slate-400 hover:text-indigo-500"
-                                                        title="Phản hồi"
+                                                        className="opacity-0 group-hover:opacity-100 p-2 sm:p-2 bg-indigo-500/5 dark:bg-indigo-500/10 hover:bg-indigo-600 hover:text-white rounded-xl transition-all text-slate-400 active:scale-90"
                                                     >
-                                                        <MessageCircle className="w-3.5 h-3.5" />
+                                                        <MessageCircle className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
                                                     </button>
                                                 )}
 
                                                 <div className={`${isSystem
-                                                        ? 'bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/50 text-red-700 dark:text-red-400 text-xs px-4 py-1.5 rounded-full font-bold'
+                                                        ? 'bg-rose-500/10 border-2 border-rose-500/20 text-rose-600 dark:text-rose-400 text-[11px] px-6 py-2 rounded-full font-black uppercase tracking-widest italic flex items-center gap-2'
                                                         : isMe
-                                                            ? 'bg-gradient-to-br from-violet-600 to-indigo-600 text-white rounded-tr-none px-4 py-2 rounded-2xl text-sm shadow-sm'
-                                                            : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-tl-none px-4 py-2 rounded-2xl text-sm shadow-sm'
-                                                    } transition-all hover:shadow-md relative`}>
+                                                            ? 'bg-gradient-to-br from-indigo-600 to-violet-700 text-white rounded-[1.5rem] rounded-tr-none px-5 py-3 text-sm shadow-xl shadow-indigo-500/15 font-bold leading-relaxed'
+                                                            : 'bg-white dark:bg-slate-800/80 backdrop-blur-md border-2 border-border/50 text-slate-800 dark:text-slate-100 rounded-[1.5rem] rounded-tl-none px-5 py-3 text-sm shadow-lg font-bold leading-relaxed'
+                                                    } transition-all hover:scale-[1.02] active:scale-[0.98]`}>
+                                                    {isSystem && <ShieldAlert className="w-3.5 h-3.5" />}
                                                     {m.message}
                                                 </div>
 
                                                 {!isSystem && !isMe && (
                                                     <button 
                                                         onClick={() => setReplyTo(m)}
-                                                        className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-all text-slate-400 hover:text-indigo-500"
-                                                        title="Phản hồi"
+                                                        className="opacity-0 group-hover:opacity-100 p-2 sm:p-2 bg-slate-500/5 dark:bg-slate-800 hover:bg-indigo-600 hover:text-white rounded-xl transition-all text-slate-400 active:scale-90"
                                                     >
-                                                        <MessageCircle className="w-3.5 h-3.5" />
+                                                        <MessageCircle className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
                                                     </button>
                                                 )}
                                             </div>
 
                                             {!isSystem && (
-                                                <span className="text-[9px] text-slate-400 mt-1 font-medium px-1">
+                                                <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-2 px-1 opacity-60">
                                                     {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                 </span>
                                             )}
@@ -335,7 +333,7 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
                             </div>
 
                             {/* Input Area */}
-                            <div className="p-4 bg-white dark:bg-slate-800 border-t border-slate-100 dark:border-slate-700">
+                            <div className="p-6 bg-white dark:bg-slate-900 border-t border-border/50">
                                 {/* Reply Preview */}
                                 <AnimatePresence>
                                     {replyTo && (
@@ -343,45 +341,48 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
                                             initial={{ height: 0, opacity: 0 }}
                                             animate={{ height: 'auto', opacity: 1 }}
                                             exit={{ height: 0, opacity: 0 }}
-                                            className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-t-xl px-3 py-2 flex items-center justify-between mb-0 border-b-0 overflow-hidden"
+                                            className="bg-indigo-500/5 dark:bg-indigo-500/10 border-2 border-indigo-500/20 rounded-t-2xl px-4 py-3 flex items-center justify-between mb-0 border-b-0 overflow-hidden"
                                         >
-                                            <div className="flex flex-col truncate pr-4">
-                                                <span className="text-[10px] font-bold text-violet-600 dark:text-violet-400 uppercase tracking-wider">Phản hồi {replyTo.full_name || replyTo.username}</span>
-                                                <span className="text-xs text-slate-500 dark:text-slate-400 truncate italic">"{replyTo.message}"</span>
+                                            <div className="flex flex-col truncate pr-4 text-left">
+                                                <div className="flex items-center gap-2">
+                                                    <Zap className="w-3 h-3 text-indigo-500" />
+                                                    <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest italic">Phản hồi @{replyTo.full_name || replyTo.username}</span>
+                                                </div>
+                                                <span className="text-xs text-slate-500 dark:text-slate-400 truncate italic mt-0.5">"{replyTo.message.substring(0, 50)}..."</span>
                                             </div>
                                             <button 
                                                 onClick={() => setReplyTo(null)}
-                                                className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors text-slate-400"
+                                                className="p-2 hover:bg-rose-500/10 hover:text-rose-500 rounded-xl transition-all text-slate-400 active:scale-90"
                                             >
-                                                <X className="w-3.5 h-3.5" />
+                                                <X className="w-4 h-4" />
                                             </button>
                                         </motion.div>
                                     )}
                                 </AnimatePresence>
 
-                                <div className={`relative flex items-center gap-2 ${replyTo ? 'border-r border-l border-b border-slate-200 dark:border-slate-700 rounded-b-xl p-2 bg-slate-50/30' : ''}`}>
+                                <div className={`relative flex items-center gap-3 ${replyTo ? 'border-2 border-indigo-500/20 border-t-0 p-3 bg-indigo-500/[0.02] rounded-b-3xl' : ''}`}>
                                     <div className="relative flex-1">
                                         <input
                                             type="text"
                                             value={input}
                                             onChange={(e) => setInput(e.target.value)}
                                             onKeyDown={(e) => e.key === 'Enter' && send()}
-                                            placeholder={user ? "Nhập nội dung chat..." : "Đăng nhập để chat..."}
-                                            disabled={!user}
-                                            className={`w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all disabled:opacity-50 dark:text-slate-100 placeholder:text-slate-400 font-medium ${replyTo ? 'border-none bg-transparent' : ''}`}
+                                            placeholder={user ? "Phát sóng tin nhắn..." : "Mất kết nối..."}
+                                            disabled={!user || status !== 1}
+                                            className={`w-full bg-slate-50 dark:bg-slate-950 border-2 border-border rounded-2xl px-6 py-4 sm:px-5 sm:py-3.5 text-base sm:text-sm outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 transition-all disabled:opacity-50 dark:text-slate-100 placeholder:text-slate-500 font-bold italic shadow-inner ${replyTo ? 'bg-transparent border-none' : ''}`}
                                         />
                                     </div>
                                     <button
                                         onClick={send}
-                                        disabled={!user || !input.trim()}
-                                        className="p-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl shadow-lg shadow-violet-500/20 active:scale-95 transition-all disabled:opacity-50 disabled:grayscale flex-shrink-0"
+                                        disabled={!user || !input.trim() || status !== 1}
+                                        className="p-4 sm:p-3.5 bg-gradient-to-br from-indigo-600 to-violet-700 text-white rounded-2xl shadow-xl shadow-indigo-500/30 hover:scale-[1.05] active:scale-[0.95] transition-all disabled:opacity-50 disabled:grayscale flex-shrink-0 border border-white/10"
                                     >
-                                        <Send className="w-5 h-5" />
+                                        <Send className="w-6 h-6 sm:w-5 h-5 flex-shrink-0" />
                                     </button>
                                 </div>
                                 {!user && (
-                                    <p className="text-[10px] text-center text-slate-500 mt-2">
-                                        Vui lòng đăng nhập để có thể gửi tin nhắn.
+                                    <p className="text-[10px] text-center text-slate-500 mt-4 font-black uppercase tracking-[0.2em] italic opacity-70 animate-pulse">
+                                        Hệ thống yêu cầu xác thực để phát sóng
                                     </p>
                                 )}
                             </div>

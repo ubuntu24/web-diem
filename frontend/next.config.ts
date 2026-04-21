@@ -57,15 +57,15 @@ const nextConfig: NextConfig = {
           },
           {
             key: 'Cross-Origin-Opener-Policy',
-            value: 'same-origin'
+            value: 'unsafe-none'
           },
           {
             key: 'Cross-Origin-Resource-Policy',
-            value: 'same-site'
+            value: 'cross-origin'
           },
           {
             key: 'Cross-Origin-Embedder-Policy',
-            value: 'credentialless'
+            value: 'unsafe-none'
           },
           {
             key: 'X-Frame-Options',

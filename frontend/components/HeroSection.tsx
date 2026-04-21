@@ -57,7 +57,7 @@ export default function HeroSection({ username, totalClasses, totalStudents, onl
                 />
                 <StatsCard
                     icon={<Users className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />}
-                    label={isStudent ? "Bạn cùng lớp" : "Tổng lượng sinh viên"}
+                    label={isStudent ? "Bạn cùng lớp" : "Tổng lượng người dùng"}
                     value={totalStudents > 0 ? totalStudents.toString() : "--"}
                     color="bg-emerald-50 border-emerald-100 dark:bg-emerald-900/20 dark:border-emerald-800"
                 />

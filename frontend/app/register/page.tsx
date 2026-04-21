@@ -3,10 +3,10 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Loader2, Lock, User, UserPlus, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Loader2, Lock, User, UserPlus, AlertCircle, ArrowLeft, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 
-import { Toaster, toast } from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { registerUserBff } from '@/lib/api';
 
@@ -45,73 +45,77 @@ export default function RegisterPage() {
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 relative overflow-hidden transition-colors">
+        <div className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden transition-colors selection:bg-teal-500/30">
             {/* Theme Toggle */}
-            <div className="absolute top-4 right-4 z-50">
+            <div className="absolute top-6 right-6 z-50">
                 <ThemeToggle />
             </div>
 
             {/* Background blobs */}
-            <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
-                <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-green-100 dark:bg-green-900/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 opacity-50"></div>
-                <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-teal-100 dark:bg-teal-900/20 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2 opacity-50"></div>
+            <div className="absolute inset-0 overflow-hidden z-0 pointer-events-none">
+                <div className="absolute top-[-10%] right-[-10%] w-[600px] h-[600px] bg-teal-600/10 dark:bg-teal-600/20 rounded-full blur-[120px] animate-pulse"></div>
+                <div className="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] bg-emerald-600/10 dark:bg-emerald-600/20 rounded-full blur-[120px] animate-pulse delay-1000"></div>
             </div>
 
             <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-                className="bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-xl w-full max-w-md border border-slate-100 dark:border-slate-800 relative z-10 transition-colors"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: "spring", duration: 0.6 }}
+                className="premium-glass p-10 rounded-[2.5rem] shadow-2xl w-full max-w-md border-border/50 relative z-10 mx-4"
             >
-                <div className="text-center mb-8">
-                    <div className="w-16 h-16 bg-green-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-green-200 dark:shadow-green-900/50 -rotate-3 text-white">
+                <div className="text-center mb-10">
+                    <motion.div 
+                        initial={{ rotate: 10 }}
+                        animate={{ rotate: 0 }}
+                        className="w-16 h-16 bg-gradient-to-br from-teal-600 to-emerald-700 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-teal-500/30 text-white"
+                    >
                         <UserPlus className="w-8 h-8" />
-                    </div>
-                    <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Đăng Ký Tài Khoản</h1>
-                    <p className="text-slate-500 dark:text-slate-400 text-sm mt-2">Tạo tài khoản để xem điểm và tham gia chat</p>
+                    </motion.div>
+                    <h1 className="text-3xl font-black text-foreground tracking-tight">Kiến tạo danh tính</h1>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm mt-2 font-bold uppercase tracking-widest italic">lifesuck Registration</p>
                 </div>
 
-                <form onSubmit={handleRegister} className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Tên đăng nhập</label>
-                        <div className="relative">
-                            <User className="w-5 h-5 text-slate-400 dark:text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <form onSubmit={handleRegister} className="space-y-5">
+                    <div className="space-y-2">
+                        <label className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1">Tên đăng nhập</label>
+                        <div className="relative group">
+                            <User className="w-5 h-5 text-slate-400 dark:text-slate-500 absolute left-4 top-1/2 -translate-y-1/2 group-focus-within:text-teal-500 transition-colors" />
                             <input
                                 type="text"
                                 value={username}
                                 onChange={(e) => setUsername(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all text-slate-900 dark:text-white font-medium placeholder-slate-400"
-                                placeholder="Chọn tên đăng nhập..."
+                                className="w-full pl-12 pr-4 py-3.5 bg-background dark:bg-slate-900 border-2 border-border group-focus-within:border-teal-500/50 group-focus-within:ring-4 group-focus-within:ring-teal-500/10 rounded-2xl outline-none transition-all text-foreground font-bold placeholder-slate-500 shadow-inner"
+                                placeholder="Chọn tên cá nhân..."
                                 required
                             />
                         </div>
                     </div>
 
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Mật khẩu</label>
-                        <div className="relative">
-                            <Lock className="w-5 h-5 text-slate-400 dark:text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <div className="space-y-2">
+                        <label className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1">Mật khẩu</label>
+                        <div className="relative group">
+                            <Lock className="w-5 h-5 text-slate-400 dark:text-slate-500 absolute left-4 top-1/2 -translate-y-1/2 group-focus-within:text-teal-500 transition-colors" />
                             <input
                                 type="password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all text-slate-900 dark:text-white font-medium placeholder-slate-400"
-                                placeholder="••••••"
+                                className="w-full pl-12 pr-4 py-3.5 bg-background dark:bg-slate-900 border-2 border-border group-focus-within:border-teal-500/50 group-focus-within:ring-4 group-focus-within:ring-teal-500/10 rounded-2xl outline-none transition-all text-foreground font-bold placeholder-slate-500 shadow-inner"
+                                placeholder="••••••••"
                                 required
                             />
                         </div>
                     </div>
 
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nhập lại mật khẩu</label>
-                        <div className="relative">
-                            <Lock className="w-5 h-5 text-slate-400 dark:text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <div className="space-y-2">
+                        <label className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1">Xác nhận mật khẩu</label>
+                        <div className="relative group">
+                            <Lock className="w-5 h-5 text-slate-400 dark:text-slate-500 absolute left-4 top-1/2 -translate-y-1/2 group-focus-within:text-teal-500 transition-colors" />
                             <input
                                 type="password"
                                 value={confirmPassword}
                                 onChange={(e) => setConfirmPassword(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all text-slate-900 dark:text-white font-medium placeholder-slate-400"
-                                placeholder="••••••"
+                                className="w-full pl-12 pr-4 py-3.5 bg-background dark:bg-slate-900 border-2 border-border group-focus-within:border-teal-500/50 group-focus-within:ring-4 group-focus-within:ring-teal-500/10 rounded-2xl outline-none transition-all text-foreground font-bold placeholder-slate-500 shadow-inner"
+                                placeholder="••••••••"
                                 required
                             />
                         </div>
@@ -119,11 +123,11 @@ export default function RegisterPage() {
 
                     {error && (
                         <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            className="flex items-center gap-2 text-red-600 dark:text-red-400 text-sm bg-red-50 dark:bg-red-900/30 p-3 rounded-lg border border-red-100 dark:border-red-900/50"
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className="flex items-center gap-3 text-rose-600 dark:text-rose-400 text-sm bg-rose-500/10 p-4 rounded-2xl border border-rose-500/20 font-bold"
                         >
-                            <AlertCircle className="w-4 h-4 shrink-0" />
+                            <AlertCircle className="w-5 h-5 shrink-0" />
                             <span>{error}</span>
                         </motion.div>
                     )}
@@ -131,21 +135,21 @@ export default function RegisterPage() {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl transition-all shadow-md hover:shadow-lg hover:shadow-green-200 dark:hover:shadow-green-900/50 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        className="w-full bg-gradient-to-r from-teal-600 to-emerald-700 hover:scale-[1.02] active:scale-[0.98] text-white font-black py-4 rounded-2xl transition-all shadow-xl shadow-teal-500/20 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 tracking-widest uppercase text-sm"
                     >
                         {loading ? (
                             <>
                                 <Loader2 className="w-5 h-5 animate-spin" />
-                                <span>Đang tạo tài khoản...</span>
+                                <span>ĐANG KHỞI TẠO...</span>
                             </>
                         ) : (
-                            <span>Đăng Ký</span>
+                            <span className="flex items-center gap-2">Kiến Tạo Ngay <Sparkles className="w-4 h-4" /></span>
                         )}
                     </button>
                 </form>
 
-                <div className="mt-6 text-center">
-                    <Link href="/login" className="inline-flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 hover:text-green-600 dark:hover:text-green-400 transition-colors font-medium">
+                <div className="mt-8 text-center border-t border-border/50 pt-8">
+                    <Link href="/login" className="inline-flex items-center gap-3 font-black text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 transition-all uppercase tracking-widest text-xs">
                         <ArrowLeft className="w-4 h-4" />
                         Quay lại đăng nhập
                     </Link>

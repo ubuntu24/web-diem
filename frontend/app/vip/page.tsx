@@ -41,7 +41,7 @@ export default function VipPage() {
                     <div className="aspect-video w-full rounded-2xl overflow-hidden shadow-2xl border border-white/5 bg-black relative group">
                         <iframe
                             className="w-full h-full"
-                            src="https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1&controls=0&rel=0"
+                            src="https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1&mute=1&controls=0&rel=0"
                             title="Rick Roll"
                             frameBorder="0"
                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -69,7 +69,7 @@ export default function VipPage() {
                                 className="px-6 py-3 bg-white text-black font-black rounded-xl hover:bg-slate-200 transition-all flex items-center gap-2 group shadow-xl shadow-white/5"
                             >
                                 <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-                                QUAY LẠI HỌC BÀI ĐI
+                                QUAY LẠI CÔNG VIỆC
                             </button>
                             <span className="text-[10px] text-slate-700 font-bold tracking-widest uppercase flex items-center gap-1">
                                 <Sparkles className="w-3 h-3" />

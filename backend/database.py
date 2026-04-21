@@ -9,6 +9,7 @@ load_dotenv()
 
 # Fetch variables
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
+IS_PRODUCTION = os.getenv("NODE_ENV") == "production"
 
 if not SQLALCHEMY_DATABASE_URL:
     # Fallback to individual variables if DATABASE_URL is not set
@@ -20,21 +21,24 @@ if not SQLALCHEMY_DATABASE_URL:
     
     if USER and HOST and DBNAME:
         SQLALCHEMY_DATABASE_URL = f"postgresql://{USER}:{PASSWORD}@{HOST}:{PORT}/{DBNAME}"
+    elif IS_PRODUCTION:
+        print("[CRITICAL] DATABASE_URL is missing in PRODUCTION environment!")
+        raise RuntimeError("DATABASE_URL environment variable is required for production")
     else:
-        # Fallback to SQLite for local development if no Postgres config found
+        # Fallback to SQLite ONLY for local development if no Postgres config found
+        print("[WARNING] DATABASE_URL not found. Falling back to SQLite: students.db (Local Mode Only)")
         SQLALCHEMY_DATABASE_URL = "sqlite:///./students.db"
 
 # Create the SQLAlchemy engine
 if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
-    print("WARNING: DATABASE_URL not found. Falling back to SQLite: students.db")
+    print("[INFO] DB_CONNECTION: Using local SQLite database")
 else:
     try:
         # Mask password: postgres://user:pass@host/db -> postgres://user:***@host/db
         parts = SQLALCHEMY_DATABASE_URL.split('@')
         host_info = parts[-1]
         print(f"[INFO] DB_CONNECTION: Connected to Postgres at {host_info}")
-    except Exception as e:
-        print(f"[ERROR] DB_CONNECTION: Failed to connect to Postgres: {e}")
+    except Exception:
         print("[INFO] DB_CONNECTION: Connected to Postgres")
 
 engine = create_engine(

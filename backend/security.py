@@ -20,19 +20,26 @@ _USER_CACHE_TTL = 300  # 5 minutes
 load_dotenv()
 
 # Security configuration
-SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-for-development-only")
+SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 1 week
 IS_PRODUCTION = os.getenv("ENV", "").lower() == "production" or os.getenv("NODE_ENV", "").lower() == "production"
 
-if IS_PRODUCTION and SECRET_KEY == "your-secret-key-for-development-only":
-    raise RuntimeError("SECRET_KEY must be set in production")
+if not SECRET_KEY:
+    if IS_PRODUCTION:
+        raise RuntimeError("SECRET_KEY must be set in production environment")
+    # Fallback for local development if .env is missing
+    SECRET_KEY = "dev-secret-key-replace-this-immediately"
 
 OBFUSCATION_ID_KEY = os.getenv("OBFUSCATION_ID_KEY", "ID_OBFUSCATION_SALT_2026").encode()
 PAYLOAD_OBFUSCATION_KEY = os.getenv("PAYLOAD_OBFUSCATION_KEY", "PAYLOAD_OBFUSCATION_KEY_2026").encode()
 _WS_TICKET_TTL = 60
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# Initialize logger
+import logging
+logger = logging.getLogger(__name__)
 
 
 def _normalize_password(password: str) -> str:
@@ -54,14 +61,15 @@ def verify_password(plain_password, hashed_password):
     try:
         if pwd_context.verify(plain, hashed_password):
             return True
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"Password verification encountered an error: {e}")
 
     normalized = _normalize_password(plain)
     if normalized != plain:
         try:
             return pwd_context.verify(normalized, hashed_password)
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Normalized password verification failed: {e}")
             return False
     return False
 

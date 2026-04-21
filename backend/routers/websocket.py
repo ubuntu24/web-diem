@@ -63,17 +63,17 @@ class ConnectionManager:
             if connection.get("is_admin"):
                 try:
                     await connection["ws"].send_text(msg_str)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f"Broadcast to admins failed: {e}")
 
     async def broadcast(self, message: dict):
         msg_str = json.dumps(message)
         for connection in self.active_connections:
             try:
                 await connection["ws"].send_text(msg_str)
-            except Exception:
+            except Exception as e:
                 # Connection likely closed
-                pass
+                logger.debug(f"Broadcast failed (connection likely closed): {e}")
 
     async def broadcast_online_count(self):
         unique_users = len(set(
@@ -85,8 +85,8 @@ class ConnectionManager:
         for connection in self.active_connections:
             try:
                 await connection["ws"].send_text(message)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Broadcast online count failed: {e}")
 
     async def send_personal_message(self, user_identifier: str, message: dict):
         msg_str = json.dumps(message)
@@ -94,8 +94,8 @@ class ConnectionManager:
             if connection["user"] == user_identifier:
                 try:
                     await connection["ws"].send_text(msg_str)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f"Personal message failed: {e}")
 
 manager = ConnectionManager()
 router = APIRouter()
@@ -209,8 +209,8 @@ async def websocket_endpoint(websocket: WebSocket):
                 user_id = username
                 if role == 1:
                     is_admin = True
-        except JWTError:
-            pass
+        except JWTError as e:
+            logger.debug(f"Initial JWT decode failed: {e}")
 
     if not user_id:
         await websocket.accept()
@@ -293,7 +293,8 @@ async def websocket_endpoint(websocket: WebSocket):
                                     role = payload.get("role") if 'payload' in locals() else None
                                     if role == 1:
                                         conn["is_admin"] = True
-                                except: pass
+                                except Exception as e:
+                                    logger.debug(f"Role verification failed: {e}")
                                 break
                         if old_user != username:
                             await manager.broadcast_online_count()

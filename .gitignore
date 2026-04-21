@@ -67,3 +67,9 @@ backend/backups/
 backend/*.txt
 backend/*.json
 fix_seq.py
+
+# Infrastructure Tools (Binaries)
+infrastructure/tools/
+*.exe
+*.bin
+*.dll

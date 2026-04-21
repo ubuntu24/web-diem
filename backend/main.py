@@ -162,7 +162,7 @@ async def lifespan(app: FastAPI):
     # SHUTDOWN
     # Add cleanup logic here if needed
 
-app = FastAPI(title="Uneti Grade API", lifespan=lifespan)
+app = FastAPI(title="lifesuck API", lifespan=lifespan)
 
 def _build_allowed_hosts() -> list[str]:
     """
@@ -259,12 +259,26 @@ async def log_requests(request: Request, call_next):
     
     response = await call_next(request)
 
+    # 🛡️ SECURITY: Essential Browser Security Headers
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
     response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
     response.headers["Cross-Origin-Resource-Policy"] = "same-site"
+    
+    # Content Security Policy (CSP)
+    # Allows self-hosted assets and internal WebSockets.
+    csp_policy = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " # unsafe-eval for some Next.js dev features
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data:; "
+        "font-src 'self'; "
+        "connect-src 'self' ws: wss:; "
+        "frame-ancestors 'none';"
+    )
+    response.headers["Content-Security-Policy"] = csp_policy
     
     # Determine user identity — try Authorization header first, then cookie
     username = "guest"
@@ -280,8 +294,8 @@ async def log_requests(request: Request, call_next):
         try:
             payload = jwt.decode(token, security.SECRET_KEY, algorithms=[security.ALGORITHM])
             username = payload.get("sub", "guest")
-        except (JWTError, Exception):
-            pass
+        except (JWTError, Exception) as e:
+            logger.debug(f"Middleware JWT identification failed: {e}")
         
     if (username != "guest" 
         and request.method not in ("OPTIONS", "HEAD")

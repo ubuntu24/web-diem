@@ -776,14 +776,19 @@ export default function Dashboard() {
     });
 
     return (
-        <div className="min-h-screen bg-white dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-100 transition-colors">
-            <header className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 sticky top-0 z-50 transition-colors">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-2 cursor-pointer group" onClick={() => loadClasses()}>
-                        <div className="bg-slate-950 dark:bg-blue-600 p-1.5 rounded-lg group-hover:bg-black dark:group-hover:bg-blue-700 transition-colors">
-                            <Skull className="w-5 h-5 text-white" />
+        <div className="min-h-screen bg-background transition-colors duration-500">
+            <header className="sticky top-0 z-40 premium-glass border-b border-border/50 transition-all">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 sm:h-20 flex items-center justify-between">
+                    <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+                        <div className="flex items-center gap-2 cursor-pointer group" onClick={() => loadClasses()}>
+                            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-indigo-500/20 group-hover:scale-110 transition-transform duration-300">
+                                <Award className="w-6 h-6 sm:w-7 sm:h-7" />
+                            </div>
+                            <div className="hidden sm:block">
+                                <h1 className="text-xl font-black tracking-tight text-foreground group-hover:text-indigo-500 transition-colors uppercase">lifesuck</h1>
+                                <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest leading-tight">Premium Dashboard</p>
+                            </div>
                         </div>
-                        <span className="font-bold text-lg tracking-tight text-slate-900 dark:text-white">LIFE SUCKS</span>
                     </div>
 
                     <div className="flex items-center gap-4">
@@ -798,11 +803,11 @@ export default function Dashboard() {
                                 </button>
                                 <div className="flex-1 max-w-xl mx-auto hidden md:block">
                                     <div className="relative group">
-                                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 group-focus-within:text-blue-500 transition-colors" />
+                                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 group-focus-within:text-indigo-500 transition-colors" />
                                         <input
                                             type="text"
                                             placeholder="Tìm kiếm sinh viên (Tên hoặc MSV)..."
-                                            className="w-full pl-10 pr-4 py-2 bg-slate-100 dark:bg-slate-800 border-transparent focus:bg-white dark:focus:bg-slate-900 border focus:border-blue-500 rounded-lg text-sm transition-all outline-none text-slate-900 dark:text-slate-100 font-medium placeholder-slate-500"
+                                            className="w-full pl-10 pr-4 py-2.5 bg-background dark:bg-slate-900 border-border group-focus-within:border-indigo-500/50 group-focus-within:ring-4 group-focus-within:ring-indigo-500/10 border-2 rounded-xl text-sm transition-all outline-none text-foreground font-semibold placeholder-slate-500 shadow-inner"
                                             value={searchQuery}
                                             onChange={(e) => setSearchQuery(e.target.value)}
                                             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
@@ -833,11 +838,11 @@ export default function Dashboard() {
                 </div>
             </header >
 
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 mb-6 bg-white dark:bg-slate-900 px-4 py-3 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
-                    <div className="flex items-center gap-1.5 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer font-medium transition-colors" onClick={() => loadClasses()}>
-                        <HomeIcon className="w-4 h-4" />
-                        <span>Danh sách lớp</span>
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 mb-8 premium-glass px-5 py-4 rounded-2xl border-border/50 shadow-xl transition-all">
+                    <div className="flex items-center gap-2 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer font-bold transition-colors group" onClick={() => loadClasses()}>
+                        <HomeIcon className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                        <span>Trang chủ</span>
                     </div>
                     {view !== 'classes' && (
                         <>
@@ -873,25 +878,25 @@ export default function Dashboard() {
                             {view === 'classes' && (
                                 <div className="space-y-6">
                                     {role !== 0 && (
-                                        <div className="flex items-center justify-between bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm transition-colors">
-                                            <div className="flex items-center gap-3">
-                                                <div className="h-10 w-10 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-                                                    <Users className="w-5 h-5" />
+                                        <div className="flex items-center justify-between premium-glass p-5 rounded-2xl border-border/50 shadow-lg transition-all mb-6">
+                                            <div className="flex items-center gap-4">
+                                                <div className="h-12 w-12 rounded-2xl bg-indigo-500/10 dark:bg-indigo-500/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-inner">
+                                                    <Users className="w-6 h-6" />
                                                 </div>
                                                 <div>
-                                                    <h4 className="font-bold text-slate-900 dark:text-white">Chế độ so sánh</h4>
-                                                    <p className="text-xs text-slate-500 dark:text-slate-400">Chọn nhiều lớp để so sánh điểm số</p>
+                                                    <h4 className="font-bold text-slate-900 dark:text-white text-lg">Chế độ so sánh</h4>
+                                                    <p className="text-sm text-slate-500 dark:text-slate-400">Chọn nhiều lớp để phân tích dữ liệu tổng hợp</p>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-3">
+                                            <div className="flex items-center gap-4">
                                                 {compareMode && selectedClasses.length > 0 && (
-                                                    <button onClick={() => loadStudents(selectedClasses)} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all flex items-center gap-2">
+                                                    <button onClick={() => loadStudents(selectedClasses)} className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-black shadow-xl shadow-indigo-500/20 hover:bg-indigo-700 active:scale-95 transition-all flex items-center gap-2">
                                                         <Award className="w-4 h-4" />
-                                                        So sánh {selectedClasses.length} lớp
+                                                        SO SÁNH {selectedClasses.length} LỚP
                                                     </button>
                                                 )}
-                                                <button onClick={() => { setCompareMode(!compareMode); setSelectedClasses([]); }} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${compareMode ? 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300' : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}>
-                                                    {compareMode ? 'Hủy bỏ' : 'Chọn nhiều lớp'}
+                                                <button onClick={() => { setCompareMode(!compareMode); setSelectedClasses([]); }} className={`px-6 py-2.5 rounded-xl text-sm font-black transition-all active:scale-95 ${compareMode ? 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300' : 'bg-white dark:bg-slate-900 border-2 border-border text-slate-700 dark:text-slate-300 hover:border-indigo-500/50 shadow-sm'}`}>
+                                                    {compareMode ? 'HỦY BỎ' : 'CHỌN NHIỀU LỚP'}
                                                 </button>
                                             </div>
                                         </div>
@@ -910,12 +915,12 @@ export default function Dashboard() {
                                             <div className="text-center py-12"><MapPin className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-4" /><p className="text-slate-500 dark:text-slate-400 font-medium">Vui lòng chọn lớp để bắt đầu</p><button onClick={() => setShowClassPicker(true)} className="mt-4 px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors">Chọn lớp</button></div>
                                         )
                                     ) : (
-                                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                                             {classes.map((cls, index) => (
-                                                <div key={cls} onClick={() => compareMode ? toggleClassSelection(cls) : loadStudents(cls)} className={`stagger-item bg-white dark:bg-slate-800 p-3 md:p-5 rounded-xl border transition-all flex flex-col items-center justify-center gap-3 group relative overflow-hidden shadow-sm hover:shadow-lg hover:border-indigo-300 dark:hover:border-indigo-700 ${compareMode && selectedClasses.includes(cls) ? 'border-indigo-500 bg-indigo-50/30 ring-2 ring-indigo-500' : 'border-slate-100 dark:border-slate-700'} cursor-pointer`}>
-                                                    {compareMode && (<div className={`absolute top-2 right-2 w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${selectedClasses.includes(cls) ? 'bg-indigo-600 border-indigo-600' : 'bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600'}`}>{selectedClasses.includes(cls) && <div className="w-1.5 h-1.5 bg-white rounded-full" />}</div>)}
-                                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${compareMode && selectedClasses.includes(cls) ? 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300' : 'bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-700 dark:to-slate-700 text-indigo-600 dark:text-indigo-300'} group-hover:scale-110 transition-transform shadow-inner`}><span className="font-bold text-sm tracking-tight">{cls.substring(0, 2)}</span></div>
-                                                    <div className={`font-semibold text-sm truncate w-full text-center group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors ${compareMode && selectedClasses.includes(cls) ? 'text-indigo-900 dark:text-indigo-200' : 'text-slate-600 dark:text-slate-300'}`}>{cls}</div>
+                                                <div key={cls} onClick={() => compareMode ? toggleClassSelection(cls) : loadStudents(cls)} className={`stagger-item premium-card p-4 md:p-6 rounded-2xl flex flex-col items-center justify-center gap-4 group relative overflow-hidden ${compareMode && selectedClasses.includes(cls) ? 'border-indigo-500 bg-indigo-500/5 ring-4 ring-indigo-500/10' : ''} cursor-pointer`}>
+                                                    {compareMode && (<div className={`absolute top-3 right-3 w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all duration-300 ${selectedClasses.includes(cls) ? 'bg-indigo-600 border-indigo-600 scale-110' : 'bg-white/50 dark:bg-slate-800/50 border-border'}`}>{selectedClasses.includes(cls) && <div className="w-2 h-2 bg-white rounded-sm" />}</div>)}
+                                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-500 ${compareMode && selectedClasses.includes(cls) ? 'bg-indigo-600 text-white' : 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 dark:bg-indigo-500/20'} group-hover:scale-110 group-hover:rotate-6 shadow-indigo-500/10 shadow-lg`}><span className="font-black text-sm tracking-widest">{cls.substring(0, 2)}</span></div>
+                                                    <div className={`font-bold text-sm truncate w-full text-center transition-colors ${compareMode && selectedClasses.includes(cls) ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-300'} group-hover:text-indigo-600`}>{cls}</div>
                                                 </div>
                                             ))}
                                         </div>
@@ -928,65 +933,67 @@ export default function Dashboard() {
                             )}
 
                             {(view === 'students' || view === 'search') && (
-                                <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm overflow-hidden transition-colors">
-                                    <div className="flex flex-col md:flex-row md:items-center justify-between p-4 border-b border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/50 gap-4 transition-colors">
+                                <div className="premium-glass rounded-2xl border-border/50 shadow-2xl overflow-hidden transition-all">
+                                    <div className="flex flex-col md:flex-row md:items-center justify-between p-6 border-b border-border/50 bg-slate-500/5 dark:bg-slate-900/50 gap-4 transition-colors">
                                         <div className="flex items-center gap-4">
-                                            <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                                                {view === 'search' ? 'Kết quả tìm kiếm' : `Lớp ${selectedClass}`}
-                                                <span className="text-xs font-normal text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-full border border-slate-200 dark:border-slate-600">{filteredStudents.length}</span>
-                                            </h3>
-                                            {(view === 'students' || view === 'search') && (
-                                                <div className="flex items-center gap-2 flex-wrap">
-                                                    <span className="text-xs text-slate-500 dark:text-slate-400 font-medium hidden sm:inline">Sắp xếp:</span>
-                                                    <button onClick={() => setSortingScale(sortingScale === '4' ? '10' : '4')} className={`h-8 px-3 text-xs font-bold rounded-md border transition-all flex items-center gap-1.5 ${sortingScale === '10' ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}><Sparkles className={`w-3.5 h-3.5 ${sortingScale === '10' ? 'text-indigo-200' : 'text-indigo-500'}`} />Hệ {sortingScale}</button>
-                                                    <select value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className="px-2 py-1 text-xs font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-md outline-none focus:border-blue-500 text-slate-700 dark:text-slate-300 h-8 min-w-[120px]" title="Sắp xếp theo kỳ">
-                                                        <option value="all">Tích lũy (All)</option>
-                                                        {allSemesters.map(sem => (<option key={sem} value={sem}>{/^\d+/.test(sem) ? `HK ${sem}` : sem}</option>))}
-                                                    </select>
-                                                </div>
-                                            )}
+                                            <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600">
+                                                <Users className="w-6 h-6" />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-xl font-black text-foreground flex items-center gap-3">
+                                                    {view === 'search' ? 'Kết quả tìm kiếm' : `Lớp ${selectedClass}`}
+                                                    <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-3 py-1 rounded-full border border-indigo-500/20">{filteredStudents.length} SINH VIÊN</span>
+                                                </h3>
+                                            </div>
                                         </div>
-                                        {(view === 'students' || view === 'search') && (
-                                            <div className="relative max-w-xs w-full">
-                                                <Search className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                                        <div className="flex flex-wrap items-center gap-3">
+                                            <div className="flex items-center gap-2">
+                                                <button onClick={() => setSortingScale(sortingScale === '4' ? '10' : '4')} className={`h-10 px-4 text-xs font-black rounded-xl border-2 transition-all flex items-center gap-2 active:scale-95 ${sortingScale === '10' ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'bg-background border-border text-slate-600 dark:text-slate-300 hover:border-indigo-500/50'}`}><Sparkles className={`w-3.5 h-3.5 ${sortingScale === '10' ? 'text-indigo-200' : 'text-indigo-500'}`} />HỆ {sortingScale}</button>
+                                                <select value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className="px-3 py-1 text-xs font-black bg-background border-2 border-border rounded-xl outline-none focus:border-indigo-500 text-slate-700 dark:text-slate-300 h-10 min-w-[140px] shadow-sm transition-all" title="Sắp xếp theo kỳ">
+                                                    <option value="all">KỲ TÍCH LŨY</option>
+                                                    {allSemesters.map(sem => (<option key={sem} value={sem}>{/^\d+/.test(sem) ? `HỌC KỲ ${sem}` : sem.toUpperCase()}</option>))}
+                                                </select>
+                                            </div>
+                                            <div className="relative w-full md:w-64">
+                                                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                                                 <input 
                                                     type="text" 
-                                                    placeholder={view === 'search' ? 'Lọc trong kết quả...' : 'Tìm trong lớp này...'} 
-                                                    className="w-full pl-9 pr-3 py-1.5 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-slate-900 dark:text-slate-100 font-semibold placeholder-slate-500 dark:placeholder-slate-400" 
+                                                    placeholder="Lọc nhanh..." 
+                                                    className="w-full pl-10 pr-4 py-2 bg-background border-2 border-border rounded-xl text-sm outline-none focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/5 transition-all text-foreground font-bold placeholder-slate-400 shadow-inner" 
                                                     value={localSearchTerm} 
                                                     onChange={(e) => setLocalSearchTerm(e.target.value)} 
                                                 />
                                             </div>
-                                        )}
+                                        </div>
                                     </div>
                                     <div className="grid grid-cols-1 divide-y divide-gray-100 dark:divide-slate-700">
                                         {filteredStudents.length === 0 ? (
                                             <div className="p-8 text-center text-slate-500 dark:text-slate-400">{localSearchTerm ? 'Không tìm thấy sinh viên phù hợp.' : 'Không có dữ liệu.'}</div>
                                         ) : (
                                             filteredStudents.map((sv) => (
-                                                <div key={sv.msv} onClick={() => loadGrade(sv.msv)} className="stagger-item p-3 md:p-4 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 cursor-pointer transition-colors flex items-center gap-3 md:gap-4 group">
-                                                    <div className="relative">
-                                                        <div className="w-16 h-16 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center text-slate-400 dark:text-slate-300 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/50 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors"><span className="font-bold text-2xl">{sv.ho_ten.charAt(0).toUpperCase()}</span></div>
+                                                <div key={sv.msv} onClick={() => loadGrade(sv.msv)} className="stagger-item p-4 md:p-6 hover:bg-indigo-500/5 dark:hover:bg-indigo-500/10 cursor-pointer transition-all flex items-center gap-4 md:gap-6 group relative">
+                                                    <div className="relative shrink-0">
+                                                        <div className="w-20 h-20 bg-slate-500/5 dark:bg-slate-800 rounded-3xl flex items-center justify-center text-slate-400 dark:text-slate-300 group-hover:bg-indigo-500/20 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-all duration-500 group-hover:rotate-6 group-hover:scale-105 border-2 border-border shadow-inner"><span className="font-black text-3xl">{sv.ho_ten.charAt(0).toUpperCase()}</span></div>
                                                         <div className="absolute -bottom-2 -right-2 flex gap-1 z-10">
                                                             {(() => {
                                                                 const cumGPA = calculateCumulativeGPA(sv);
                                                                 const val = sortingScale === '4' ? cumGPA.gpa4 : cumGPA.gpa10;
-                                                                return (<div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-extrabold text-white border-2 border-white dark:border-slate-800 shadow-md ${sortingScale === '4' ? (val >= 3.2 ? 'bg-green-500' : val >= 2.5 ? 'bg-yellow-500' : 'bg-red-500') : (val >= 8.0 ? 'bg-green-500' : val >= 6.5 ? 'bg-yellow-500' : 'bg-red-500')}`} title={`GPA Tích lũy (Hệ ${sortingScale})`}>{val.toFixed(2)}</div>);
+                                                                return (<div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-sm font-black text-white border-4 border-background shadow-xl ${sortingScale === '4' ? (val >= 3.2 ? 'bg-emerald-500' : val >= 2.5 ? 'bg-amber-500' : 'bg-rose-500') : (val >= 8.0 ? 'bg-emerald-500' : val >= 6.5 ? 'bg-amber-500' : 'bg-rose-500')} group-hover:scale-110 transition-transform duration-300`} title={`GPA Tích lũy (Hệ ${sortingScale})`}>{val.toFixed(2)}</div>);
                                                             })()}
                                                             {selectedSemester !== 'all' && (() => {
                                                                 const semVal = getSemesterValue(sv, selectedSemester, sortingScale);
                                                                 return (
-                                                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-extrabold text-white border-2 border-white dark:border-slate-800 shadow-md ${sortingScale === '4' ? (semVal >= 3.2 ? 'bg-green-500' : semVal >= 2.5 ? 'bg-yellow-500' : 'bg-red-500') : (semVal >= 8.0 ? 'bg-green-500' : semVal >= 6.5 ? 'bg-yellow-500' : 'bg-red-500')}`} title={`GPA Học kỳ (Hệ ${sortingScale})`}>{semVal.toFixed(2)}</div>
+                                                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-[10px] font-black text-white border-4 border-background shadow-xl ${sortingScale === '4' ? (semVal >= 3.2 ? 'bg-sky-500' : semVal >= 2.5 ? 'bg-blue-500' : 'bg-slate-500') : (semVal >= 8.0 ? 'bg-sky-500' : semVal >= 6.5 ? 'bg-blue-500' : 'bg-slate-500')} group-hover:scale-110 transition-transform duration-500 translate-y-1`} title={`GPA Học kỳ (Hệ ${sortingScale})`}>{semVal.toFixed(1)}</div>
                                                                 );
                                                             })()}
                                                         </div>
                                                     </div>
                                                     <div className="flex-1 min-w-0">
-                                                        <div className="font-bold text-base md:text-lg text-slate-900 dark:text-white group-hover:text-blue-700 dark:group-hover:text-blue-400 break-words">{sv.ho_ten}</div>
-                                                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-1">{role !== 0 && (<><span className="font-mono">{sv.msv}</span><span className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600"></span></>)}{role !== 0 && sv.ngay_sinh && <span>{sv.ngay_sinh}</span>}</div>
+                                                        <div className="font-black text-lg md:text-xl text-foreground group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors break-words leading-tight">{sv.ho_ten}</div>
+                                                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-2 font-bold uppercase tracking-widest">{role !== 0 && (<><span className="font-mono text-indigo-500/70">{sv.msv}</span><span className="w-1.5 h-1.5 rounded-full bg-border"></span></>)}{role !== 0 && sv.ngay_sinh && <span className="flex items-center gap-1"><Award className="w-3.5 h-3.5" />{sv.ngay_sinh}</span>}</div>
                                                     </div>
-                                                    {sv.ma_lop && (<div className="px-3 py-1.5 bg-slate-100 dark:bg-slate-700 rounded-md text-sm font-medium text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600">{sv.ma_lop}</div>)}
-                                                    <ChevronRight className="w-5 h-5 text-slate-300 dark:text-slate-600 group-hover:text-blue-400 group-hover:translate-x-1 transition-all" />
+                                                    {sv.ma_lop && (<div className="hidden sm:block px-4 py-2 bg-slate-500/5 dark:bg-slate-800 rounded-xl text-xs font-black text-slate-500 dark:text-slate-400 border border-border group-hover:border-indigo-500/50 transition-colors uppercase tracking-widest">{sv.ma_lop}</div>)}
+                                                    <div className="w-10 h-10 rounded-full flex items-center justify-center group-hover:bg-indigo-500/10 transition-all"><ChevronRight className="w-6 h-6 text-slate-300 dark:text-slate-600 group-hover:text-indigo-500 group-hover:translate-x-1 transition-all" /></div>
                                                 </div>
                                             ))
                                         )}
@@ -995,12 +1002,29 @@ export default function Dashboard() {
                             )}
 
                             {view === 'grades' && currentStudent && (
-                                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                                    <div className="lg:col-span-1 space-y-4">
-                                        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 sticky top-24 transition-colors">
-                                            <div className="flex flex-col items-center text-center pb-6 border-b border-slate-100 dark:border-slate-700"><div className="w-20 h-20 bg-blue-50 dark:bg-blue-900/30 rounded-full flex items-center justify-center mb-3"><UserIconBig /></div><h2 className="text-lg font-bold text-slate-900 dark:text-white">{currentStudent.ho_ten}</h2>{role !== 0 && (<p className="text-sm text-slate-500 dark:text-slate-400 font-mono mt-1">{currentStudent.msv}</p>)}</div>
-                                            <div className="pt-4 space-y-3"><InfoRow label="Lớp" value={currentStudent.ma_lop} />{role !== 0 && (<><InfoRow label="Ngày sinh" value={currentStudent.ngay_sinh} /><InfoRow label="Nơi sinh" value={currentStudent.noi_sinh} /></>)}</div>
-                                            <div className="mt-6 p-4 bg-slate-900 dark:bg-indigo-950/50 border border-slate-800 dark:border-indigo-900/50 rounded-lg text-white text-center shadow-inner"><div className="text-xs uppercase tracking-wider opacity-70 mb-1 text-slate-300 dark:text-indigo-200">GPA Tích Lũy</div><div className="text-3xl font-bold text-white dark:text-indigo-100">{gpa}</div></div>
+                                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                                    <div className="lg:col-span-1 space-y-6">
+                                        <div className="premium-glass rounded-3xl border-border/50 shadow-2xl p-8 sticky top-28 transition-all">
+                                            <div className="flex flex-col items-center text-center pb-8 border-b border-border/50">
+                                                <div className="w-24 h-24 bg-indigo-500/5 dark:bg-indigo-500/10 rounded-full flex items-center justify-center mb-4 ring-8 ring-indigo-500/5 shadow-inner">
+                                                    <UserIconBig />
+                                                </div>
+                                                <h2 className="text-2xl font-black text-foreground leading-tight">{currentStudent.ho_ten}</h2>
+                                                {role !== 0 && (<p className="text-sm text-indigo-500 font-black font-mono mt-2 tracking-widest uppercase">{currentStudent.msv}</p>)}
+                                            </div>
+                                            <div className="pt-6 space-y-4">
+                                                <InfoRow label="LỚP HỌC" value={currentStudent.ma_lop} />
+                                                {role !== 0 && (
+                                                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="space-y-4">
+                                                        <InfoRow label="NGÀY SINH" value={currentStudent.ngay_sinh} />
+                                                        <InfoRow label="QUÊ QUÁN" value={currentStudent.noi_sinh} />
+                                                    </motion.div>
+                                                )}
+                                            </div>
+                                            <div className="mt-8 p-6 bg-gradient-to-br from-indigo-600 to-violet-700 dark:from-indigo-600/20 dark:to-violet-700/20 border-2 border-indigo-400/20 rounded-2xl text-white text-center shadow-2xl shadow-indigo-500/20">
+                                                <div className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80 mb-1 text-indigo-100 italic">CÔNG LỰC TÍCH LŨY</div>
+                                                <div className="text-4xl font-black text-white">{gpa}</div>
+                                            </div>
                                         </div>
                                     </div>
                                     <div className="lg:col-span-3 space-y-4 animate-view-entry">
