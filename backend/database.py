@@ -21,6 +21,7 @@ if not SQLALCHEMY_DATABASE_URL:
     
     if USER and HOST and DBNAME:
         SQLALCHEMY_DATABASE_URL = f"postgresql://{USER}:{PASSWORD}@{HOST}:{PORT}/{DBNAME}"
+        print(f"[INFO] DB_CONNECTION: Constructed URL from components")
     elif IS_PRODUCTION:
         print("[CRITICAL] DATABASE_URL is missing in PRODUCTION environment!")
         # We no longer raise RuntimeError to allow the app to start and provide diagnostic /api/health

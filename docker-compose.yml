@@ -9,6 +9,7 @@ services:
     env_file:
       - ./backend/.env
     environment:
+      - DATABASE_URL=${DATABASE_URL}
       - BACKEND_HOST=0.0.0.0
       - BACKEND_PORT=8000
       - NODE_ENV=production
@@ -49,6 +50,8 @@ services:
     container_name: web-diem-frontend
     expose:
       - "3000"
+    env_file:
+      - ./frontend/.env
     environment:
       - API_URL=http://backend:8000
       - NODE_ENV=production
