@@ -333,6 +333,29 @@ app.include_router(websocket.router, tags=["WebSocket"])
 async def health_check():
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
+@app.get("/api/health")
+def health_check(db: Session = Depends(database.get_db)):
+    """Kiểm tra tình trạng hệ thống và kết nối Database."""
+    try:
+        from sqlalchemy import text
+        db.execute(text("SELECT 1"))
+        return {
+            "status": "healthy",
+            "database": "connected",
+            "environment": os.getenv("NODE_ENV", "development"),
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "unhealthy",
+                "database": str(e),
+                "detail": "Database connection failed"
+            }
+        )
+
 if __name__ == "__main__":
     import uvicorn
     host = os.getenv("BACKEND_HOST", "127.0.0.1")

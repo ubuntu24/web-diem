@@ -111,4 +111,6 @@ def sync_schema():
         create_tables()
         print("[INFO] Sync: Schema synchronization complete.")
     except Exception as e:
-        print(f"[ERROR] Sync: Schema synchronization failed: {e}")
+        print(f"[CRITICAL] Sync: Schema synchronization failed: {e}")
+        import traceback
+        traceback.print_exc()
