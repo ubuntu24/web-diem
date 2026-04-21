@@ -215,10 +215,8 @@ def _build_allowed_hosts() -> list[str]:
 
 
 # 🛡️ SECURITY: Production allowed hosts. 
-# For Docker Healthcheck reliability, we use "*" as the default inside containers
-# unless an explicit allowlist is provided via ALLOWED_HOSTS.
-allowed_hosts = os.getenv("ALLOWED_HOSTS", "*").split(",")
-allowed_hosts = [h.strip() for h in allowed_hosts if h.strip()]
+# We use the smart helper to ensure internal Docker names are always trusted.
+allowed_hosts = _build_allowed_hosts()
 
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
 app.add_middleware(GZipMiddleware, minimum_size=1024)
