@@ -348,7 +348,7 @@ export default function StudentCharts({ student, scale }: StudentChartsProps) {
                         <h3 className="font-bold text-slate-900 dark:text-white">
                             {chartType === 'trend' ? 'Xu hướng GPA' : 'Phân bổ Result'}
                         </h3>
-                        <p className="text-xs text-slate-500">Trực quan hóa kết quả học tập</p>
+                        <p className="text-xs text-slate-500">Trực quan hóa dữ liệu Performance</p>
                     </div>
                 </div>
 
@@ -384,7 +384,7 @@ export default function StudentCharts({ student, scale }: StudentChartsProps) {
 
             <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2 text-[11px] text-slate-400 italic">
                 <Info className="w-3.5 h-3.5" />
-                Dữ liệu được cập nhật từ hệ thống quản lý học vụ chính thức.
+                Dữ liệu được cập nhật từ hệ thống phân tích record chính thức.
             </div>
         </div>
     );

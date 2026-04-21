@@ -61,7 +61,7 @@ export default function GPASimulator({ currentCredits, currentPoints }: GPASimul
                 </div>
                 <div>
                     <h3 className="font-bold text-slate-900 dark:text-white">Dự báo Performance tích lũy</h3>
-                    <p className="text-sm text-slate-500 dark:text-slate-400">Thêm các môn học kỳ tới để xem GPA thay đổi thế nào</p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Thêm các môn period tới để xem GPA thay đổi thế nào</p>
                 </div>
             </div>
 

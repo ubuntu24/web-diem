@@ -45,7 +45,7 @@ export default function GradeTable({ grades }: GradeTableProps) {
                         <th className="px-3 md:px-6 py-3 md:py-4 font-bold tracking-wider">Môn Học</th>
                         <th className="px-2 md:px-6 py-3 md:py-4 font-bold tracking-wider text-center">Tín Chỉ</th>
                         <th className="px-2 md:px-6 py-3 md:py-4 font-bold tracking-wider text-center">Performance</th>
-                        <th className="px-2 md:px-6 py-3 md:py-4 font-bold tracking-wider text-center">Tổng Kết</th>
+                        <th className="px-2 md:px-6 py-3 md:py-4 font-bold tracking-wider text-center">Metric</th>
                         <th className="px-2 md:px-6 py-3 md:py-4 font-bold tracking-wider text-center">Result</th>
                     </tr>
                 </thead>
@@ -115,7 +115,7 @@ function GradeRow({ grade, isPass, isHigh }: { grade: Grade; isPass: boolean; is
         { label: 'Thi KN 2', value: grade.diem_thi_kn_2 },
         { label: 'Thi KN 3', value: grade.diem_thi_kn_3 },
         { label: 'Thi KN 4', value: grade.diem_thi_kn_4 },
-        { label: 'TK Lần 1', value: grade.tong_ket_1, highlight: _isRetake(grade) || _isRelearn(grade) },
+        { label: 'Metric Lần 1', value: grade.tong_ket_1, highlight: _isRetake(grade) || _isRelearn(grade) },
     ].filter(d => d.value);
 
     const hasDetails = details.length > 0;

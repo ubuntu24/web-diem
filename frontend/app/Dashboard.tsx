@@ -338,7 +338,7 @@ export default function Dashboard() {
                     }
                 }
 
-                // Role 0: chỉ hiển thị số SV trong lớp đang chọn, không bao giờ gọi tổng toàn trường
+                // Role 0: chỉ hiển thị số Record trong group đang chọn, không bao giờ gọi tổng toàn trường
                 if (storedClass) {
                     getStudentCountBff(storedClass).then(c => setTotalStudentCount(c)).catch(() => { });
                     loadStudentsForClass(storedClass);
@@ -347,7 +347,7 @@ export default function Dashboard() {
                     setShowClassPicker(true);
                 }
             } else {
-                // Role 1 (admin): hiển thị tổng sinh viên toàn trường
+                // Role 1 (admin): hiển thị tổng Record hệ thống
                 getStudentCountBff(undefined).then(c => setTotalStudentCount(c)).catch(() => { });
             }
         });
@@ -586,7 +586,7 @@ export default function Dashboard() {
             navigateView('students', { cls: maLopStr });
         } catch (error) {
             // silenced
-            alert('Lỗi hệ thống khi tải danh sách sinh viên.');
+            alert('Lỗi hệ thống khi tải danh sách Record.');
         } finally {
             setLoading(false);
         }
@@ -612,11 +612,11 @@ export default function Dashboard() {
                 navigateView('grades', { msv });
             } else {
                 // silenced
-                alert('Không thể tải thông tin sinh viên. Vui lòng thử lại.');
+                alert('Không thể tải thông tin Record. Vui lòng thử lại.');
             }
         } catch (error) {
             // silenced
-            alert('Lỗi khi tải điểm. Vui lòng thử lại.');
+            alert('Lỗi khi tải Performance. Vui lòng thử lại.');
         } finally {
             setLoading(false);
         }
@@ -806,7 +806,7 @@ export default function Dashboard() {
                                         <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 group-focus-within:text-indigo-500 transition-colors" />
                                         <input
                                             type="text"
-                                            placeholder="Tìm kiếm sinh viên (Tên hoặc MSV)..."
+                                            placeholder="Tìm kiếm bản ghi (Tên hoặc MSV)..."
                                             className="w-full pl-10 pr-4 py-2.5 bg-background dark:bg-slate-900 border-border group-focus-within:border-indigo-500/50 group-focus-within:ring-4 group-focus-within:ring-indigo-500/10 border-2 rounded-xl text-sm transition-all outline-none text-foreground font-semibold placeholder-slate-500 shadow-inner"
                                             value={searchQuery}
                                             onChange={(e) => setSearchQuery(e.target.value)}
@@ -831,7 +831,7 @@ export default function Dashboard() {
                                 className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all ${selectedClass ? 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200' : 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-200 animate-pulse'}`}
                             >
                                 <MapPin className="w-4 h-4" />
-                                <span className="text-xs font-bold">{selectedClass || 'Chọn lớp'}</span>
+                                <span className="text-xs font-bold">{selectedClass || 'Chọn group'}</span>
                             </button>
                         )}
                     </div>
@@ -885,18 +885,18 @@ export default function Dashboard() {
                                                 </div>
                                                 <div>
                                                     <h4 className="font-bold text-slate-900 dark:text-white text-lg">Chế độ so sánh</h4>
-                                                    <p className="text-sm text-slate-500 dark:text-slate-400">Chọn nhiều lớp để phân tích dữ liệu tổng hợp</p>
+                                                    <p className="text-sm text-slate-500 dark:text-slate-400">Chọn nhiều group để phân tích dữ liệu tổng hợp</p>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-4">
                                                 {compareMode && selectedClasses.length > 0 && (
                                                     <button onClick={() => loadStudents(selectedClasses)} className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-black shadow-xl shadow-indigo-500/20 hover:bg-indigo-700 active:scale-95 transition-all flex items-center gap-2">
                                                         <Award className="w-4 h-4" />
-                                                        SO SÁNH {selectedClasses.length} LỚP
+                                                        SO SÁNH {selectedClasses.length} GROUP
                                                     </button>
                                                 )}
                                                 <button onClick={() => { setCompareMode(!compareMode); setSelectedClasses([]); }} className={`px-6 py-2.5 rounded-xl text-sm font-black transition-all active:scale-95 ${compareMode ? 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300' : 'bg-white dark:bg-slate-900 border-2 border-border text-slate-700 dark:text-slate-300 hover:border-indigo-500/50 shadow-sm'}`}>
-                                                    {compareMode ? 'HỦY BỎ' : 'CHỌN NHIỀU LỚP'}
+                                                    {compareMode ? 'HỦY BỎ' : 'CHỌN NHIỀU GROUP'}
                                                 </button>
                                             </div>
                                         </div>
@@ -907,12 +907,12 @@ export default function Dashboard() {
                                             <div className="grid grid-cols-1 gap-3">
                                                 <div onClick={() => loadStudents(selectedClass)} className="animate-view-entry bg-white dark:bg-slate-800 p-5 rounded-xl border border-indigo-200 dark:border-indigo-700 transition-all flex items-center gap-4 group cursor-pointer shadow-sm hover:shadow-lg hover:border-indigo-400">
                                                     <div className="w-12 h-12 rounded-full flex items-center justify-center bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 group-hover:scale-110 transition-transform"><MapPin className="w-6 h-6" /></div>
-                                                    <div className="flex-1"><div className="font-bold text-lg text-slate-900 dark:text-white">{selectedClass}</div><div className="text-xs text-slate-500 dark:text-slate-400">Nhấn để xem danh sách sinh viên</div></div>
+                                                    <div className="flex-1"><div className="font-bold text-lg text-slate-900 dark:text-white">{selectedClass}</div><div className="text-xs text-slate-500 dark:text-slate-400">Nhấn để xem danh sách bản ghi</div></div>
                                                     <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-indigo-500 transition-colors" />
                                                 </div>
                                             </div>
                                         ) : (
-                                            <div className="text-center py-12"><MapPin className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-4" /><p className="text-slate-500 dark:text-slate-400 font-medium">Vui lòng chọn lớp để bắt đầu</p><button onClick={() => setShowClassPicker(true)} className="mt-4 px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors">Chọn lớp</button></div>
+                                            <div className="text-center py-12"><MapPin className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-4" /><p className="text-slate-500 dark:text-slate-400 font-medium">Vui lòng chọn group để bắt đầu</p><button onClick={() => setShowClassPicker(true)} className="mt-4 px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors">Chọn group</button></div>
                                         )
                                     ) : (
                                         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
@@ -941,8 +941,8 @@ export default function Dashboard() {
                                             </div>
                                             <div>
                                                 <h3 className="text-xl font-black text-foreground flex items-center gap-3">
-                                                    {view === 'search' ? 'Kết quả tìm kiếm' : `Lớp ${selectedClass}`}
-                                                    <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-3 py-1 rounded-full border border-indigo-500/20">{filteredStudents.length} SINH VIÊN</span>
+                                                    {view === 'search' ? 'Kết quả tìm kiếm' : `Group ${selectedClass}`}
+                                                    <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-3 py-1 rounded-full border border-indigo-500/20">{filteredStudents.length} RECORDS</span>
                                                 </h3>
                                             </div>
                                         </div>
@@ -951,7 +951,7 @@ export default function Dashboard() {
                                                 <button onClick={() => setSortingScale(sortingScale === '4' ? '10' : '4')} className={`h-10 px-4 text-xs font-black rounded-xl border-2 transition-all flex items-center gap-2 active:scale-95 ${sortingScale === '10' ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'bg-background border-border text-slate-600 dark:text-slate-300 hover:border-indigo-500/50'}`}><Sparkles className={`w-3.5 h-3.5 ${sortingScale === '10' ? 'text-indigo-200' : 'text-indigo-500'}`} />HỆ {sortingScale}</button>
                                                 <select value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className="px-3 py-1 text-xs font-black bg-background border-2 border-border rounded-xl outline-none focus:border-indigo-500 text-slate-700 dark:text-slate-300 h-10 min-w-[140px] shadow-sm transition-all" title="Sắp xếp theo kỳ">
                                                     <option value="all">KỲ TÍCH LŨY</option>
-                                                    {allSemesters.map(sem => (<option key={sem} value={sem}>{/^\d+/.test(sem) ? `HỌC KỲ ${sem}` : sem.toUpperCase()}</option>))}
+                                                    {allSemesters.map(sem => (<option key={sem} value={sem}>{/^\d+/.test(sem) ? `PERIOD ${sem}` : sem.toUpperCase()}</option>))}
                                                 </select>
                                             </div>
                                             <div className="relative w-full md:w-64">
@@ -968,7 +968,7 @@ export default function Dashboard() {
                                     </div>
                                     <div className="grid grid-cols-1 divide-y divide-gray-100 dark:divide-slate-700">
                                         {filteredStudents.length === 0 ? (
-                                            <div className="p-8 text-center text-slate-500 dark:text-slate-400">{localSearchTerm ? 'Không tìm thấy sinh viên phù hợp.' : 'Không có dữ liệu.'}</div>
+                                            <div className="p-8 text-center text-slate-500 dark:text-slate-400">{localSearchTerm ? 'Không tìm thấy kết quả phù hợp.' : 'Không có dữ liệu.'}</div>
                                         ) : (
                                             filteredStudents.map((sv) => (
                                                 <div key={sv.msv} onClick={() => loadGrade(sv.msv)} className="stagger-item p-4 md:p-6 hover:bg-indigo-500/5 dark:hover:bg-indigo-500/10 cursor-pointer transition-all flex items-center gap-4 md:gap-6 group relative">
@@ -983,7 +983,7 @@ export default function Dashboard() {
                                                             {selectedSemester !== 'all' && (() => {
                                                                 const semVal = getSemesterValue(sv, selectedSemester, sortingScale);
                                                                 return (
-                                                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-[10px] font-black text-white border-4 border-background shadow-xl ${sortingScale === '4' ? (semVal >= 3.2 ? 'bg-sky-500' : semVal >= 2.5 ? 'bg-blue-500' : 'bg-slate-500') : (semVal >= 8.0 ? 'bg-sky-500' : semVal >= 6.5 ? 'bg-blue-500' : 'bg-slate-500')} group-hover:scale-110 transition-transform duration-500 translate-y-1`} title={`GPA Học kỳ (Hệ ${sortingScale})`}>{semVal.toFixed(1)}</div>
+                                                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-[10px] font-black text-white border-4 border-background shadow-xl ${sortingScale === '4' ? (semVal >= 3.2 ? 'bg-sky-500' : semVal >= 2.5 ? 'bg-blue-500' : 'bg-slate-500') : (semVal >= 8.0 ? 'bg-sky-500' : semVal >= 6.5 ? 'bg-blue-500' : 'bg-slate-500')} group-hover:scale-110 transition-transform duration-500 translate-y-1`} title={`GPA Period (Hệ ${sortingScale})`}>{semVal.toFixed(1)}</div>
                                                                 );
                                                             })()}
                                                         </div>
@@ -1013,7 +1013,7 @@ export default function Dashboard() {
                                                 {role !== 0 && (<p className="text-sm text-indigo-500 font-black font-mono mt-2 tracking-widest uppercase">{currentStudent.msv}</p>)}
                                             </div>
                                             <div className="pt-6 space-y-4">
-                                                <InfoRow label="LỚP HỌC" value={currentStudent.ma_lop} />
+                                                <InfoRow label="GROUP" value={currentStudent.ma_lop} />
                                                 {role !== 0 && (
                                                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="space-y-4">
                                                         <InfoRow label="NGÀY SINH" value={currentStudent.ngay_sinh} />
@@ -1029,7 +1029,7 @@ export default function Dashboard() {
                                     </div>
                                     <div className="lg:col-span-3 space-y-4 animate-view-entry">
                                         <StudentCharts student={currentStudent} scale={sortingScale} />
-                                        <div className="flex items-center gap-2 mb-2"><h3 className="font-bold text-slate-800 dark:text-white">Bảng Điểm Chi Tiết</h3></div>
+                                        <div className="flex items-center gap-2 mb-2"><h3 className="font-bold text-slate-800 dark:text-white">Bảng Kết Quả Performance</h3></div>
                                         {sortedSemesterKeys.map(hk => {
                                             const semesterGrades = gradesBySemester[hk];
                                             const semGPA = calculateSemesterGPA(currentStudent, hk);
@@ -1068,13 +1068,13 @@ export default function Dashboard() {
             <AnimatePresence>
                 {view === 'grades' && currentStudent && (
                     <motion.div initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 50 }} className="fixed bottom-6 right-6 z-40">
-                        <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 max-w-md w-full relative transition-colors"><button onClick={() => { const el = document.getElementById('gpa-simulator-container'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }} className="absolute -top-3 -right-3 bg-indigo-600 text-white p-2 rounded-full shadow-lg hover:bg-indigo-700 transition"><Sparkles className="w-5 h-5" /></button><div className="text-sm font-medium text-slate-600 dark:text-slate-200 mb-2">Xem điểm tích lũy dự kiến?</div><div className="text-xs text-slate-400 dark:text-slate-400">Cuộn xuống dưới cùng để thêm môn học dự kiến.</div></div>
+                                <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 max-w-md w-full relative transition-colors"><button onClick={() => { const el = document.getElementById('gpa-simulator-container'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }} className="absolute -top-3 -right-3 bg-indigo-600 text-white p-2 rounded-full shadow-lg hover:bg-indigo-700 transition"><Sparkles className="w-5 h-5" /></button><div className="text-sm font-medium text-slate-600 dark:text-slate-200 mb-2">Xem Performance tích lũy dự kiến?</div><div className="text-xs text-slate-400 dark:text-slate-400">Cuộn xuống dưới cùng để thêm môn học dự kiến.</div></div>
                     </motion.div>
                 )}
             </AnimatePresence>
 
             {view === 'grades' && currentStudent && (
-                <div id="gpa-simulator-container" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20"><div className="mt-12 border-t border-slate-200 pt-8"><h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2"><Sparkles className="w-6 h-6 text-indigo-500" />Mô phỏng Điểm Tích Lũy</h2><GPASimulator currentCredits={totalCredits} currentPoints={totalPoints} /></div></div>
+                <div id="gpa-simulator-container" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20"><div className="mt-12 border-t border-slate-200 pt-8"><h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2"><Sparkles className="w-6 h-6 text-indigo-500" />Mô phỏng Metrics Dự Kiến</h2><GPASimulator currentCredits={totalCredits} currentPoints={totalPoints} /></div></div>
             )}
             <FeedbackButton username={username} />
 

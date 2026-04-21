@@ -73,7 +73,7 @@ export default function VipPage() {
                             </button>
                             <span className="text-[10px] text-slate-700 font-bold tracking-widest uppercase flex items-center gap-1">
                                 <Sparkles className="w-3 h-3" />
-                                RICKROLLED v2.0 • FOR TEACHERS WITH LOVE
+                                RICKROLLED v2.0 • FOR THE COMMUNITY WITH LOVE
                             </span>
                         </div>
                     </div>

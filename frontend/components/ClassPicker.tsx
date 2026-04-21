@@ -59,7 +59,7 @@ export default function ClassPicker({
         }
 
         if (isLimitReached) {
-            setError("Bạn đã hết lượt đổi lớp trong ngày. Nâng cấp VIP để đổi không giới hạn!");
+            setError("Bạn đã hết lượt đổi group trong ngày. Nâng cấp VIP để đổi không giới hạn!");
             return;
         }
 
@@ -82,9 +82,9 @@ export default function ClassPicker({
                         <div>
                             <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
                                 <MapPin className="w-6 h-6 text-indigo-600" />
-                                Lựa chọn lớp học
+                                Lựa chọn group học
                             </h2>
-                            <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Chọn lớp bạn muốn xem thông tin hôm nay</p>
+                            <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Chọn group bạn muốn xem thông tin hôm nay</p>
                         </div>
                         <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-bold transition-colors ${isLimitReached
                             ? 'bg-red-50 border-red-200 text-red-600 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400'
@@ -99,7 +99,7 @@ export default function ClassPicker({
                         <Search className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
                         <input
                             type="text"
-                            placeholder="Tìm kiếm lớp (ví dụ: DHMT16A1HN)..."
+                            placeholder="Tìm kiếm group (ví dụ: DHMT16A1HN)..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="w-full pl-12 pr-4 py-3 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium"
@@ -114,7 +114,7 @@ export default function ClassPicker({
                             <div className="flex items-center gap-3">
                                 <Star className="w-5 h-5 text-amber-500 shrink-0" />
                                 <div className="text-sm font-bold text-amber-800 dark:text-amber-300">
-                                    Bạn đã dùng hết lượt đổi lớp hôm nay!
+                                    Bạn đã dùng hết lượt đổi group hôm nay!
                                 </div>
                             </div>
                             <Link
@@ -173,7 +173,7 @@ export default function ClassPicker({
                         ) : (
                             <div className="col-span-full py-20 text-center">
                                 <Search className="w-12 h-12 text-slate-200 dark:text-slate-800 mx-auto mb-4" />
-                                <p className="text-slate-500 dark:text-slate-400 font-medium">Không tìm thấy lớp nào phù hợp</p>
+                                <p className="text-slate-500 dark:text-slate-400 font-medium">Không tìm thấy group nào phù hợp</p>
                             </div>
                         )}
                     </div>
@@ -182,7 +182,7 @@ export default function ClassPicker({
                 {/* Footer */}
                 <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between">
                     <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest">
-                        LIFE SUCKS • CLASS PICK v1.0
+                        LIFE SUCKS • GROUP PICK v1.0
                     </p>
                     {(currentClass || onClose) && (
                         <button

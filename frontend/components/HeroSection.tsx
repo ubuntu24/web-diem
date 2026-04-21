@@ -38,7 +38,7 @@ export default function HeroSection({ username, totalClasses, totalStudents, onl
                     <p className="text-indigo-100 text-base md:text-lg opacity-90">
                         {isStudent
                             ? "Xem kết quả Performance và theo dõi tiến độ cá nhân của bạn."
-                            : "Quản lý dữ liệu Metric và theo dõi tiến độ của các lớp học."}
+                            : "Quản lý dữ liệu Metric và theo dõi tiến độ của các group."}
                     </p>
                 </div>
 
@@ -51,13 +51,13 @@ export default function HeroSection({ username, totalClasses, totalStudents, onl
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <StatsCard
                     icon={<BookOpen className="w-6 h-6 text-blue-600 dark:text-blue-400" />}
-                    label={isStudent ? "Lớp đang theo dõi" : "Lớp đang quản lý"}
+                    label={isStudent ? "Group đang theo dõi" : "Group đang quản lý"}
                     value={totalClasses.toString()}
                     color="bg-blue-50 border-blue-100 dark:bg-blue-900/20 dark:border-blue-800"
                 />
                 <StatsCard
                     icon={<Users className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />}
-                    label={isStudent ? "Bạn cùng lớp" : "Tổng lượng người dùng"}
+                    label={isStudent ? "Thành viên Group" : "Tổng lượng người dùng"}
                     value={totalStudents > 0 ? totalStudents.toString() : "--"}
                     color="bg-emerald-50 border-emerald-100 dark:bg-emerald-900/20 dark:border-emerald-800"
                 />
