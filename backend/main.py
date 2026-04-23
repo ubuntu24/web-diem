@@ -232,6 +232,12 @@ env_origins = os.getenv("ALLOWED_ORIGINS", "").split(",")
 origins = [o.strip() for o in env_origins if o.strip()]
 
 if not origins:
+    is_production = (
+        os.getenv("NODE_ENV", "").lower() == "production"
+        or os.getenv("ENV", "").lower() == "production"
+    )
+    if is_production:
+        raise RuntimeError("ALLOWED_ORIGINS must be set in production environment")
     # Safe defaults for local development only
     origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
 

@@ -13,7 +13,6 @@ services:
       - BACKEND_PORT=8000
       - NODE_ENV=production
       - EXTRA_TRUSTED_HOSTS=${EXTRA_TRUSTED_HOSTS:-localhost,127.0.0.1}
-      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000}
     volumes:
       # Removed students.db as Supabase Postgres is used
       - ./backend/static:/app/static
@@ -21,7 +20,7 @@ services:
       - backend-network
     restart: always
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
       interval: 15s
       timeout: 10s
       retries: 10

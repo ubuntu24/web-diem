@@ -62,15 +62,15 @@ export default function LoginPage() {
                 className="premium-glass p-10 rounded-[2.5rem] shadow-2xl w-full max-w-md border-border/50 relative z-10 mx-4"
             >
                 <div className="text-center mb-10">
-                    <motion.div 
+                    <motion.div
                         initial={{ rotate: -10 }}
                         animate={{ rotate: 0 }}
                         className="w-16 h-16 bg-gradient-to-br from-indigo-600 to-violet-700 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-indigo-500/30 text-white"
                     >
                         <Award className="w-8 h-8" />
                     </motion.div>
-                    <h1 className="text-3xl font-black text-foreground tracking-tight">Chào mừng trở lại</h1>
-                    <p className="text-slate-500 dark:text-slate-400 text-sm mt-2 font-bold uppercase tracking-widest italic">System Authentication</p>
+                    <h1 className="text-3xl font-black text-foreground tracking-tight">Chào mừng bạn quay lại</h1>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm mt-2 font-bold uppercase tracking-widest italic">Đăng nhập hệ thống</p>
                 </div>
 
                 <form onSubmit={handleLogin} className="space-y-6">

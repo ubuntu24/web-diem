@@ -69,7 +69,7 @@ export default function VipPage() {
                                 className="px-6 py-3 bg-white text-black font-black rounded-xl hover:bg-slate-200 transition-all flex items-center gap-2 group shadow-xl shadow-white/5"
                             >
                                 <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-                                QUAY LẠI CÔNG VIỆC
+                                Quay lại trang trước
                             </button>
                             <span className="text-[10px] text-slate-700 font-bold tracking-widest uppercase flex items-center gap-1">
                                 <Sparkles className="w-3 h-3" />

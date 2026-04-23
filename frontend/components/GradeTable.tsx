@@ -44,9 +44,9 @@ export default function GradeTable({ grades }: GradeTableProps) {
                     <tr>
                         <th className="px-3 md:px-6 py-3 md:py-4 font-bold tracking-wider">Môn Học</th>
                         <th className="px-2 md:px-6 py-3 md:py-4 font-bold tracking-wider text-center">Tín Chỉ</th>
-                        <th className="px-2 md:px-6 py-3 md:py-4 font-bold tracking-wider text-center">Performance</th>
-                        <th className="px-2 md:px-6 py-3 md:py-4 font-bold tracking-wider text-center">Metric</th>
-                        <th className="px-2 md:px-6 py-3 md:py-4 font-bold tracking-wider text-center">Result</th>
+                        <th className="px-2 md:px-6 py-3 md:py-4 font-bold tracking-wider text-center">Thành Tích</th>
+                        <th className="px-2 md:px-6 py-3 md:py-4 font-bold tracking-wider text-center">Điểm (hệ 4)</th>
+                        <th className="px-2 md:px-6 py-3 md:py-4 font-bold tracking-wider text-center">Kết quả</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -115,7 +115,7 @@ function GradeRow({ grade, isPass, isHigh }: { grade: Grade; isPass: boolean; is
         { label: 'Thi KN 2', value: grade.diem_thi_kn_2 },
         { label: 'Thi KN 3', value: grade.diem_thi_kn_3 },
         { label: 'Thi KN 4', value: grade.diem_thi_kn_4 },
-        { label: 'Metric Lần 1', value: grade.tong_ket_1, highlight: _isRetake(grade) || _isRelearn(grade) },
+        { label: 'Tổng Kết Lần 1', value: grade.tong_ket_1, highlight: _isRetake(grade) || _isRelearn(grade) },
     ].filter(d => d.value);
 
     const hasDetails = details.length > 0;
@@ -134,13 +134,13 @@ function GradeRow({ grade, isPass, isHigh }: { grade: Grade; isPass: boolean; is
                         {isRetake && (
                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-tight bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800 shrink-0 mt-0.5">
                                 <RotateCcw className="w-2.5 h-2.5" />
-                                Review
+                                Thi lại
                             </span>
                         )}
                         {isRelearn && (
                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-tight bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 shrink-0 mt-0.5">
                                 <BookX className="w-2.5 h-2.5" />
-                                Retry
+                                Học lại
                             </span>
                         )}
 
@@ -166,13 +166,13 @@ function GradeRow({ grade, isPass, isHigh }: { grade: Grade; isPass: boolean; is
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
                             {details.map((item, i) => (
                                 <div key={i} className={`p-3 rounded-xl border shadow-[0_2px_4px_rgba(0,0,0,0.02)] flex flex-col items-center text-center ${(item as any).highlight
-                                        ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-                                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'
+                                    ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+                                    : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'
                                     }`}>
                                     <div className="text-[9px] uppercase tracking-wider font-extrabold text-slate-400 dark:text-slate-500 mb-1">{item.label}</div>
                                     <div className={`text-base font-bold font-mono ${(item as any).highlight
-                                            ? 'text-red-500 dark:text-red-400'
-                                            : 'text-blue-600 dark:text-blue-400'
+                                        ? 'text-red-500 dark:text-red-400'
+                                        : 'text-blue-600 dark:text-blue-400'
                                         }`}>{item.value}</div>
                                 </div>
                             ))}

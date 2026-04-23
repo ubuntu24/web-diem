@@ -412,7 +412,7 @@ export default function AdminUserList() {
                                                     <div className="flex items-center gap-2">
                                                         <span className="px-2 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-md text-xs font-medium">User</span>
                                                         <span className={`px-2 py-1 rounded-md text-xs font-bold ${user.class_change_limit === -1 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'}`}>
-                                                            {user.class_change_limit === -1 ? '∞ lượt đổi group' : `${user.class_change_limit ?? 5} lượt đổi group`}
+                                                            {user.class_change_limit === -1 ? '∞ lượt đổi lớp' : `${user.class_change_limit ?? 5} lượt đổi lớp`}
                                                         </span>
                                                     </div>
                                                 )}
@@ -423,13 +423,13 @@ export default function AdminUserList() {
                                                         <button
                                                             onClick={() => {
                                                                 const currentLimit = user.class_change_limit ?? 5;
-                                                                const promptMsg = `Nhập số lượt đổi group mới cho ${user.username}\n(Nhập -1 để không giới hạn):`;
+                                                                const promptMsg = `Nhập số lượt đổi lớp mới cho ${user.username}\n(Nhập -1 để không giới hạn):`;
                                                                 const newLimitStr = prompt(promptMsg, currentLimit.toString());
                                                                 if (newLimitStr !== null) {
                                                                     const newLimit = parseInt(newLimitStr);
                                                                     if (!isNaN(newLimit)) {
                                                                         updateUserLimitBff(user.id, newLimit).then(() => {
-                                                                            toast.success(`Đã cập nhật lượt đổi group cho ${user.username}`);
+                                                                            toast.success(`Đã cập nhật lượt đổi lớp cho ${user.username}`);
                                                                             loadData();
                                                                         }).catch(() => {
                                                                             toast.error('Cập nhật thất bại');
@@ -446,9 +446,9 @@ export default function AdminUserList() {
                                                         </button>
                                                         <button
                                                             onClick={() => {
-                                                                if (confirm(`Bạn có chắc muốn reset lượt đổi group cho ${user.username}?`)) {
+                                                                if (confirm(`Bạn có chắc muốn reset lượt đổi lớp cho ${user.username}?`)) {
                                                                     resetUserLimitBff(user.id).then(() => {
-                                                                        toast.success(`Đã reset lượt đổi group cho ${user.username}`);
+                                                                        toast.success(`Đã reset lượt đổi lớp cho ${user.username}`);
                                                                         loadData();
                                                                     }).catch(() => {
                                                                         toast.error('Reset thất bại');
@@ -456,7 +456,7 @@ export default function AdminUserList() {
                                                                 }
                                                             }}
                                                             className="p-1.5 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-md transition-colors"
-                                                            title="Reset lượt đổi group"
+                                                            title="Reset lượt đổi lớp"
                                                         >
                                                             <Activity className="w-4 h-4" />
                                                         </button>

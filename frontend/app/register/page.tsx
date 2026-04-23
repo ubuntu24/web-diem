@@ -64,15 +64,15 @@ export default function RegisterPage() {
                 className="premium-glass p-10 rounded-[2.5rem] shadow-2xl w-full max-w-md border-border/50 relative z-10 mx-4"
             >
                 <div className="text-center mb-10">
-                    <motion.div 
+                    <motion.div
                         initial={{ rotate: 10 }}
                         animate={{ rotate: 0 }}
                         className="w-16 h-16 bg-gradient-to-br from-teal-600 to-emerald-700 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-teal-500/30 text-white"
                     >
                         <UserPlus className="w-8 h-8" />
                     </motion.div>
-                    <h1 className="text-3xl font-black text-foreground tracking-tight">Kiến tạo danh tính</h1>
-                    <p className="text-slate-500 dark:text-slate-400 text-sm mt-2 font-bold uppercase tracking-widest italic">lifesuck Registration</p>
+                    <h1 className="text-3xl font-black text-foreground tracking-tight">Tạo tài khoản mới</h1>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm mt-2 font-bold uppercase tracking-widest italic">Đăng ký tài khoản LifeSuck</p>
                 </div>
 
                 <form onSubmit={handleRegister} className="space-y-5">

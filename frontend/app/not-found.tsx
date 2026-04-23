@@ -40,9 +40,9 @@ export default function NotFound() {
                 </motion.div>
 
                 <h1 className="text-8xl font-black text-slate-200 dark:text-slate-800 mb-2 select-none">404</h1>
-                <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-4">Trang không tìm thấy</h2>
+                <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-4">Không tìm thấy trang</h2>
                 <p className="text-slate-500 dark:text-slate-400 mb-8 max-w-md mx-auto">
-                    Có vẻ như bạn đã đi lạc vào vùng không xác định. Trang bạn tìm kiếm không tồn tại hoặc đã bị di chuyển.
+                    Có vẻ bạn đã truy cập vào một trang không tồn tại hoặc đã bị di chuyển.
                 </p>
 
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -59,7 +59,7 @@ export default function NotFound() {
                         className="flex items-center gap-2 px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-lg shadow-blue-200 dark:shadow-blue-900/30 transition-all w-full sm:w-auto justify-center"
                     >
                         <Home className="w-4 h-4" />
-                        Về trang chủ
+                        Về trang chính
                     </Link>
                 </div>
             </motion.div>

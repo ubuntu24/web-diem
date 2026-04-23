@@ -9,9 +9,15 @@ load_dotenv()
 
 # Fetch variables
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
-IS_PRODUCTION = os.getenv("NODE_ENV") == "production"
+IS_PRODUCTION = (
+    os.getenv("NODE_ENV", "").lower() == "production"
+    or os.getenv("ENV", "").lower() == "production"
+)
 
 if not SQLALCHEMY_DATABASE_URL:
+    if IS_PRODUCTION:
+        raise RuntimeError("DATABASE_URL must be set in production environment")
+
     # Fallback to individual variables if DATABASE_URL is not set
     USER = os.getenv("user")
     PASSWORD = os.getenv("password")
@@ -22,19 +28,10 @@ if not SQLALCHEMY_DATABASE_URL:
     if USER and HOST and DBNAME:
         SQLALCHEMY_DATABASE_URL = f"postgresql://{USER}:{PASSWORD}@{HOST}:{PORT}/{DBNAME}"
         print(f"[INFO] DB_CONNECTION: Constructed URL from components")
-    elif IS_PRODUCTION:
-        print("[CRITICAL] DATABASE_URL is missing in PRODUCTION environment!")
-        # We no longer raise RuntimeError to allow the app to start and provide diagnostic /api/health
-        SQLALCHEMY_DATABASE_URL = "postgresql://missing_url_placeholder" 
     else:
         # Fallback to SQLite ONLY for local development if no Postgres config found
         print("[WARNING] DATABASE_URL not found. Falling back to SQLite: students.db (Local Mode Only)")
         SQLALCHEMY_DATABASE_URL = "sqlite:///./students.db"
-
-# Create the SQLAlchemy engine
-if not SQLALCHEMY_DATABASE_URL or "missing_url_placeholder" in SQLALCHEMY_DATABASE_URL:
-    # Use a dummy SQLite in memory or file to prevent engine crash
-    SQLALCHEMY_DATABASE_URL = "sqlite:///./fallback_disaster.db"
 
 # 🕵️ DATABASE_URL PRE-PROCESSOR
 # Ensure we use raw URL if possible, fallback to Konstruksi manual if needed

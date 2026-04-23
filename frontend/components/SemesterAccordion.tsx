@@ -28,14 +28,14 @@ export default function SemesterAccordion({ semester, grades, gpa }: SemesterAcc
                 <div className="flex items-center gap-3">
                     <div className={`w-1 h-5 rounded-full ${isOpen ? 'bg-blue-600 dark:bg-blue-500' : 'bg-slate-300 dark:bg-slate-600'}`}></div>
                     <span className="font-bold text-lg text-slate-800 dark:text-slate-100">
-                        {/^\d+/.test(semester) ? `Period ${semester}` : semester}
+                        {/^\d+/.test(semester) ? `Kỳ ${semester}` : semester}
                     </span>
                 </div>
 
                 <div className="flex items-center gap-4">
                     {gpa && (
                         <div className="flex items-center gap-2 px-3 py-1 bg-slate-100 dark:bg-slate-700/50 rounded-full text-sm text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600">
-                            <span>GPA:</span>
+                            <span>Điểm TB:</span>
                             <span className="font-bold text-blue-600 dark:text-blue-400">{gpa}</span>
                         </div>
                     )}

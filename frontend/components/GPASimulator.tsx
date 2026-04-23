@@ -60,8 +60,8 @@ export default function GPASimulator({ currentCredits, currentPoints }: GPASimul
                     <Calculator className="w-5 h-5" />
                 </div>
                 <div>
-                    <h3 className="font-bold text-slate-900 dark:text-white">Dự báo Performance tích lũy</h3>
-                    <p className="text-sm text-slate-500 dark:text-slate-400">Thêm các môn period tới để xem GPA thay đổi thế nào</p>
+                    <h3 className="font-bold text-slate-900 dark:text-white">Dự báo Thành Tích tích lũy</h3>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Thêm các môn của kỳ tới để xem Điểm TB thay đổi thế nào</p>
                 </div>
             </div>
 
@@ -80,7 +80,7 @@ export default function GPASimulator({ currentCredits, currentPoints }: GPASimul
                             />
                         </div>
                         <div className="flex-1">
-                            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Metric (hệ 4)</label>
+                            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Điểm (hệ 4)</label>
                             <input
                                 type="number"
                                 value={newScore}
@@ -139,7 +139,7 @@ export default function GPASimulator({ currentCredits, currentPoints }: GPASimul
                     </div>
 
                     <div className="relative z-10">
-                        <div className="text-indigo-200 dark:text-indigo-300 text-sm font-medium mb-1 uppercase tracking-wider">GPA Tích Lũy Dự Kiến</div>
+                        <div className="text-indigo-200 dark:text-indigo-300 text-sm font-medium mb-1 uppercase tracking-wider">Điểm TB tích lũy dự kiến</div>
                         <div className="text-5xl font-bold mb-4 tracking-tight text-white dark:text-indigo-50">
                             {projectedGPA}
                         </div>
