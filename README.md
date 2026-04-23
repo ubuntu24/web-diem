@@ -76,6 +76,31 @@ pip install -r requirements.txt
 python main.py
 ```
 
+### 2.1 Redis Setup (Recommended)
+- The backend cache now supports Redis via `REDIS_URL`.
+- In Docker Compose, local Redis is optional (profile `local-redis`) and memory-capped (`maxmemory 256mb`).
+- Default internal URL in compose is `redis://redis:6379/0`.
+
+Use Redis Cloud (recommended for low-RAM hosts):
+```bash
+# PowerShell (temporary for current shell)
+$env:REDIS_URL = "rediss://default:<YOUR_REDIS_KEY>@redis-12411.c252.ap-southeast-1-1.ec2.cloud.redislabs.com:12411/0"
+docker compose up -d --build backend frontend
+```
+
+If your Redis Cloud plan does not use TLS, switch `rediss://` to `redis://`.
+
+Run stack with Redis:
+```bash
+# External Redis Cloud (no local Redis container)
+docker compose up -d backend frontend
+
+# Local Redis (optional)
+docker compose --profile local-redis up -d redis backend frontend
+```
+
+For non-Docker deployments, set `REDIS_URL` in your runtime environment before starting backend.
+
 ### 3. Frontend Setup
 ```bash
 cd frontend

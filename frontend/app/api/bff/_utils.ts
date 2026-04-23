@@ -2,6 +2,7 @@ import { cookies, headers } from 'next/headers';
 
 export const API_BASE_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
 const PAYLOAD_KEY = process.env.PAYLOAD_OBFUSCATION_KEY || "PAYLOAD_OBFUSCATION_KEY_2026";
+const BFF_CACHE_MAX_KEYS = Number(process.env.BFF_CACHE_MAX_KEYS || 1000);
 
 export function decryptUpstreamText(text: string): string {
     try {
@@ -12,7 +13,7 @@ export function decryptUpstreamText(text: string): string {
         }
         let b64 = payload.replace(/-/g, '+').replace(/_/g, '/');
         while (b64.length % 4) b64 += '=';
-        
+
         const buffer = Buffer.from(b64, 'base64');
         const keyBuffer = Buffer.from(PAYLOAD_KEY);
         const decrypted = Buffer.alloc(buffer.length);
@@ -25,7 +26,7 @@ export function decryptUpstreamText(text: string): string {
     }
 }
 
-export async function fetchUpstream(url: string, init?: RequestInit): Promise<{status: number, body: string}> {
+export async function fetchUpstream(url: string, init?: RequestInit): Promise<{ status: number, body: string }> {
     const res = await fetch(url, init);
     const text = await res.text();
     return { status: res.status, body: decryptUpstreamText(text) };
@@ -74,7 +75,7 @@ export async function authHeadersFromCookies(extra?: HeadersInit, clientRequest?
             (fwd ? fwd.split(',')[0].trim() : null) ||
             (clientRequest ? clientRequest.headers.get('x-real-ip') : null) ||
             reqHeaders.get('x-real-ip');
-            
+
         if (realIp) merged['X-Real-IP'] = realIp;
     } catch (e) {
         // Fallback for cases outside request context
@@ -145,6 +146,12 @@ export function withTtlCache(
 ): Promise<{ status: number; body: string }> {
     const store = getStore();
     const now = Date.now();
+    for (const [k, v] of store.cache) {
+        if (v.expiresAt <= now) {
+            store.cache.delete(k);
+        }
+    }
+
     const hit = store.cache.get(key);
     if (hit && hit.expiresAt > now) {
         return Promise.resolve({ status: hit.status, body: hit.body });
@@ -156,6 +163,21 @@ export function withTtlCache(
             body: result.body,
             expiresAt: now + ttlMs,
         });
+
+        if (store.cache.size > BFF_CACHE_MAX_KEYS) {
+            let oldestKey: string | null = null;
+            let oldestExpiresAt = Number.POSITIVE_INFINITY;
+            for (const [candidateKey, candidateValue] of store.cache) {
+                if (candidateValue.expiresAt < oldestExpiresAt) {
+                    oldestExpiresAt = candidateValue.expiresAt;
+                    oldestKey = candidateKey;
+                }
+            }
+            if (oldestKey) {
+                store.cache.delete(oldestKey);
+            }
+        }
+
         return result;
     });
 }
