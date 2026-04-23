@@ -44,7 +44,6 @@ services:
       - BACKEND_HOST=0.0.0.0
       - BACKEND_PORT=8000
       - NODE_ENV=production
-      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
       - EXTRA_TRUSTED_HOSTS=${EXTRA_TRUSTED_HOSTS:-localhost,127.0.0.1}
     volumes:
       # Removed students.db as Supabase Postgres is used

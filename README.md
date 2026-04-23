@@ -79,7 +79,8 @@ python main.py
 ### 2.1 Redis Setup (Recommended)
 - The backend cache now supports Redis via `REDIS_URL`.
 - In Docker Compose, local Redis is optional (profile `local-redis`) and memory-capped (`maxmemory 256mb`).
-- Default internal URL in compose is `redis://redis:6379/0`.
+- Set `REDIS_URL` in `backend/.env` (or GitHub Actions secret `REDIS_URL`) to select Redis backend.
+- For local Docker Redis profile, use: `REDIS_URL=redis://redis:6379/0`.
 
 Use Redis Cloud (recommended for low-RAM hosts):
 ```bash

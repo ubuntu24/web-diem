@@ -24,13 +24,16 @@ logger = logging.getLogger(__name__)
 # -------------------------------------------------------------------------
 # Redis backend (preferred)
 # -------------------------------------------------------------------------
-_REDIS_URL = os.getenv("REDIS_URL", "").strip()
 _redis_client: Any = None
+_redis_url_in_use = ""
 
 
 def _init_redis() -> None:
-    global _redis_client
-    if not _REDIS_URL:
+    global _redis_client, _redis_url_in_use
+    redis_url = os.getenv("REDIS_URL", "").strip()
+    if not redis_url:
+        return
+    if _redis_client is not None and _redis_url_in_use == redis_url:
         return
     if redis is None:
         logger.warning("[CACHE] REDIS_URL is set but redis package is not installed; using in-memory cache.")
@@ -38,17 +41,24 @@ def _init_redis() -> None:
 
     try:
         _redis_client = redis.Redis.from_url(
-            _REDIS_URL,
+            redis_url,
             decode_responses=False,
             socket_connect_timeout=1,
             socket_timeout=1,
             health_check_interval=30,
         )
         _redis_client.ping()
+        _redis_url_in_use = redis_url
         logger.info("[CACHE] Redis connected.")
     except Exception as exc:
         _redis_client = None
+        _redis_url_in_use = ""
         logger.warning(f"[CACHE] Redis unavailable ({exc}); using in-memory cache.")
+
+
+def _ensure_redis_client() -> None:
+    if _redis_client is None:
+        _init_redis()
 
 
 def _serialize(value: Any) -> bytes:
@@ -125,6 +135,7 @@ def _mem_stats() -> dict:
 
 def get(key: str) -> Optional[Any]:
     """Lấy giá trị từ cache. Trả về None nếu không có hoặc đã hết TTL."""
+    _ensure_redis_client()
     if _redis_client is not None:
         try:
             raw = _redis_client.get(key)
@@ -142,6 +153,7 @@ def set(key: str, value: Any, ttl: int = 300):
     ttl: time-to-live tính bằng giây (mặc định 5 phút).
     """
     ttl = max(1, int(ttl))
+    _ensure_redis_client()
     if _redis_client is not None:
         try:
             _redis_client.setex(key, ttl, _serialize(value))
@@ -153,6 +165,7 @@ def set(key: str, value: Any, ttl: int = 300):
 
 def delete(key: str):
     """Xóa một key cụ thể."""
+    _ensure_redis_client()
     if _redis_client is not None:
         try:
             _redis_client.delete(key)
@@ -164,6 +177,7 @@ def delete(key: str):
 
 def delete_prefix(prefix: str):
     """Xóa tất cả keys bắt đầu bằng prefix (tương đương Redis SCAN + DEL)."""
+    _ensure_redis_client()
     if _redis_client is not None:
         try:
             keys = list(_redis_client.scan_iter(match=f"{prefix}*", count=500))
@@ -181,6 +195,7 @@ def delete_prefix(prefix: str):
 
 def clear_all():
     """Xóa toàn bộ cache (dùng khi restart hoặc debug)."""
+    _ensure_redis_client()
     if _redis_client is not None:
         try:
             _redis_client.flushdb()
@@ -192,6 +207,7 @@ def clear_all():
 
 def stats() -> dict:
     """Trả về thống kê cache (dùng để debug)."""
+    _ensure_redis_client()
     if _redis_client is not None:
         try:
             info = _redis_client.info("memory")
