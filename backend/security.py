@@ -153,30 +153,35 @@ def get_optional_user(request: Request, db: Session = Depends(database.get_db)):
     except Exception:
         return None
 
-def obfuscate_id(real_id: str) -> str:
-    """Creates a non-descriptive token for a student ID with a fixed key and prefix."""
+import base64
+from cryptography.fernet import Fernet
+import json
+
+# Derive valid 32-byte Fernet keys by hashing the environment keys
+def _derive_fernet_key(base_key: bytes) -> bytes:
+    import hashlib
     import base64
+    digest = hashlib.sha256(base_key).digest()
+    return base64.urlsafe_b64encode(digest)
+
+_id_fernet = Fernet(_derive_fernet_key(OBFUSCATION_ID_KEY))
+_payload_fernet = Fernet(_derive_fernet_key(PAYLOAD_OBFUSCATION_KEY))
+
+def obfuscate_id(real_id: str) -> str:
+    """Creates a securely encrypted token for a student ID using AES (Fernet)."""
     data = real_id.encode()
-    # Simple XOR
-    xored = bytes([data[i] ^ OBFUSCATION_ID_KEY[i % len(OBFUSCATION_ID_KEY)] for i in range(len(data))])
-    # Prefix with T_ to distinguish from real MSVs
-    return "T_" + base64.urlsafe_b64encode(xored).decode().replace('=', '')
+    encrypted = _id_fernet.encrypt(data)
+    # Prefix with T_ and strip padding
+    return "T_" + base64.urlsafe_b64encode(encrypted).decode().replace('=', '')
 
 def obfuscate_payload(data: Any) -> str:
-    """Encrypts an entire dictionary/list into a single opaque string."""
-    import base64
-    import json
-    
+    """Encrypts an entire dictionary/list into a single opaque string using AES (Fernet)."""
     # Minimize JSON first
     json_str = json.dumps(data, separators=(',', ':'))
-    
     data_bytes = json_str.encode()
     
-    # XOR encryption
-    xored = bytes([data_bytes[i] ^ PAYLOAD_OBFUSCATION_KEY[i % len(PAYLOAD_OBFUSCATION_KEY)] for i in range(len(data_bytes))])
-    
-    # Prefix to indicate it's an encrypted payload
-    return base64.urlsafe_b64encode(xored).decode().replace('=', '')
+    encrypted = _payload_fernet.encrypt(data_bytes)
+    return base64.urlsafe_b64encode(encrypted).decode().replace('=', '')
 
 def deobfuscate_id(opaque_id: str, force_obfuscated: bool = False) -> str:
     """Resolves an opaque token back to a real student ID if it has the T_ prefix."""
@@ -185,9 +190,7 @@ def deobfuscate_id(opaque_id: str, force_obfuscated: bool = False) -> str:
             raise ValueError("Direct MSV access forbidden")
         return opaque_id # It's a real MSV or empty
     
-    import base64
     try:
-        # Remove prefix
         token = opaque_id[2:]
         # Pad base64 if needed
         missing_padding = len(token) % 4
@@ -195,7 +198,7 @@ def deobfuscate_id(opaque_id: str, force_obfuscated: bool = False) -> str:
             token += '=' * (4 - missing_padding)
             
         decoded = base64.urlsafe_b64decode(token.encode())
-        unxored = bytes([decoded[i] ^ OBFUSCATION_ID_KEY[i % len(OBFUSCATION_ID_KEY)] for i in range(len(decoded))])
+        unxored = _id_fernet.decrypt(decoded)
         return unxored.decode()
     except Exception:
         if force_obfuscated:

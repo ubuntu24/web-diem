@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { jwtVerify } from 'jose';
 
-export function middleware(request: NextRequest) {
+// Fallback matches backend's local fallback if env not set
+const SECRET_KEY = process.env.SECRET_KEY || "dev-secret-key-replace-this-immediately";
+// encode the secret for jose
+const secret = new TextEncoder().encode(SECRET_KEY);
+
+export async function middleware(request: NextRequest) {
   // Protect /phim/* routes
   if (request.nextUrl.pathname.startsWith('/phim')) {
     const token = request.cookies.get('stoken')?.value;
@@ -11,8 +17,19 @@ export function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/login', request.url));
     }
     
-    // Otherwise, allow the request to proceed
-    return NextResponse.next();
+    // Cryptographically verify the token
+    try {
+      await jwtVerify(token, secret);
+      // Signature is valid, allow request
+      return NextResponse.next();
+    } catch (err) {
+      // Token is fake, expired, or invalid
+      console.warn("Middleware JWT Verification failed:", err);
+      // Optionally delete the fake cookie
+      const response = NextResponse.redirect(new URL('/login', request.url));
+      response.cookies.delete('stoken');
+      return response;
+    }
   }
 }
 

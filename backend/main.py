@@ -334,8 +334,10 @@ async def log_requests(request: Request, call_next):
         try:
             payload = jwt.decode(token, security.SECRET_KEY, algorithms=[security.ALGORITHM])
             username = payload.get("sub", "guest")
-        except (JWTError, Exception) as e:
-            logger.debug(f"Middleware JWT identification failed: {e}")
+        except JWTError as e:
+            logger.warning(f"Middleware JWT identification failed (Invalid/Expired token): {e}")
+        except Exception as e:
+            logger.error(f"Middleware JWT unexpected error: {e}")
         
     if (username != "guest" 
         and request.method not in ("OPTIONS", "HEAD")
