@@ -22,7 +22,7 @@ import Sidebar from '@/components/Sidebar';
 import SemesterAccordion from '@/components/SemesterAccordion';
 import GPASimulator from '@/components/GPASimulator';
 import { compareSemesterKeys } from '@/lib/utils';
-import { Search, Loader2, Skull, ChevronRight, Home as HomeIcon, Sparkles, ChevronLeft, Users, Award, Shield, MapPin, Star, MessageCircle } from 'lucide-react';
+import { Search, Loader2, Skull, ChevronRight, Home as HomeIcon, Sparkles, ChevronLeft, Users, Award, Shield, MapPin, Star, MessageCircle, Film } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import UserMenu from '@/components/UserMenu';
 import HeroSection from '@/components/HeroSection';
@@ -824,6 +824,16 @@ export default function Dashboard() {
                                 NÂNG CẤP VIP
                             </Link>
                         )}
+                        <a
+                            href="/phim/index.html"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-full text-xs font-bold shadow-sm hover:scale-105 hover:shadow-lg hover:shadow-violet-500/25 transition-all duration-300"
+                            title="Xem Phim HD"
+                        >
+                            <Film className="w-4 h-4" />
+                            <span className="hidden sm:inline">Phim</span>
+                        </a>
                         <UserMenu username={username} onLogout={handleLogout} />
                         {role === 0 && (
                             <button
