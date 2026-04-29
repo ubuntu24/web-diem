@@ -38,6 +38,7 @@
     "@vitejs/plugin-react": "^4.7.0",
     "eslint": "^9",
     "eslint-config-next": "^16.2.2",
+    "javascript-obfuscator": "^5.4.2",
     "jsdom": "^26.1.0",
     "tailwindcss": "^4",
     "typescript": "^5",

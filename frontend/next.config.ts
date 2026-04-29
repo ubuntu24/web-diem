@@ -28,7 +28,7 @@ const nextConfig: NextConfig = {
       "default-src 'self'",
       "base-uri 'self'",
       "frame-ancestors 'none'",
-      "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://vip.opstream90.com https://*.opstream90.com",
+      "frame-src 'self' https: http:",
       "object-src 'none'",
       "img-src 'self' data: blob: https://img.ophim.live https://*.ophim.live",
       "font-src 'self' data: https://fonts.gstatic.com",
@@ -40,6 +40,15 @@ const nextConfig: NextConfig = {
     ].join('; ');
 
     return [
+      {
+        source: '/phim/:path*',
+        headers: [
+          {
+            key: 'X-Robots-Tag',
+            value: 'noindex, nofollow, noarchive'
+          }
+        ]
+      },
       {
         source: '/:path*',
         headers: [
