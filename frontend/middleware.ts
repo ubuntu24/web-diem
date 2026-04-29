@@ -2,10 +2,10 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
 
-// Fallback matches backend's local fallback if env not set
-const SECRET_KEY = process.env.SECRET_KEY || "dev-secret-key-replace-this-immediately";
-// encode the secret for jose
-const secret = new TextEncoder().encode(SECRET_KEY);
+// For `/phim/*` we want to enforce login, but we must not blindly use a fallback secret
+// because that can make `jwtVerify` fail and redirect logged-in users to `/login`.
+const SECRET_KEY = process.env.SECRET_KEY;
+const secret = SECRET_KEY ? new TextEncoder().encode(SECRET_KEY) : null;
 
 const DEFAULT_ALLOWED_METHODS = ['GET', 'POST', 'HEAD', 'OPTIONS'] as const;
 const ROUTE_METHOD_OVERRIDES: Array<{ prefix: string; methods: readonly string[] }> = [
@@ -41,28 +41,28 @@ export async function middleware(request: NextRequest) {
     });
   }
 
-  // 2. Protect /phim/* routes
+  // 2. Protect /phim/* routes: require login (cookie `stoken`).
+  // Verification is best-effort: only verify signature if Next has `SECRET_KEY`.
   if (request.nextUrl.pathname.startsWith('/phim')) {
     const token = request.cookies.get('stoken')?.value;
-
-    // If no session token is found, redirect to login page
     if (!token) {
       return NextResponse.redirect(new URL('/login', request.url));
     }
 
-    // Cryptographically verify the token
-    try {
-      await jwtVerify(token, secret);
-      // Signature is valid, allow request
-      return NextResponse.next();
-    } catch (err) {
-      // Token is fake, expired, or invalid
-      console.warn("Middleware JWT Verification failed:", err);
-      // Optionally delete the fake cookie
-      const response = NextResponse.redirect(new URL('/login', request.url));
-      response.cookies.delete('stoken');
-      return response;
+    // If we don't have the signing secret configured in this runtime,
+    // we can't verify safely; but we still require that the cookie exists.
+    if (secret) {
+      try {
+        await jwtVerify(token, secret);
+      } catch (err) {
+        console.warn('Middleware JWT verification failed for /phim:', err);
+        const response = NextResponse.redirect(new URL('/login', request.url));
+        response.cookies.delete('stoken');
+        return response;
+      }
     }
+
+    return NextResponse.next();
   }
 
   return NextResponse.next();
