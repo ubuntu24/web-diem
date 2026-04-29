@@ -22,20 +22,21 @@ const nextConfig: NextConfig = {
     const isDev = process.env.NODE_ENV !== 'production';
     const cloudflareInsights = 'https://static.cloudflareinsights.com';
     const scriptSrc = isDev
-      ? `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${cloudflareInsights}`
-      : `script-src 'self' 'unsafe-inline' ${cloudflareInsights}`;
+      ? `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${cloudflareInsights} https://cdn.jsdelivr.net`
+      : `script-src 'self' 'unsafe-inline' ${cloudflareInsights} https://cdn.jsdelivr.net`;
 
     const csp = [
-      "default-src 'self'",
+      "default-src 'self' https: http:",
       "base-uri 'self'",
       "frame-ancestors 'none'",
       "frame-src 'self' https: http:",
       "object-src 'none'",
-      "img-src 'self' data: blob: https://img.ophim.live https://*.ophim.live",
+      "img-src 'self' data: blob: https: http:",
       "font-src 'self' data: https://fonts.gstatic.com",
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "style-src 'self' 'unsafe-inline' https: http:",
       scriptSrc,
-      "connect-src 'self' ws: wss: https: http:",
+      "connect-src 'self' ws: wss: https: http: blob:",
+      "media-src 'self' blob: https: http:",
       "form-action 'self'"
     ].join('; ');
 

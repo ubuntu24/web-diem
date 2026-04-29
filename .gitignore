@@ -79,3 +79,10 @@ infrastructure/tools/
 *.exe
 *.bin
 *.dll
+# Temporary & Test folders
+scratch/
+frontend/test-results/
+frontend/playwright-report/
+.tempmediaStorage/
+artifact/
+workflows/

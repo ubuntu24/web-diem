@@ -2,13 +2,15 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>PhimFlow — Xem Phim HD Vietsub Miễn Phí</title>
     <meta name="description" content="PhimFlow - Xem phim HD Vietsub miễn phí. Phim bộ, phim lẻ, hoạt hình, TV Shows chất lượng cao.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css?v=2">
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/artplayer/dist/artplayer.js"></script>
 </head>
 <body>
     <!-- Header -->
@@ -95,6 +97,26 @@
                     </div>
                     <div class="movie-grid" id="gridAnime"></div>
                 </section>
+                <section class="movie-section" id="sectionContinue">
+                    <div class="section-header">
+                        <h2 class="section-title">
+                            <span class="title-accent">⏯</span> Xem Tiếp
+                        </h2>
+                    </div>
+                    <div class="movie-grid movie-grid-list" id="gridContinue"></div>
+                </section>
+                <section class="movie-section" id="sectionLibrary">
+                    <div class="section-header">
+                        <h2 class="section-title">
+                            <span class="title-accent">📚</span> Thư Viện Cá Nhân
+                        </h2>
+                    </div>
+                    <div class="library-chips">
+                        <button class="library-chip active" id="libraryTabFavorites">Yêu thích</button>
+                        <button class="library-chip" id="libraryTabHistory">Lịch sử xem</button>
+                    </div>
+                    <div class="movie-grid movie-grid-list" id="gridLibrary"></div>
+                </section>
             </div>
         </section>
 
@@ -137,9 +159,22 @@
                         <div class="spinner"></div>
                         <p>Đang tải phim...</p>
                     </div>
-                    <iframe id="playerFrame" allowfullscreen></iframe>
+                    <div id="artplayer" style="width: 100%; height: 100%;"></div>
+                    <iframe id="playerFrame" allowfullscreen style="display: none;"></iframe>
                 </div>
                 <div class="watch-info" id="watchInfo"></div>
+                <div class="player-controls" id="playerControls">
+                    <div class="control-row">
+                        <button class="control-btn" id="btnPrevEp">Tập trước</button>
+                        <button class="control-btn" id="btnNextEp">Tập sau</button>
+                        <button class="control-btn" id="btnSeekBack">-10s</button>
+                        <button class="control-btn" id="btnSeekForward">+10s</button>
+                        <button class="control-btn" id="btnToggleFavorite">Yêu thích</button>
+                    </div>
+                    <div class="control-row control-hint" id="watchHint">
+                        Phím tắt: ←/→ tua 10s, A/D tập trước/sau, F yêu thích.
+                    </div>
+                </div>
                 <div class="episode-section" id="episodeSection"></div>
             </div>
         </section>
@@ -193,6 +228,6 @@
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 15l-6-6-6 6"/></svg>
     </button>
 
-    <script src="app.js?v=2"></script>
+    <script src="app.js?v=3"></script>
 </body>
 </html>
