@@ -33,13 +33,21 @@ describe('Security validation schemas', () => {
     });
 
     it('enforces login payload requirements', () => {
-        expect(LoginBodySchema.safeParse({ username: '', password: '12345678' }).success).toBe(false);
-        expect(LoginBodySchema.safeParse({ username: 'admin', password: '12345678' }).success).toBe(true);
+        // username invalid
+        expect(LoginBodySchema.safeParse({ username: '', password: 'a' }).success).toBe(false);
+        // password too short (empty)
+        expect(LoginBodySchema.safeParse({ username: 'admin', password: '' }).success).toBe(false);
+        // password min length is 1
+        expect(LoginBodySchema.safeParse({ username: 'admin', password: 'a' }).success).toBe(true);
     });
 
     it('enforces register payload requirements', () => {
-        expect(RegisterBodySchema.safeParse({ username: 'u', password: '12345678', age: 17 }).success).toBe(false);
-        expect(RegisterBodySchema.safeParse({ username: 'user', password: '12345678', age: 18 }).success).toBe(true);
+        // age invalid
+        expect(RegisterBodySchema.safeParse({ username: 'u', password: 'a', age: 17 }).success).toBe(false);
+        // password too short (empty)
+        expect(RegisterBodySchema.safeParse({ username: 'user', password: '', age: 18 }).success).toBe(false);
+        // password min length is 1
+        expect(RegisterBodySchema.safeParse({ username: 'user', password: 'a', age: 18 }).success).toBe(true);
     });
 
     it('validates class change limit range', () => {

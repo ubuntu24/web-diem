@@ -6,7 +6,8 @@ import { z } from 'zod';
 export const SearchQuerySchema = z.string()
   .min(2, "Search query must be at least 2 characters")
   .max(64, "Search query is too long")
-  .regex(/^[^;--/*\\]+$/, "Invalid characters in search query");
+  // Escape `-` inside the character class to avoid invalid ranges.
+  .regex(/^[^;\/\*\-\\]+$/, "Invalid characters in search query");
 
 /**
  * Class code validation (Ma Lop)

@@ -189,12 +189,12 @@ export const PositiveIntIdSchema = z.coerce.number().int().positive();
 
 export const LoginBodySchema = z.object({
     username: z.string().trim().min(1).max(64),
-    password: z.string().min(8).max(128),
+    password: z.string().min(1).max(128),
 });
 
 export const RegisterBodySchema = z.object({
     username: z.string().trim().min(1).max(64),
-    password: z.string().min(8).max(128),
+    password: z.string().min(1).max(128),
     email: z.string().email().max(254).optional(),
     phone: z.string().trim().max(20).optional(),
     age: z.coerce.number().int().min(18).max(120).optional(),
