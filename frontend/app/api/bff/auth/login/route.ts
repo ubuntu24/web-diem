@@ -1,20 +1,21 @@
 import { cookies } from 'next/headers';
-import { API_BASE_URL, enforceRateLimit, issueCsrfCookie } from '@/app/api/bff/_utils';
+import { API_BASE_URL, enforceRateLimit, issueCsrfCookie, LoginBodySchema, badRequest } from '@/app/api/bff/_utils';
 
 export async function POST(request: Request) {
     const limited = enforceRateLimit(request, 'login', 12, 60_000);
     if (limited) return limited;
 
     const body = await request.json().catch(() => null);
-    if (!body?.username || !body?.password) {
-        return Response.json({ detail: 'Missing username or password' }, { status: 400 });
+    const parsed = LoginBodySchema.safeParse(body);
+    if (!parsed.success) {
+        return badRequest('Invalid login payload', parsed.error.flatten());
     }
 
     try {
         const res = await fetch(`${API_BASE_URL}/api/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: body.username, password: body.password }),
+            body: JSON.stringify(parsed.data),
             cache: 'no-store',
         });
 
@@ -54,7 +55,7 @@ export async function POST(request: Request) {
         return Response.json(data);
     } catch (error: any) {
         console.error('[BFF Login Fatal Error]:', error);
-        return Response.json({ 
+        return Response.json({
             detail: 'BFF could not reach Backend',
             error: error.message,
             tip: 'Check if BACKEND container is running and API_URL is correct.'

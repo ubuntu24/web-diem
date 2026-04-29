@@ -117,7 +117,7 @@ def _detect_thi_lai(grade):
     return False
 
 
-_SEARCH_BLOCK_PATTERN = re.compile(r"(;|--|/\*|\*/|\x00)")
+_SEARCH_BLOCK_PATTERN = re.compile(r"(;|--|/\*|\*/|\x00|'|\")", re.IGNORECASE)
 
 
 def _sanitize_search_query(query: str) -> str:
@@ -126,6 +126,10 @@ def _sanitize_search_query(query: str) -> str:
         raise HTTPException(status_code=400, detail="Invalid search query length")
     if _SEARCH_BLOCK_PATTERN.search(q):
         raise HTTPException(status_code=400, detail="Invalid search query")
+    # Block common SQL keyword payloads while still allowing normal Vietnamese names.
+    if re.search(r"\b(union|select|drop|insert|update|delete|sleep|benchmark)\b", q, re.IGNORECASE):
+        raise HTTPException(status_code=400, detail="Invalid search query")
+
     # Prevent uncontrolled wildcards from causing full-scan behavior.
     q = q.replace('%', '').replace('_', '')
     if not q:
@@ -351,7 +355,7 @@ def format_student(sv: models.SinhVien, hide_details=False, role: int = 1):
 @router.get("/stats/student-count")
 def get_student_count(
     class_name: Optional[str] = None,
-    current_user: models.Nick = Depends(security.get_current_user),
+    current_user: models.Nick = Depends(security.get_optional_user),
     db: Session = Depends(database.get_db)
 ):
     cache_key = f"student_count:{class_name or '__all__'}"
@@ -371,7 +375,7 @@ def get_student_count(
 
 @router.get("/classes")
 def get_classes(
-    current_user: models.Nick = Depends(security.get_current_user),
+    current_user: models.Nick = Depends(security.get_optional_user),
     db: Session = Depends(database.get_db)
 ):
     cache_key = "classes:list"
@@ -389,13 +393,15 @@ def get_classes(
 @router.get("/class/{ma_lop}/students")
 def get_students_by_class(
     ma_lop: str, 
-    current_user: models.Nick = Depends(security.get_current_user),
+    current_user: models.Nick = Depends(security.get_optional_user),
     db: Session = Depends(database.get_db)
 ):
     # Support multiple classes separated by commas
     class_list = sorted([c.strip() for c in ma_lop.split(",") if c.strip()])
     if not class_list:
         raise HTTPException(status_code=400, detail="Invalid class list")
+
+    logger.info(f"Searching students for classes: {class_list} (user: {current_user.username if current_user else 'anon'})")
 
     role = current_user.role if current_user else 0
     cache_key = f"class:v6:{','.join(class_list)}:role{role}"
@@ -409,8 +415,13 @@ def get_students_by_class(
         selectinload(models.SinhVien.diem)
     ).filter(models.SinhVien.ma_lop.in_(class_list)).all()
 
+    logger.info(f"Found {len(students)} students for {class_list}")
+
     if not students:
-        raise HTTPException(status_code=404, detail=f"No students found for class(es): {ma_lop}")
+        # Return empty result instead of 404 to be more robust
+        data = {"students": []}
+        result = security.obfuscate_payload(data)
+        return result
 
     # For class lists, ALWAYS hide details (perf win)
     data = {"students": [format_student(sv, hide_details=True, role=role) for sv in students]}
@@ -421,7 +432,7 @@ def get_students_by_class(
 @router.get("/student/{msv}")
 def get_student_detail(
     msv: str,
-    current_user: models.Nick = Depends(security.get_current_user),
+    current_user: models.Nick = Depends(security.get_optional_user),
     db: Session = Depends(database.get_db)
 ):
     role = current_user.role if current_user else 0
@@ -450,8 +461,8 @@ def get_student_detail(
 @router.get("/search")
 def search_students(
     request: Request,
-    query: str = Query(..., min_length=1, max_length=64),
-    current_user: models.Nick = Depends(security.get_current_user),
+    query: str = Query(..., min_length=2, max_length=64),
+    current_user: models.Nick = Depends(security.get_optional_user),
     db: Session = Depends(database.get_db)
 ):
     identity = (current_user.username if current_user else (request.client.host if request.client else "anon"))
@@ -468,11 +479,13 @@ def search_students(
 
     # Optimization: Use selectinload for search results + hide_details=True
     from sqlalchemy.orm import selectinload
+    escaped_query = clean_query.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+    search_pattern = f"%{escaped_query}%"
     students = db.query(models.SinhVien).options(
         selectinload(models.SinhVien.diem)
     ).filter(
-        (models.SinhVien.ho_ten.ilike(f"%{clean_query}%")) |
-        (models.SinhVien.msv.ilike(f"%{clean_query}%"))
+        (models.SinhVien.ho_ten.ilike(search_pattern, escape='\\')) |
+        (models.SinhVien.msv.ilike(search_pattern, escape='\\'))
     ).limit(50).all()
 
     data = {"results": [format_student(sv, hide_details=True, role=role) for sv in students]}

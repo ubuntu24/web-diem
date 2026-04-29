@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { API_BASE_URL, requireCsrf } from '@/app/api/bff/_utils';
+import { API_BASE_URL, requireCsrf, PositiveIntIdSchema, badRequest } from '@/app/api/bff/_utils';
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
     const csrfError = await requireCsrf(request);
@@ -10,7 +10,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (token) headers.Authorization = `Bearer ${token}`;
 
     const { id } = await params;
-    const res = await fetch(`${API_BASE_URL}/api/admin/user/${encodeURIComponent(id)}/reset-limit`, {
+    const parsedId = PositiveIntIdSchema.safeParse(id);
+    if (!parsedId.success) {
+        return badRequest('Invalid user id', parsedId.error.flatten());
+    }
+
+    const res = await fetch(`${API_BASE_URL}/api/admin/user/${parsedId.data}/reset-limit`, {
         method: 'POST',
         headers,
         cache: 'no-store',

@@ -16,6 +16,7 @@ const apiBase = getApiBase();
 // API config loaded silently
 
 const nextConfig: NextConfig = {
+  poweredByHeader: false, // Security: Remove X-Powered-By header
   // Security Headers
   async headers() {
     const isDev = process.env.NODE_ENV !== 'production';
@@ -56,24 +57,16 @@ const nextConfig: NextConfig = {
             value: csp
           },
           {
+            key: 'X-XSS-Protection',
+            value: '1; mode=block'
+          },
+          {
             key: 'X-DNS-Prefetch-Control',
             value: 'on'
           },
           {
             key: 'Strict-Transport-Security',
             value: 'max-age=63072000; includeSubDomains; preload'
-          },
-          {
-            key: 'Cross-Origin-Opener-Policy',
-            value: 'unsafe-none'
-          },
-          {
-            key: 'Cross-Origin-Resource-Policy',
-            value: 'cross-origin'
-          },
-          {
-            key: 'Cross-Origin-Embedder-Policy',
-            value: 'unsafe-none'
           },
           {
             key: 'X-Frame-Options',
@@ -85,7 +78,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: 'Referrer-Policy',
-            value: 'origin-when-cross-origin'
+            value: 'strict-origin-when-cross-origin'
           },
           {
             key: 'Permissions-Policy',

@@ -1,5 +1,4 @@
-import { cookies } from 'next/headers';
-import { API_BASE_URL, authHeadersFromCookies, cacheScopeFromToken, enforceRateLimit, withTtlCache, fetchUpstream } from '@/app/api/bff/_utils';
+import { API_BASE_URL, authHeadersFromCookies, cacheScopeFromToken, enforceRateLimit, withTtlCache, fetchUpstream, SearchQuerySchema, badRequest } from '@/app/api/bff/_utils';
 
 export async function GET(request: Request) {
     const limited = enforceRateLimit(request, 'search', 90, 60_000);
@@ -10,9 +9,16 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const query = (url.searchParams.get('query') || '').trim();
 
+    // Security: Validate search query
+    const validation = SearchQuerySchema.safeParse(query);
+    if (!validation.success) {
+        return badRequest('Invalid search query', validation.error.flatten());
+    }
+    const safeQuery = validation.data;
+
     const scope = await cacheScopeFromToken();
-    const cached = await withTtlCache(`search:${scope}:${query.toLowerCase()}`, 12_000, async () => {
-        return fetchUpstream(`${API_BASE_URL}/api/search?query=${encodeURIComponent(query)}`, {
+    const cached = await withTtlCache(`search:${scope}:${safeQuery.toLowerCase()}`, 12_000, async () => {
+        return fetchUpstream(`${API_BASE_URL}/api/search?query=${encodeURIComponent(safeQuery)}`, {
             headers,
             cache: 'no-store',
         });

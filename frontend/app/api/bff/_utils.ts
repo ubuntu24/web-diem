@@ -1,35 +1,18 @@
 import { cookies, headers } from 'next/headers';
+import { z } from 'zod';
 
 export const API_BASE_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
 const PAYLOAD_KEY = process.env.PAYLOAD_OBFUSCATION_KEY || "PAYLOAD_OBFUSCATION_KEY_2026";
 const BFF_CACHE_MAX_KEYS = Number(process.env.BFF_CACHE_MAX_KEYS || 1000);
 
-export function decryptUpstreamText(text: string): string {
-    try {
-        if (text.startsWith('{') || text.startsWith('[')) return text;
-        let payload = text;
-        if (text.startsWith('"') && text.endsWith('"')) {
-            payload = JSON.parse(text);
-        }
-        let b64 = payload.replace(/-/g, '+').replace(/_/g, '/');
-        while (b64.length % 4) b64 += '=';
-
-        const buffer = Buffer.from(b64, 'base64');
-        const keyBuffer = Buffer.from(PAYLOAD_KEY);
-        const decrypted = Buffer.alloc(buffer.length);
-        for (let i = 0; i < buffer.length; i++) {
-            decrypted[i] = buffer[i] ^ keyBuffer[i % keyBuffer.length];
-        }
-        return decrypted.toString('utf-8');
-    } catch {
-        return text;
-    }
-}
-
 export async function fetchUpstream(url: string, init?: RequestInit): Promise<{ status: number, body: string }> {
     const res = await fetch(url, init);
     const text = await res.text();
-    return { status: res.status, body: decryptUpstreamText(text) };
+    return { status: res.status, body: text };
+}
+
+export function badRequest(error: string, details?: unknown): Response {
+    return Response.json({ error, ...(details ? { details } : {}) }, { status: 400 });
 }
 
 type CacheItem = {
@@ -181,3 +164,59 @@ export function withTtlCache(
         return result;
     });
 }
+
+export const MaLopSchema = z.string().min(2).max(50).regex(/^[a-zA-Z0-9\s.\-_]+$/, 'Invalid characters in class code');
+export const MsvSchema = z.string().trim().superRefine((value, ctx) => {
+    const isPlainMsv = /^[a-zA-Z0-9]{5,20}$/.test(value);
+    const isObfuscatedMsv = /^T_[A-Za-z0-9_-]{20,512}$/.test(value);
+
+    if (!isPlainMsv && !isObfuscatedMsv) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Invalid characters in MSV',
+        });
+    }
+});
+
+const sqlMetaPattern = /('|--|\/\*|\*\/|;|\bunion\b|\bselect\b|\bdrop\b|\binsert\b|\bupdate\b|\bdelete\b)/i;
+export const SearchQuerySchema = z.string()
+    .trim()
+    .min(1, 'Search query cannot be empty')
+    .max(100, 'Search query is too long')
+    .refine((value) => !sqlMetaPattern.test(value), 'Search query contains blocked patterns');
+
+export const PositiveIntIdSchema = z.coerce.number().int().positive();
+
+export const LoginBodySchema = z.object({
+    username: z.string().trim().min(1).max(64),
+    password: z.string().min(8).max(128),
+});
+
+export const RegisterBodySchema = z.object({
+    username: z.string().trim().min(1).max(64),
+    password: z.string().min(8).max(128),
+    email: z.string().email().max(254).optional(),
+    phone: z.string().trim().max(20).optional(),
+    age: z.coerce.number().int().min(18).max(120).optional(),
+});
+
+export const AdminBanBodySchema = z.object({
+    user_id: z.coerce.number().int().positive().optional(),
+    username: z.string().trim().min(1).max(64).optional(),
+    reason: z.string().trim().max(200).optional(),
+    expires_in_minutes: z.coerce.number().int().positive().max(60 * 24 * 365).optional(),
+}).refine((value) => Boolean(value.user_id || value.username), {
+    message: 'user_id or username is required',
+});
+
+export const ClassChangeLimitSchema = z.object({
+    limit: z.coerce.number().int().min(0).max(1000),
+});
+
+export const ProfileUpdateSchema = z.object({
+    full_name: z.string().min(2).max(100).optional(),
+    email: z.string().email().optional(),
+    phone: z.string().min(10).max(15).optional(),
+    address: z.string().max(200).optional(),
+    bio: z.string().max(500).optional(),
+}).strict();

@@ -109,7 +109,7 @@ async function parseResponse<T>(res: Response): Promise<T> {
     }
 
     // Try to decrypt if it looks like an obfuscated payload
-    const decrypted = decryptPayload(payload);
+    const decrypted = await decryptPayload(payload);
     if (decrypted && typeof decrypted === 'object') {
         return decrypted as T;
     }
@@ -118,8 +118,7 @@ async function parseResponse<T>(res: Response): Promise<T> {
     try { return JSON.parse(text); } catch { return text as unknown as T; }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function decryptPayload(payload: unknown): any {
+export async function decryptPayload(payload: unknown): Promise<any> {
     if (payload === null || payload === undefined) return null;
     if (typeof payload !== 'string') return payload;
 
@@ -135,26 +134,55 @@ export function decryptPayload(payload: unknown): any {
     if (text.startsWith('"') && text.endsWith('"')) {
         try {
             const unwrapped = JSON.parse(text);
-            return decryptPayload(unwrapped);
+            return await decryptPayload(unwrapped);
         } catch { /* fall through */ }
     }
 
-    // Actual XOR Decryption logic
+    // Actual Fernet (AES-128-CBC) Decryption logic
     try {
-        // base64url to base64
-        const base64 = text.replace(/-/g, '+').replace(/_/g, '/');
-        // Padding if needed
+        // Strip out the base64 wrapper if needed
+        let tokenStr = text;
+        
+        // base64url decode
+        const base64 = tokenStr.replace(/-/g, '+').replace(/_/g, '/');
         const padded = base64.padEnd(base64.length + (4 - base64.length % 4) % 4, '=');
         
         const decoded = atob(padded);
-        const key = new TextEncoder().encode(OBFUSCATION_PAYLOAD_KEY);
-        const bytes = new Uint8Array(decoded.length);
-        
+        const tokenBytes = new Uint8Array(decoded.length);
         for (let i = 0; i < decoded.length; i++) {
-            bytes[i] = decoded.charCodeAt(i) ^ key[i % key.length];
+            tokenBytes[i] = decoded.charCodeAt(i);
         }
+
+        // Fernet token structure:
+        // Version (1) | Timestamp (8) | IV (16) | Ciphertext (N) | HMAC (32)
+        if (tokenBytes[0] !== 0x80) throw new Error("Invalid Fernet version");
         
-        const decryptedStr = new TextDecoder().decode(bytes);
+        const iv = tokenBytes.slice(9, 25);
+        const ciphertext = tokenBytes.slice(25, tokenBytes.length - 32);
+        
+        // Derive the 32-byte key (same as Python backend: sha256)
+        const encoder = new TextEncoder();
+        const baseKey = encoder.encode(OBFUSCATION_PAYLOAD_KEY);
+        const digest = await crypto.subtle.digest("SHA-256", baseKey);
+        
+        // Fernet uses the last 16 bytes of the 32-byte key for AES-128-CBC encryption
+        const encryptionKeyBytes = digest.slice(16, 32);
+        
+        const cryptoKey = await crypto.subtle.importKey(
+            "raw",
+            encryptionKeyBytes,
+            { name: "AES-CBC" },
+            false,
+            ["decrypt"]
+        );
+        
+        const decryptedBuffer = await crypto.subtle.decrypt(
+            { name: "AES-CBC", iv: iv },
+            cryptoKey,
+            ciphertext
+        );
+        
+        const decryptedStr = new TextDecoder().decode(decryptedBuffer);
         return JSON.parse(decryptedStr);
     } catch (e) {
         // If decryption fails, it might be raw JSON or error message

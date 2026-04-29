@@ -1,4 +1,4 @@
-import { authHeadersFromCookies, API_BASE_URL } from '../_utils';
+import { authHeadersFromCookies, API_BASE_URL, ProfileUpdateSchema } from '../_utils';
 
 export async function GET() {
     const headers = await authHeadersFromCookies();
@@ -19,6 +19,12 @@ export async function PATCH(req: Request) {
     console.log('BFF: PATCH /api/bff/profile hit');
     const headers = await authHeadersFromCookies();
     const body = await req.json();
+
+    // Security: Validate profile update input
+    const validation = ProfileUpdateSchema.safeParse(body);
+    if (!validation.success) {
+        return Response.json({ error: "Invalid profile data format" }, { status: 400 });
+    }
 
     const res = await fetch(`${API_BASE_URL}/api/profile`, {
         method: 'PATCH',

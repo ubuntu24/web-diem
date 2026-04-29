@@ -171,8 +171,9 @@ def obfuscate_id(real_id: str) -> str:
     """Creates a securely encrypted token for a student ID using AES (Fernet)."""
     data = real_id.encode()
     encrypted = _id_fernet.encrypt(data)
-    # Prefix with T_ and strip padding
-    return "T_" + base64.urlsafe_b64encode(encrypted).decode().replace('=', '')
+    # Fernet.encrypt already returns a base64-encoded bytes.
+    # Prefix with T_ and ensure it's a string.
+    return "T_" + encrypted.decode().replace('=', '')
 
 def obfuscate_payload(data: Any) -> str:
     """Encrypts an entire dictionary/list into a single opaque string using AES (Fernet)."""
@@ -181,7 +182,8 @@ def obfuscate_payload(data: Any) -> str:
     data_bytes = json_str.encode()
     
     encrypted = _payload_fernet.encrypt(data_bytes)
-    return base64.urlsafe_b64encode(encrypted).decode().replace('=', '')
+    # Fernet.encrypt already returns a base64-encoded bytes.
+    return encrypted.decode().replace('=', '')
 
 def deobfuscate_id(opaque_id: str, force_obfuscated: bool = False) -> str:
     """Resolves an opaque token back to a real student ID if it has the T_ prefix."""
@@ -192,14 +194,16 @@ def deobfuscate_id(opaque_id: str, force_obfuscated: bool = False) -> str:
     
     try:
         token = opaque_id[2:]
-        # Pad base64 if needed
-        missing_padding = len(token) % 4
-        if missing_padding:
-            token += '=' * (4 - missing_padding)
+        # Add back base64 padding
+        padding = 4 - (len(token) % 4)
+        if padding != 4:
+            token += "=" * padding
             
-        decoded = base64.urlsafe_b64decode(token.encode())
-        unxored = _id_fernet.decrypt(decoded)
-        return unxored.decode()
+        token_bytes = token.encode()
+        # Fernet.decrypt expects the base64-encoded token (bytes or str)
+        # It handles the structure and HMAC verification internally.
+        decrypted = _id_fernet.decrypt(token_bytes)
+        return decrypted.decode()
     except Exception:
         if force_obfuscated:
             raise ValueError("Invalid obfuscated ID")

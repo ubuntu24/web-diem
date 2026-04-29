@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field, StringConstraints
 
 class LoginRequest(BaseModel):
     username: Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=32, pattern=r"^[A-Za-z0-9_.-]+$")]
-    password: Annotated[str, StringConstraints(min_length=1, max_length=4096)]
+    password: Annotated[str, StringConstraints(min_length=8, max_length=128)]
 
 class Token(BaseModel):
     access_token: str
@@ -24,10 +24,13 @@ class User(BaseModel):
 
 class RegisterRequest(BaseModel):
     username: Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=32, pattern=r"^[A-Za-z0-9_.-]+$")]
-    password: Annotated[str, StringConstraints(min_length=1, max_length=4096)]
+    password: Annotated[str, StringConstraints(min_length=8, max_length=128)]
 
 class UpdateLimitRequest(BaseModel):
     limit: int = Field(ge=-1, le=100)
 
 class UpdateProfileRequest(BaseModel):
     full_name: Annotated[str, StringConstraints(strip_whitespace=True, max_length=100)]
+
+class SearchRequest(BaseModel):
+    query: Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=64)]

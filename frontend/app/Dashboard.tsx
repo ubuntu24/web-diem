@@ -501,25 +501,34 @@ export default function Dashboard() {
             const v = state.view as typeof view;
             if (v === 'students' && state.cls) {
                 // Reload students list for the class
+                console.log('[Dashboard] PopState: reloading students for class', state.cls);
                 setSelectedClass(state.cls);
-                getStudentsByClassBffRaw(state.cls).then(encrypted => {
-                    const data = encrypted ? decryptPayload(encrypted) : null;
+                getStudentsByClassBffRaw(state.cls).then(async encrypted => {
+                    const data = encrypted ? await decryptPayload(encrypted) : null;
                     setStudents((data?.students || []).map(mapStudent));
                     setView('students');
-                }).catch(() => setView('classes'));
+                }).catch((err) => {
+                    console.error('[Dashboard] PopState: error loading students', err);
+                    setView('classes');
+                });
             } else if (v === 'grades' && state.msv) {
                 // Reload grade detail
-                getStudentBffRaw(state.msv).then(encrypted => {
-                    const data = encrypted ? decryptPayload(encrypted) : null;
+                console.log('[Dashboard] PopState: reloading grades for student', state.msv);
+                getStudentBffRaw(state.msv).then(async encrypted => {
+                    const data = encrypted ? await decryptPayload(encrypted) : null;
                     if (data) {
                         const mapped = mapStudent(data);
                         setCurrentStudent(mapped);
                         calculateGPA(mapped);
                         setView('grades');
                     } else {
+                        console.warn('[Dashboard] PopState: Student data not found or decryption failed');
                         setView('classes');
                     }
-                }).catch(() => setView('classes'));
+                }).catch((err) => {
+                    console.error('[Dashboard] PopState: Error loading student details', err);
+                    setView('classes');
+                });
             } else {
                 setView(v);
             }
@@ -542,7 +551,7 @@ export default function Dashboard() {
         setLoading(true);
         try {
             const encrypted = await getClassesBffRaw();
-            const data = encrypted ? decryptPayload(encrypted) : null;
+            const data = encrypted ? await decryptPayload(encrypted) : null;
             setClasses(data?.classes || []);
             navigateView('classes');
         } catch (error) {
@@ -557,7 +566,7 @@ export default function Dashboard() {
         setSelectedClass(cls);
         try {
             const encrypted = await getStudentsByClassBffRaw(cls);
-            const data = encrypted ? decryptPayload(encrypted) : null;
+            const data = encrypted ? await decryptPayload(encrypted) : null;
             setStudents((data?.students || []).map(mapStudent));
             navigateView('students', { cls });
             getStudentCountBff(cls).then(count => setTotalStudentCount(count)).catch(() => { });
@@ -580,7 +589,7 @@ export default function Dashboard() {
         setLocalSearchTerm('');
         try {
             const encrypted = await getStudentsByClassBffRaw(maLopStr);
-            const data = encrypted ? decryptPayload(encrypted) : null;
+            const data = encrypted ? await decryptPayload(encrypted) : null;
 
             setStudents((data?.students || []).map(mapStudent));
             navigateView('students', { cls: maLopStr });
@@ -597,25 +606,27 @@ export default function Dashboard() {
     };
 
     async function loadGrade(msv: string) {
+        console.log('[Dashboard] loadGrade called for MSV:', msv);
         setLoading(true);
         try {
             const encrypted = await getStudentBffRaw(msv);
-            const data = encrypted ? decryptPayload(encrypted) : null;
+            console.log('[Dashboard] Received encrypted data from BFF');
+            const data = encrypted ? await decryptPayload(encrypted) : null;
             if (data) {
+                console.log('[Dashboard] Decrypted student data successfully');
                 const mapped = mapStudent(data);
-                // Ensure semester_gpa is populated for charts
+                setCurrentStudent(mapped);
                 if (!mapped.semester_gpa || Object.keys(mapped.semester_gpa).length === 0) {
                     mapped.semester_gpa = calculateSemesterGPAData(mapped);
                 }
-                setCurrentStudent(mapped);
                 calculateGPA(mapped);
                 navigateView('grades', { msv });
             } else {
-                // silenced
+                console.warn('[Dashboard] Failed to decrypt student payload');
                 alert('Không thể tải thông tin bản ghi. Vui lòng thử lại.');
             }
         } catch (error) {
-            // silenced
+            console.error('[Dashboard] Error in loadGrade:', error);
             alert('Lỗi khi tải thành tích. Vui lòng thử lại.');
         } finally {
             setLoading(false);
@@ -627,7 +638,7 @@ export default function Dashboard() {
         setLoading(true);
         try {
             const encrypted = await searchStudentsBffRaw(searchQuery);
-            const data = encrypted ? decryptPayload(encrypted) : null;
+            const data = encrypted ? await decryptPayload(encrypted) : null;
             setStudents((data?.results || []).map(mapStudent));
             navigateView('search');
         } catch (error) {
