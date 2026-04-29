@@ -35,8 +35,7 @@ const nextConfig: NextConfig = {
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       scriptSrc,
       "connect-src 'self' ws: wss: https: http:",
-      "form-action 'self'",
-      "upgrade-insecure-requests"
+      "form-action 'self'"
     ].join('; ');
 
     return [
