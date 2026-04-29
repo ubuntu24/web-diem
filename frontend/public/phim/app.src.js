@@ -442,6 +442,11 @@ async function loadWatch(slug, epKey) {
     return;
   }
   
+  if (!ep.link_embed) {
+    playerLoading.innerHTML = '<p style="color:var(--text-muted);">Tập phim này chưa có video (đang cập nhật).</p>';
+    return;
+  }
+  
   // Load player
   playerFrame.src = ep.link_embed;
   playerFrame.onload = () => playerLoading.classList.add('hidden');
