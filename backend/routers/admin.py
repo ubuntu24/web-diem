@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 @router.get("/stats/online-users")
 def get_online_users(
-    current_user: Optional[models.Nick] = Depends(security.get_optional_user),
+    current_user: models.Nick = Depends(security.get_current_user),
     db: Session = Depends(database.get_db)
 ):
     # Đếm theo user (username từ JWT) để 2 tài khoản khác nhau = 2 người

@@ -355,7 +355,7 @@ def format_student(sv: models.SinhVien, hide_details=False, role: int = 1):
 @router.get("/stats/student-count")
 def get_student_count(
     class_name: Optional[str] = None,
-    current_user: models.Nick = Depends(security.get_optional_user),
+    current_user: models.Nick = Depends(security.get_current_user),
     db: Session = Depends(database.get_db)
 ):
     cache_key = f"student_count:{class_name or '__all__'}"
@@ -375,7 +375,7 @@ def get_student_count(
 
 @router.get("/classes")
 def get_classes(
-    current_user: models.Nick = Depends(security.get_optional_user),
+    current_user: models.Nick = Depends(security.get_current_user),
     db: Session = Depends(database.get_db)
 ):
     cache_key = "classes:list"
@@ -393,7 +393,7 @@ def get_classes(
 @router.get("/class/{ma_lop}/students")
 def get_students_by_class(
     ma_lop: str, 
-    current_user: models.Nick = Depends(security.get_optional_user),
+    current_user: models.Nick = Depends(security.get_current_user),
     db: Session = Depends(database.get_db)
 ):
     # Support multiple classes separated by commas
@@ -432,7 +432,7 @@ def get_students_by_class(
 @router.get("/student/{msv}")
 def get_student_detail(
     msv: str,
-    current_user: models.Nick = Depends(security.get_optional_user),
+    current_user: models.Nick = Depends(security.get_current_user),
     db: Session = Depends(database.get_db)
 ):
     role = current_user.role if current_user else 0
@@ -462,7 +462,7 @@ def get_student_detail(
 def search_students(
     request: Request,
     query: str = Query(..., min_length=2, max_length=64),
-    current_user: models.Nick = Depends(security.get_optional_user),
+    current_user: models.Nick = Depends(security.get_current_user),
     db: Session = Depends(database.get_db)
 ):
     identity = (current_user.username if current_user else (request.client.host if request.client else "anon"))

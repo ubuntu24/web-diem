@@ -28,6 +28,12 @@ Maintain the **lifesuck** brand as a neutral, premium, and professional data pla
 - **Shield**: If modifying backend routes, ensure they are protected by the `Shield` middleware if they handle sensitive data.
 - **Environment Files**: **NEVER** modify `.env` files. You are only permitted to read them for configuration. If changes are needed, instruct the user to make them.
 
+### 5. Token Optimization (RTK)
+- **Tool**: Always use `rtk` (Rust Token Killer) to proxy shell commands.
+- **Usage**: Prefix shell commands with `rtk` (e.g., `rtk git status`, `rtk pytest`).
+- **Binary**: The `rtk.exe` binary is located in `.venv/Scripts/` (Windows). Ensure it's in your PATH or call it explicitly if needed.
+- **Benefit**: Reduces token consumption by 60-90% on command outputs.
+
 ---
 
 ## 🧪 Testing Requirements

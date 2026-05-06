@@ -2,8 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
 
-// For `/phim/*` we want to enforce login, but we must not blindly use a fallback secret
-// because that can make `jwtVerify` fail and redirect logged-in users to `/login`.
+
 const SECRET_KEY = process.env.SECRET_KEY;
 const secret = SECRET_KEY ? new TextEncoder().encode(SECRET_KEY) : null;
 
@@ -19,9 +18,13 @@ export function resolveAllowedMethods(pathname: string): readonly string[] {
   return override?.methods || DEFAULT_ALLOWED_METHODS;
 }
 
+const PUBLIC_PATHS = ['/login', '/register', '/api/bff/auth'];
+
 export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
   // 1. Restrict HTTP methods early for all routes (including /api)
-  const allowedMethods = resolveAllowedMethods(request.nextUrl.pathname);
+  const allowedMethods = resolveAllowedMethods(pathname);
   if (request.method === 'OPTIONS') {
     return new NextResponse(null, {
       status: 200,
@@ -41,28 +44,35 @@ export async function middleware(request: NextRequest) {
     });
   }
 
-  // 2. Protect /phim/* routes: require login (cookie `stoken`).
-  // Verification is best-effort: only verify signature if Next has `SECRET_KEY`.
-  if (request.nextUrl.pathname.startsWith('/phim')) {
-    const token = request.cookies.get('stoken')?.value;
-    if (!token) {
-      return NextResponse.redirect(new URL('/login', request.url));
-    }
-
-    // If we don't have the signing secret configured in this runtime,
-    // we can't verify safely; but we still require that the cookie exists.
-    if (secret) {
-      try {
-        await jwtVerify(token, secret);
-      } catch (err) {
-        console.warn('Middleware JWT verification failed for /phim:', err);
-        const response = NextResponse.redirect(new URL('/login', request.url));
-        response.cookies.delete('stoken');
-        return response;
-      }
-    }
-
+  // 2. Allow public paths without authentication
+  const isPublicPath = PUBLIC_PATHS.some((path) => pathname.startsWith(path));
+  if (isPublicPath) {
     return NextResponse.next();
+  }
+
+  // 3. Protect all other routes: require login (cookie `stoken`).
+  const token = request.cookies.get('stoken')?.value;
+  if (!token) {
+    // If it's an API request, return 401 instead of redirecting to login page
+    if (pathname.startsWith('/api/')) {
+      return new NextResponse(JSON.stringify({ error: 'Authentication required' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
+
+  // Verification is best-effort: only verify signature if Next has `SECRET_KEY`.
+  if (secret) {
+    try {
+      await jwtVerify(token, secret);
+    } catch (err) {
+      console.warn('Middleware JWT verification failed:', err);
+      const response = NextResponse.redirect(new URL('/login', request.url));
+      response.cookies.delete('stoken');
+      return response;
+    }
   }
 
   return NextResponse.next();
