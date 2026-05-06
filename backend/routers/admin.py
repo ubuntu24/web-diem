@@ -10,7 +10,6 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from .websocket import manager
-import psutil
 
 router = APIRouter(prefix="/api")
 logger = logging.getLogger(__name__)

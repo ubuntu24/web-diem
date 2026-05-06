@@ -171,7 +171,7 @@ export default function Dashboard() {
 
     function mapStudent(s: any): Student {
         const maskedId = String(s?.i || '').trim();
-        const fallbackName = maskedId ? `Sinh vien ${maskedId.slice(-6)}` : 'Sinh vien an danh';
+        const fallbackName = maskedId ? `User ${maskedId.slice(-6)}` : 'User an danh';
         const semesterGpaRaw = s.hg && typeof s.hg === 'object' ? s.hg : {};
         const semesterGpa = Object.fromEntries(
             Object.entries(semesterGpaRaw).map(([k, v]: [string, any]) => [

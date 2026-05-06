@@ -18,7 +18,6 @@ from fastapi.responses import JSONResponse
 from jose import JWTError, jwt
 from routers import admin, auth, chat, students, websocket
 from starlette.middleware.trustedhost import TrustedHostMiddleware
-import psutil
 from utils_geo import get_ip_location
 
 # Load environment variables
@@ -173,8 +172,6 @@ async def lifespan(app: FastAPI):
             except Exception as e:
                 db.rollback()
                 logger.debug(f"Migration (logs/config) skipped: {e}")
-
-            db.close()
         except Exception as e:
             logger.error(f"Migration error: {e}")
             
