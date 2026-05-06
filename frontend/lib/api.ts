@@ -391,17 +391,31 @@ export interface AccessHistory {
 export interface AdminUser {
     id: number;
     username: string;
+    full_name?: string | null;
     role: number;
-    access_history?: AccessHistory[];
+    last_ip?: string | null;
+    last_location?: string | null;
+    access_history?: { date: string; count: number }[];
     reset_limit_at?: string | null;
     class_change_limit?: number;
 }
 
 export interface IpHistoryEntry {
     ip: string;
+    location?: string | null;
     hit_count: number;
     first_seen: string | null;
     last_seen: string | null;
+}
+
+
+export interface AuditLogEntry {
+    id: number;
+    username: string | null;
+    action: string;
+    details: string | null;
+    ip: string | null;
+    created_at: string;
 }
 
 export interface BanIpEntry {
@@ -597,6 +611,12 @@ export async function getUsersBff(): Promise<AdminUser[]> {
     return res.json();
 }
 
+export async function getOnlineUsersListBff(): Promise<string[]> {
+    const res = await fetch('/v/admin/online-users/list', { credentials: 'include' });
+    if (!res.ok) return [];
+    return res.json();
+}
+
 export async function resetUserLimitBff(userId: number): Promise<void> {
     const res = await fetch(`/v/admin/user/${userId}/reset-limit`, {
         method: 'POST',
@@ -677,5 +697,34 @@ export async function getUserDetailsBff(userId: number): Promise<UserDetails | n
     const res = await fetch(`/v/admin/user/${userId}/details`, { credentials: 'include' });
     if (!res.ok) return null;
     return res.json();
+}
+
+export async function getSystemConfigBff(): Promise<Record<string, string>> {
+    const res = await fetch('/v/admin/system/config', { credentials: 'include' });
+    if (!res.ok) return {};
+    return res.json();
+}
+
+export async function updateSystemConfigBff(config: Record<string, string>): Promise<void> {
+    const res = await fetch('/v/admin/system/config', {
+        method: 'POST',
+        headers: withCsrf({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(config),
+        credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to update config');
+}
+
+export async function getAuditLogsBff(limit = 50): Promise<AuditLogEntry[]> {
+    const res = await fetch(`/v/admin/audit-logs?limit=${limit}`, { credentials: 'include' });
+    if (!res.ok) return [];
+    return res.json();
+}
+
+export async function getPublicAnnouncementBff(): Promise<string> {
+    const res = await fetch('/v/system/announcement');
+    if (!res.ok) return '';
+    const data = await res.json();
+    return data.message || '';
 }
 

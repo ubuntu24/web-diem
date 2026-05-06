@@ -85,33 +85,20 @@ def sync_schema():
         with engine.connect() as conn:
             # 1. Đồng bộ bảng chat_messages
             if 'chat_messages' in table_names:
-                columns = [c['name'] for c in inspector.get_columns('chat_messages')]
-                if 'ip_address' not in columns:
-                    print("[INFO] Sync: Adding 'ip_address' to chat_messages")
-                    conn.execute(text("ALTER TABLE chat_messages ADD COLUMN ip_address TEXT"))
-                if 'device_fingerprint' not in columns:
-                    print("[INFO] Sync: Adding 'device_fingerprint' to chat_messages")
-                    conn.execute(text("ALTER TABLE chat_messages ADD COLUMN device_fingerprint TEXT"))
-                if 'parent_id' not in columns:
-                    print("[INFO] Sync: Adding 'parent_id' to chat_messages")
-                    conn.execute(text("ALTER TABLE chat_messages ADD COLUMN parent_id BIGINT"))
+                conn.execute(text("ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS ip_address TEXT"))
+                conn.execute(text("ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS device_fingerprint TEXT"))
+                conn.execute(text("ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS parent_id BIGINT"))
 
             
             # 2. Đồng bộ bảng nick
             if 'nick' in table_names:
-                columns = [c['name'] for c in inspector.get_columns('nick')]
-                if 'class_change_limit' not in columns:
-                    print("[INFO] Sync: Adding 'class_change_limit' to nick")
-                    conn.execute(text("ALTER TABLE nick ADD COLUMN class_change_limit INTEGER DEFAULT 5"))
-                if 'full_name' not in columns:
-                    print("[INFO] Sync: Adding 'full_name' to nick")
-                    conn.execute(text("ALTER TABLE nick ADD COLUMN full_name TEXT"))
-                if 'last_active' not in columns:
-                    print("[INFO] Sync: Adding 'last_active' to nick")
-                    conn.execute(text("ALTER TABLE nick ADD COLUMN last_active TIMESTAMP"))
-                if 'reset_limit_at' not in columns:
-                    print("[INFO] Sync: Adding 'reset_limit_at' to nick")
-                    conn.execute(text("ALTER TABLE nick ADD COLUMN reset_limit_at TIMESTAMP"))
+                # Dùng ADD COLUMN IF NOT EXISTS để tương thích Postgres và tránh lỗi duplicate
+                conn.execute(text("ALTER TABLE nick ADD COLUMN IF NOT EXISTS class_change_limit INTEGER DEFAULT 5"))
+                conn.execute(text("ALTER TABLE nick ADD COLUMN IF NOT EXISTS full_name TEXT"))
+                conn.execute(text("ALTER TABLE nick ADD COLUMN IF NOT EXISTS last_active TIMESTAMP"))
+                conn.execute(text("ALTER TABLE nick ADD COLUMN IF NOT EXISTS reset_limit_at TIMESTAMP"))
+                conn.execute(text("ALTER TABLE nick ADD COLUMN IF NOT EXISTS last_ip TEXT"))
+                conn.execute(text("ALTER TABLE nick ADD COLUMN IF NOT EXISTS last_location TEXT"))
 
             conn.commit()
         

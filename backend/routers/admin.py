@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from .websocket import manager
+import psutil
 
 router = APIRouter(prefix="/api")
 logger = logging.getLogger(__name__)
@@ -23,6 +24,21 @@ def get_online_users(
     unique_users = len(set(conn["user"] for conn in manager.active_connections))
     data = {"count": unique_users}
     return security.obfuscate_payload(data)
+
+@router.get("/admin/online-users/list")
+def get_online_users_list(
+    current_user: models.Nick = Depends(security.get_current_user),
+    db: Session = Depends(database.get_db)
+):
+    if current_user.role != 1:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    online_usernames = list(set(
+        conn["user"] 
+        for conn in manager.active_connections 
+        if conn.get("user")
+    ))
+    return online_usernames
 
 @router.get("/admin/users")
 def get_all_users(
@@ -52,7 +68,10 @@ def get_all_users(
         result.append({
             "id": u.id,
             "username": u.username,
+            "full_name": u.full_name,
             "role": u.role,
+            "last_ip": u.last_ip,
+            "last_location": u.last_location,
             "access_history": history_map.get(u.id, []),
             "reset_limit_at": u.reset_limit_at.isoformat() if u.reset_limit_at else None,
             "class_change_limit": u.class_change_limit
@@ -273,6 +292,7 @@ def get_user_details(
         ip_history = [
             {
                 "ip": row.ip_address,
+                "location": row.location,
                 "hit_count": row.hit_count,
                 "first_seen": row.first_seen.isoformat() if row.first_seen else None,
                 "last_seen": row.last_seen.isoformat() if row.last_seen else None,
@@ -331,9 +351,111 @@ def get_user_details(
         "username": user.username,
         "role": user.role,
         "last_active": user.last_active.isoformat() if user.last_active else None,
-        "ip_history": ip_history,
+        "ip_history": [
+            {
+                "ip": row.ip_address,
+                "location": getattr(row, "location", "Unknown"),
+                "hit_count": row.hit_count,
+                "first_seen": row.first_seen.isoformat() if row.first_seen else None,
+                "last_seen": row.last_seen.isoformat() if row.last_seen else None,
+            }
+            for row in ip_rows
+        ] if "ip_rows" in locals() else ip_history,
         "ban_ips": ban_ips,
         "access_history": access_history,
         "total_access": total_access,
     }
+
+# --- NEW: SYSTEM MANAGEMENT & AUDIT LOGS ---
+
+def add_audit_log(db: Session, user_id: Optional[int], action: str, details: Optional[str] = None, ip: Optional[str] = None):
+    try:
+        log = models.AuditLog(user_id=user_id, action=action, details=details, ip_address=ip)
+        db.add(log)
+        db.commit()
+    except Exception as e:
+        logger.error(f"Failed to add audit log: {e}")
+        db.rollback()
+
+
+@router.get("/admin/system/config")
+def get_system_config(
+    current_user: models.Nick = Depends(security.get_current_user),
+    db: Session = Depends(database.get_db)
+):
+    if current_user.role != 1:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    configs = db.query(models.SystemConfig).all()
+    return {c.key: c.value for c in configs}
+
+@router.post("/admin/system/config")
+async def update_system_config(
+    payload: dict,
+    request: Request,
+    current_user: models.Nick = Depends(security.get_current_user),
+    db: Session = Depends(database.get_db)
+):
+    if current_user.role != 1:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    for key, value in payload.items():
+        config = db.query(models.SystemConfig).filter(models.SystemConfig.key == key).first()
+        if config:
+            config.value = str(value)
+        else:
+            db.add(models.SystemConfig(key=key, value=str(value)))
+    
+    db.commit()
+    
+    # Audit log
+    add_audit_log(
+        db, current_user.id, "UPDATE_CONFIG", 
+        f"Updated keys: {', '.join(payload.keys())}", 
+        request.client.host if request.client else None
+    )
+    
+    # Notify all users if it's an announcement
+    if "announcement" in payload:
+        await manager.broadcast({
+            "type": "announcement_update",
+            "message": payload["announcement"]
+        })
+        
+    return {"message": "Config updated successfully"}
+
+@router.get("/admin/audit-logs")
+def get_audit_logs(
+    limit: int = 50,
+    current_user: models.Nick = Depends(security.get_current_user),
+    db: Session = Depends(database.get_db)
+):
+    if current_user.role != 1:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    logs = (
+        db.query(models.AuditLog, models.Nick.username)
+        .outerjoin(models.Nick, models.AuditLog.user_id == models.Nick.id)
+        .order_by(models.AuditLog.id.desc())
+        .limit(limit)
+        .all()
+    )
+    
+    return [
+        {
+            "id": l.id,
+            "username": un,
+            "action": l.action,
+            "details": l.details,
+            "ip": l.ip_address,
+            "created_at": l.created_at.isoformat()
+        }
+        for l, un in logs
+    ]
+
+# Public announcement endpoint
+@router.get("/system/announcement")
+def get_public_announcement(db: Session = Depends(database.get_db)):
+    config = db.query(models.SystemConfig).filter(models.SystemConfig.key == "announcement").first()
+    return {"message": config.value if config else ""}
 

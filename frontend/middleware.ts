@@ -18,7 +18,7 @@ export function resolveAllowedMethods(pathname: string): readonly string[] {
   return override?.methods || DEFAULT_ALLOWED_METHODS;
 }
 
-const PUBLIC_PATHS = ['/login', '/register', '/api/bff/auth'];
+const PUBLIC_PATHS = ['/login', '/register', '/api/bff/auth', '/v/auth', '/v/system/announcement'];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -54,7 +54,7 @@ export async function middleware(request: NextRequest) {
   const token = request.cookies.get('stoken')?.value;
   if (!token) {
     // If it's an API request, return 401 instead of redirecting to login page
-    if (pathname.startsWith('/api/')) {
+    if (pathname.startsWith('/api/') || pathname.startsWith('/v/')) {
       return new NextResponse(JSON.stringify({ error: 'Authentication required' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' },

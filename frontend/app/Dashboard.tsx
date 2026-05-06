@@ -1041,7 +1041,7 @@ export default function Dashboard() {
                                     </div>
                                     <div className="lg:col-span-3 space-y-4 animate-view-entry">
                                         <StudentCharts student={currentStudent} scale={sortingScale} />
-                                        <div className="flex items-center gap-2 mb-2"><h3 className="font-bold text-slate-800 dark:text-white">Bảng Kết Quả Thành Tích</h3></div>
+                                        <div className="flex items-center gap-2 mb-2"><h3 className="font-bold text-slate-800 dark:text-white">Bảng Chỉ Số Hiệu Suất</h3></div>
                                         {sortedSemesterKeys.map(hk => {
                                             const semesterGrades = gradesBySemester[hk];
                                             const semGPA = calculateSemesterGPA(currentStudent, hk);
@@ -1086,7 +1086,7 @@ export default function Dashboard() {
             </AnimatePresence>
 
             {view === 'grades' && currentStudent && (
-                <div id="gpa-simulator-container" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20"><div className="mt-12 border-t border-slate-200 pt-8"><h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2"><Sparkles className="w-6 h-6 text-indigo-500" />Mô phỏng Điểm TB Dự Kiến</h2><GPASimulator currentCredits={totalCredits} currentPoints={totalPoints} /></div></div>
+                <div id="gpa-simulator-container" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20"><div className="mt-12 border-t border-slate-200 pt-8"><h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2"><Sparkles className="w-6 h-6 text-indigo-500" />Mô phỏng Chỉ số TB Dự Kiến</h2><GPASimulator currentCredits={totalCredits} currentPoints={totalPoints} /></div></div>
             )}
             <FeedbackButton username={username} />
 

@@ -18,6 +18,8 @@ from fastapi.responses import JSONResponse
 from jose import JWTError, jwt
 from routers import admin, auth, chat, students, websocket
 from starlette.middleware.trustedhost import TrustedHostMiddleware
+import psutil
+from utils_geo import get_ip_location
 
 # Load environment variables
 load_dotenv()
@@ -63,17 +65,26 @@ async def _update_access_logic(username: str, ip_address: str = ""):
                     models.UserIpLog.user_id == user.id,
                     models.UserIpLog.ip_address == clean_ip,
                 ).first()
+                location = None
                 if ip_log:
                     ip_log.last_seen = now
                     ip_log.hit_count += 1
+                    location = ip_log.location
                 else:
+                    location = get_ip_location(clean_ip)
                     db.add(models.UserIpLog(
                         user_id=user.id,
                         ip_address=clean_ip,
+                        location=location,
                         first_seen=now,
                         last_seen=now,
                         hit_count=1,
                     ))
+                
+                # Cập nhật thông tin IP mới nhất vào bảng Nick để hiển thị nhanh
+                user.last_ip = clean_ip
+                if location:
+                    user.last_location = location
 
             db.commit()
     except Exception as e:
@@ -117,11 +128,18 @@ async def lifespan(app: FastAPI):
                         id BIGSERIAL PRIMARY KEY,
                         user_id BIGINT NOT NULL REFERENCES nick(id) ON DELETE CASCADE,
                         ip_address TEXT NOT NULL,
+                        location TEXT,
                         first_seen TIMESTAMP DEFAULT NOW(),
                         last_seen TIMESTAMP DEFAULT NOW(),
                         hit_count INTEGER DEFAULT 1
                     )
                 """))
+                # Ensure location column exists if table was created previously without it
+                try:
+                    db.execute(text("ALTER TABLE user_ip_log ADD COLUMN IF NOT EXISTS location TEXT"))
+                except:
+                    pass
+                
                 db.execute(text(
                     "CREATE INDEX IF NOT EXISTS idx_user_ip_log_user_id ON user_ip_log(user_id)"
                 ))
@@ -131,6 +149,32 @@ async def lifespan(app: FastAPI):
                 db.rollback()
                 logger.debug(f"Migration (user_ip_log) skipped or already applied: {e}")
 
+            # Migration: Create audit_logs and system_config tables
+            try:
+                db.execute(text("""
+                    CREATE TABLE IF NOT EXISTS audit_logs (
+                        id BIGSERIAL PRIMARY KEY,
+                        user_id BIGINT REFERENCES nick(id) ON DELETE SET NULL,
+                        action TEXT NOT NULL,
+                        details TEXT,
+                        ip_address TEXT,
+                        created_at TIMESTAMP DEFAULT NOW()
+                    )
+                """))
+                db.execute(text("""
+                    CREATE TABLE IF NOT EXISTS system_config (
+                        key TEXT PRIMARY KEY,
+                        value TEXT NOT NULL,
+                        updated_at TIMESTAMP DEFAULT NOW()
+                    )
+                """))
+                db.commit()
+                logger.info("Migration (audit_logs & system_config): ready.")
+            except Exception as e:
+                db.rollback()
+                logger.debug(f"Migration (logs/config) skipped: {e}")
+
+            db.close()
         except Exception as e:
             logger.error(f"Migration error: {e}")
             
@@ -368,6 +412,11 @@ async def log_requests(request: Request, call_next):
 # (Duplicate health endpoint removed)
  
 
+
+@app.get("/api/system/announcement")
+def get_announcement(db: Session = Depends(database.get_db)):
+    config = db.query(models.SystemConfig).filter(models.SystemConfig.key == "announcement").first()
+    return {"message": config.value if config else ""}
 
 # Include Routers
 app.include_router(auth.router, tags=["Authentication"])

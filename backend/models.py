@@ -111,6 +111,8 @@ class Nick(Base):
     last_active: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     reset_limit_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     class_change_limit: Mapped[Optional[int]] = mapped_column(Integer, default=5, nullable=True)
+    last_ip: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    last_location: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
 class UserAccess(Base):
     __tablename__ = "user_access"
@@ -144,6 +146,27 @@ class BanRecord(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
+class SystemConfig(Base):
+    """Lưu trữ các cấu hình toàn hệ thống (Global settings)."""
+    __tablename__ = "system_config"
+
+    key: Mapped[str] = mapped_column(Text, primary_key=True)
+    value: Mapped[str] = mapped_column(Text, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class AuditLog(Base):
+    """Ghi lại các hành động quan trọng của Admin hoặc hệ thống."""
+    __tablename__ = "audit_logs"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, index=True, autoincrement=True)
+    user_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("nick.id", ondelete="SET NULL"), nullable=True)
+    action: Mapped[str] = mapped_column(Text, nullable=False) # e.g., "BAN_USER", "UPDATE_CONFIG"
+    details: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    ip_address: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
 
 class UserIpLog(Base):
     """Lưu lịch sử địa chỉ IP của từng user khi vào web (mỗi IP duy nhất = 1 bản ghi)."""
@@ -152,6 +175,7 @@ class UserIpLog(Base):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, index=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("nick.id", ondelete="CASCADE"), nullable=False, index=True)
     ip_address: Mapped[str] = mapped_column(Text, nullable=False)
+    location: Mapped[Optional[str]] = mapped_column(Text, nullable=True) # e.g., "Hanoi, VN"
     first_seen: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     last_seen: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     hit_count: Mapped[int] = mapped_column(Integer, default=1)

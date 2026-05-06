@@ -2,15 +2,20 @@
 
 import { useState, useEffect } from 'react';
 import {
-    Search, Shield, Edit, Activity, Loader2, User as UserIcon,
+    Search, Shield, Edit, Loader2, User as UserIcon,
     X, Globe, Clock, BarChart2, AlertTriangle, Monitor, ChevronRight
 } from 'lucide-react';
 import {
     AdminUser, UserDetails, getUsersBff, resetUserLimitBff,
-    updateUserLimitBff, getBansBff, unbanUserBff, getUserDetailsBff
+    updateUserLimitBff, getBansBff, unbanUserBff, getUserDetailsBff,
+    getAuditLogsBff, getSystemConfigBff, updateSystemConfigBff,
+    getOnlineUsersListBff, AuditLogEntry
 } from '@/lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
+import { 
+    Terminal, Settings, Trash2, Send, Info, Activity
+} from 'lucide-react';
 
 // ─── Modal chi tiết user ───────────────────────────────────────────────────
 function UserDetailModal({ userId, username, onClose }: { userId: number; username: string; onClose: () => void }) {
@@ -150,7 +155,12 @@ function UserDetailModal({ userId, username, onClose }: { userId: number; userna
                                                 <div key={i} className="flex items-center justify-between bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-lg px-4 py-3">
                                                     <div className="flex items-center gap-2.5">
                                                         <Monitor className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                                                        <span className="font-mono text-sm font-semibold text-slate-800 dark:text-slate-100 select-all">{entry.ip}</span>
+                                                        <div>
+                                                            <span className="font-mono text-sm font-semibold text-slate-800 dark:text-slate-100 select-all">{entry.ip}</span>
+                                                            {entry.location && (
+                                                                <p className="text-[10px] text-indigo-500 font-medium">{entry.location}</p>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                     <div className="flex items-center gap-4 text-right">
                                                         <div>
@@ -264,26 +274,52 @@ function StatCard({ icon, label, value, color }: { icon: React.ReactNode; label:
 // ─── Main Component ────────────────────────────────────────────────────────
 export default function AdminUserList() {
     const [users, setUsers] = useState<AdminUser[]>([]);
+    const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
     const [bans, setBans] = useState<any[]>([]);
+    const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+    const [systemConfig, setSystemConfig] = useState<Record<string, string>>({});
+    
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState<'users' | 'moderation'>('users');
+    const [activeTab, setActiveTab] = useState<'users' | 'moderation' | 'logs' | 'settings'>('users');
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
     const [selectedUser, setSelectedUser] = useState<{ id: number; username: string } | null>(null);
+    const [announcementText, setAnnouncementText] = useState('');
+    const [showOnlineOnly, setShowOnlineOnly] = useState(false);
 
     useEffect(() => {
         loadData();
+        
+        // Cập nhật danh sách online mỗi 30s khi đang ở tab users
+        const interval = setInterval(async () => {
+            if (activeTab === 'users') {
+                try {
+                    const online = await getOnlineUsersListBff();
+                    setOnlineUsers(online);
+                } catch(e) {}
+            }
+        }, 30000);
+        
+        return () => clearInterval(interval);
     }, [activeTab]);
 
     async function loadData() {
         setLoading(true);
         try {
             if (activeTab === 'users') {
-                const usersData = await getUsersBff();
+                const [usersData, online] = await Promise.all([getUsersBff(), getOnlineUsersListBff()]);
                 setUsers(usersData);
-            } else {
+                setOnlineUsers(online);
+            } else if (activeTab === 'moderation') {
                 const bansData = await getBansBff();
                 setBans(bansData || []);
+            } else if (activeTab === 'logs') {
+                const logs = await getAuditLogsBff(100);
+                setAuditLogs(logs);
+            } else if (activeTab === 'settings') {
+                const config = await getSystemConfigBff();
+                setSystemConfig(config);
+                setAnnouncementText(config.announcement || '');
             }
         } catch (error) {
             // silenced
@@ -292,9 +328,29 @@ export default function AdminUserList() {
         }
     }
 
-    const filteredUsers = users.filter(u =>
-        u.username.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const sortedUsers = [...users]
+        .filter(u => {
+            const matchesSearch = u.username.toLowerCase().includes(searchQuery.toLowerCase());
+            const matchesOnline = showOnlineOnly ? onlineUsers.includes(u.username) : true;
+            return matchesSearch && matchesOnline;
+        })
+        .sort((a, b) => {
+            // Priority 1: Hit count for selectedDate (descending)
+            const countA = a.access_history?.find(h => h.date === selectedDate)?.count || 0;
+            const countB = b.access_history?.find(h => h.date === selectedDate)?.count || 0;
+            if (countB !== countA) return countB - countA;
+
+            // Priority 2: Total history hits (descending)
+            const totalA = a.access_history?.reduce((acc, h) => acc + h.count, 0) || 0;
+            const totalB = b.access_history?.reduce((acc, h) => acc + h.count, 0) || 0;
+            if (totalB !== totalA) return totalB - totalA;
+
+            // Priority 3: Role (Admin first)
+            if (a.role !== b.role) return (b.role || 0) - (a.role || 0);
+
+            // Priority 4: Username (alphabetical)
+            return a.username.localeCompare(b.username);
+        });
 
     const handleUnban = async (id: number) => {
         if (!confirm('Bạn có muốn gỡ cấm cho thiết bị/tài khoản này?')) return;
@@ -330,45 +386,53 @@ export default function AdminUserList() {
                             <p className="text-sm text-slate-500 dark:text-slate-400">Điều chỉnh giới hạn & Xử lý vi phạm</p>
                         </div>
 
-                        <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-lg">
-                            <button
-                                onClick={() => setActiveTab('users')}
-                                className={`px-4 py-1.5 text-sm font-bold rounded-md transition-all ${activeTab === 'users' ? 'bg-white dark:bg-slate-800 text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                            >
-                                Người dùng
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('moderation')}
-                                className={`px-4 py-1.5 text-sm font-bold rounded-md transition-all ${activeTab === 'moderation' ? 'bg-white dark:bg-slate-800 text-red-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                            >
-                                Danh sách cấm
-                            </button>
+                        <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-lg overflow-x-auto no-scrollbar">
+                            <TabButton active={activeTab === 'users'} onClick={() => setActiveTab('users')} icon={<UserIcon className="w-4 h-4" />} label="Người dùng" />
+                            <TabButton active={activeTab === 'logs'} onClick={() => setActiveTab('logs')} icon={<Terminal className="w-4 h-4" />} label="Nhật ký" />
+                            <TabButton active={activeTab === 'moderation'} onClick={() => setActiveTab('moderation')} icon={<Shield className="w-4 h-4" />} label="Cấm" />
+                            <TabButton active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<Settings className="w-4 h-4" />} label="Cài đặt" />
                         </div>
                     </div>
 
-                    <div className="p-4 flex flex-col md:flex-row items-stretch md:items-center gap-2 justify-end">
-                        {activeTab === 'users' && (
-                            <div className="relative flex-1 md:w-48">
+                    {(activeTab === 'users' || activeTab === 'moderation') && (
+                        <div className="p-4 flex flex-col md:flex-row items-stretch md:items-center gap-2 justify-end">
+                            {activeTab === 'users' && (
+                                <div className="relative flex-1 md:w-48">
+                                    <input
+                                        type="date"
+                                        value={selectedDate}
+                                        onChange={(e) => setSelectedDate(e.target.value)}
+                                        max={new Date().toISOString().split('T')[0]}
+                                        className="w-full pl-3 pr-3 py-2 bg-slate-100 dark:bg-slate-900 border-transparent focus:bg-white dark:focus:bg-slate-950 border focus:border-indigo-500 rounded-lg text-sm transition-all outline-none text-slate-900 dark:text-white"
+                                    />
+                                </div>
+                            )}
+                            <div className="relative flex-1 md:w-64">
+                                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                                 <input
-                                    type="date"
-                                    value={selectedDate}
-                                    onChange={(e) => setSelectedDate(e.target.value)}
-                                    max={new Date().toISOString().split('T')[0]}
-                                    className="w-full pl-3 pr-3 py-2 bg-slate-100 dark:bg-slate-900 border-transparent focus:bg-white dark:focus:bg-slate-950 border focus:border-indigo-500 rounded-lg text-sm transition-all outline-none text-slate-900 dark:text-white"
+                                    type="text"
+                                    placeholder={activeTab === 'users' ? "Tìm tài khoản..." : "Tìm trong danh sách ban..."}
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full pl-10 pr-4 py-2 bg-slate-100 dark:bg-slate-900 border-transparent focus:bg-white dark:focus:bg-slate-950 border focus:border-indigo-500 rounded-lg text-sm transition-all outline-none text-slate-900 dark:text-white"
                                 />
                             </div>
-                        )}
-                        <div className="relative flex-1 md:w-64">
-                            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                            <input
-                                type="text"
-                                placeholder={activeTab === 'users' ? "Tìm tài khoản..." : "Tìm trong danh sách ban..."}
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2 bg-slate-100 dark:bg-slate-900 border-transparent focus:bg-white dark:focus:bg-slate-950 border focus:border-indigo-500 rounded-lg text-sm transition-all outline-none text-slate-900 dark:text-white"
-                            />
+
+                            {activeTab === 'users' && (
+                                <button
+                                    onClick={() => setShowOnlineOnly(!showOnlineOnly)}
+                                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all border ${
+                                        showOnlineOnly 
+                                            ? 'bg-green-100 border-green-200 text-green-700 dark:bg-green-900/30 dark:border-green-800 dark:text-green-400' 
+                                            : 'bg-slate-100 border-transparent text-slate-600 dark:bg-slate-900 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800'
+                                    }`}
+                                >
+                                    <Activity className={`w-4 h-4 ${showOnlineOnly ? 'animate-pulse' : ''}`} />
+                                    Online ({onlineUsers.length})
+                                </button>
+                            )}
                         </div>
-                    </div>
+                    )}
                 </div>
 
                 {loading ? (
@@ -383,13 +447,14 @@ export default function AdminUserList() {
                                     <tr>
                                         <th className="px-6 py-3">Tài khoản</th>
                                         <th className="px-6 py-3">Vai trò</th>
+                                        <th className="px-6 py-3">IP / Vị trí</th>
                                         <th className="px-6 py-3 text-right">Thao tác</th>
                                         <th className="px-6 py-3">Ngày {selectedDate.split('-').reverse().slice(0, 2).join('/')}</th>
                                         <th className="px-6 py-3">Lịch sử (30n)</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                                    {filteredUsers.map(user => (
+                                    {sortedUsers.map(user => (
                                         <tr key={user.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
                                             <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">
                                                 {/* ← Click vào đây để xem chi tiết */}
@@ -398,10 +463,20 @@ export default function AdminUserList() {
                                                     className="flex items-center gap-2 group hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
                                                     title="Xem IP & lượt truy cập"
                                                 >
-                                                    <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/30 flex items-center justify-center text-slate-500 group-hover:text-indigo-600 transition-colors">
-                                                        <UserIcon className="w-4 h-4" />
+                                                    <div className="relative">
+                                                        <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/30 flex items-center justify-center text-slate-500 group-hover:text-indigo-600 transition-colors">
+                                                            <UserIcon className="w-4 h-4" />
+                                                        </div>
+                                                        {onlineUsers.includes(user.username) && (
+                                                            <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-white dark:border-slate-800 rounded-full shadow-sm" title="Đang trực tuyến" />
+                                                        )}
                                                     </div>
-                                                    <span className="font-semibold">{user.username}</span>
+                                                    <div className="flex flex-col items-start">
+                                                        <span className="font-semibold">{user.username}</span>
+                                                        {onlineUsers.includes(user.username) && (
+                                                            <span className="text-[10px] text-green-600 dark:text-green-400 font-bold uppercase tracking-wider">Trực tuyến</span>
+                                                        )}
+                                                    </div>
                                                     <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity text-indigo-500" />
                                                 </button>
                                             </td>
@@ -416,6 +491,14 @@ export default function AdminUserList() {
                                                         </span>
                                                     </div>
                                                 )}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex flex-col">
+                                                    <span className="text-xs font-mono font-semibold text-slate-700 dark:text-slate-300">{user.last_ip || '—'}</span>
+                                                    {user.last_location && (
+                                                        <span className="text-[10px] text-indigo-500 font-medium">{user.last_location}</span>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 {user.role !== 1 && (
@@ -502,7 +585,57 @@ export default function AdminUserList() {
                             </table>
                         </div>
                     </div>
-                ) : (
+                ) : activeTab === 'logs' ? (
+                    <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+                        <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
+                            <h3 className="font-bold flex items-center gap-2">
+                                <Terminal className="w-4 h-4 text-indigo-500" />
+                                Nhật ký hệ thống
+                            </h3>
+                            <button onClick={loadData} className="text-xs text-indigo-500 hover:underline">Làm mới</button>
+                        </div>
+                        <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
+                            <table className="w-full text-sm text-left">
+                                <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 uppercase text-xs font-semibold sticky top-0">
+                                    <tr>
+                                        <th className="px-6 py-3">Thời gian</th>
+                                        <th className="px-6 py-3">Admin</th>
+                                        <th className="px-6 py-3">Hành động</th>
+                                        <th className="px-6 py-3">Chi tiết</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                                    {auditLogs.map((log, idx) => (
+                                        <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                                            <td className="px-6 py-3 text-slate-500 text-xs whitespace-nowrap">
+                                                {new Date(log.created_at).toLocaleString('vi-VN')}
+                                            </td>
+                                            <td className="px-6 py-3 font-medium text-slate-700 dark:text-slate-200">
+                                                {log.username}
+                                            </td>
+                                            <td className="px-6 py-3">
+                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                                    log.action.includes('BAN') ? 'bg-red-100 text-red-700' : 
+                                                    log.action.includes('UPDATE') ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700'
+                                                }`}>
+                                                    {log.action}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-3 text-slate-500 text-xs truncate max-w-xs" title={log.details ?? undefined}>
+                                                {log.details}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {auditLogs.length === 0 && (
+                                        <tr>
+                                            <td colSpan={4} className="px-6 py-10 text-center text-slate-400 italic">Trống</td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                ) : activeTab === 'moderation' ? (
                     <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm text-left">
@@ -551,8 +684,72 @@ export default function AdminUserList() {
                             </table>
                         </div>
                     </div>
+                ) : activeTab === 'settings' ? (
+                    <div className="max-w-2xl">
+                        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden p-6">
+                            <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+                                <Settings className="w-5 h-5 text-indigo-500" />
+                                Cấu hình hệ thống
+                            </h3>
+                            
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                                        Thông báo toàn trang (Announcement Banner)
+                                    </label>
+                                    <textarea 
+                                        value={announcementText}
+                                        onChange={(e) => setAnnouncementText(e.target.value)}
+                                        placeholder="Nhập nội dung thông báo hiển thị cho tất cả người dùng..."
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none min-h-[120px] transition-all"
+                                    />
+                                    <p className="mt-1 text-[10px] text-slate-400 italic">* Để trống nếu muốn ẩn thông báo.</p>
+                                </div>
+                                
+                                <div className="pt-4 flex justify-end">
+                                    <button 
+                                        onClick={async () => {
+                                            try {
+                                                await updateSystemConfigBff({ announcement: announcementText });
+                                                toast.success('Đã cập nhật cấu hình');
+                                            } catch (e) {
+                                                toast.error('Cập nhật thất bại');
+                                            }
+                                        }}
+                                        className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/20 transition-all active:scale-95"
+                                    >
+                                        <Send className="w-4 h-4" />
+                                        Lưu cấu hình
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mt-6 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-xl p-4 flex gap-3">
+                            <Info className="w-5 h-5 text-amber-500 flex-shrink-0" />
+                            <div className="text-xs text-amber-800 dark:text-amber-400 leading-relaxed">
+                                <strong>Lưu ý:</strong> Mọi thay đổi trong phần cài đặt sẽ được ghi lại trong nhật ký hệ thống. Hãy cẩn thận khi thay đổi các thông số nhạy cảm.
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden p-6 text-center text-slate-500">
+                        Chức năng chưa được triển khai đầy đủ.
+                    </div>
                 )}
             </div>
         </>
+    );
+}
+
+function TabButton({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
+    return (
+        <button
+            onClick={onClick}
+            className={`px-4 py-1.5 text-sm font-bold rounded-md transition-all flex items-center gap-2 whitespace-nowrap ${active ? 'bg-white dark:bg-slate-800 text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+        >
+            {icon}
+            {label}
+        </button>
     );
 }
