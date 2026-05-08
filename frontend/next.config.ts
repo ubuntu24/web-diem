@@ -106,8 +106,8 @@ const nextConfig: NextConfig = {
     ]
   },
   output: 'standalone',
-  // ⚡ OPTIMIZATION: Reduce memory usage during build (Fix OOM 137)
   experimental: {
+    // ⚡ OPTIMIZATION: Tăng tốc độ build và giảm RAM (Next.js 16)
     cpus: 1,
     workerThreads: false,
   },

@@ -611,6 +611,14 @@ export async function getUsersBff(): Promise<AdminUser[]> {
     return res.json();
 }
 
+export async function getAdminSubjectsBffRaw(): Promise<string | null> {
+    return fetchBffRaw('/v/admin/subjects');
+}
+
+export async function getAdminSubjectScoresBffRaw(subject: string): Promise<string | null> {
+    return fetchBffRaw(`/v/admin/subject-scores?subject=${encodeURIComponent(subject)}`);
+}
+
 export async function getOnlineUsersListBff(): Promise<string[]> {
     const res = await fetch('/v/admin/online-users/list', { credentials: 'include' });
     if (!res.ok) return [];

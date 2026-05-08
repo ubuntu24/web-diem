@@ -22,11 +22,12 @@ import Sidebar from '@/components/Sidebar';
 import SemesterAccordion from '@/components/SemesterAccordion';
 import GPASimulator from '@/components/GPASimulator';
 import { compareSemesterKeys } from '@/lib/utils';
-import { Search, Loader2, Skull, ChevronRight, Home as HomeIcon, Sparkles, ChevronLeft, Users, Award, Shield, MapPin, Star, MessageCircle, Film } from 'lucide-react';
+import { Search, Loader2, Skull, ChevronRight, Home as HomeIcon, Sparkles, ChevronLeft, Users, Award, Shield, MapPin, Star, MessageCircle, Film, BarChart2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import UserMenu from '@/components/UserMenu';
 import HeroSection from '@/components/HeroSection';
 import AdminUserList from '@/components/AdminUserList';
+import AdminSubjectPerformance from '@/components/AdminSubjectPerformance';
 import ClassPicker from '@/components/ClassPicker';
 import FeedbackButton from '@/components/FeedbackButton';
 import StudentCharts from '@/components/StudentCharts';
@@ -34,7 +35,7 @@ import anime from 'animejs/lib/anime.js';
 
 export default function Dashboard() {
     const router = useRouter();
-    const [view, setView] = useState<'classes' | 'students' | 'grades' | 'search' | 'admin'>('classes');
+    const [view, setView] = useState<'classes' | 'students' | 'grades' | 'search' | 'admin' | 'subject_performance'>('classes');
     const [loading, setLoading] = useState(false);
     const [classes, setClasses] = useState<string[]>([]);
     const [students, setStudents] = useState<Student[]>([]);
@@ -812,12 +813,19 @@ export default function Dashboard() {
                                 >
                                     <Shield className="w-5 h-5" />
                                 </button>
+                                <button
+                                    onClick={() => navigateView('subject_performance')}
+                                    className={`p-2 rounded-lg transition-colors ${view === 'subject_performance' ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-300' : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400'}`}
+                                    title="Hiệu suất theo môn"
+                                >
+                                    <BarChart2 className="w-5 h-5" />
+                                </button>
                                 <div className="flex-1 max-w-xl mx-auto hidden md:block">
                                     <div className="relative group">
                                         <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 group-focus-within:text-indigo-500 transition-colors" />
                                         <input
                                             type="text"
-                                            placeholder="Tìm kiếm bản ghi (Tên hoặc MSV)..."
+                                            placeholder="Tìm kiếm bản ghi (Tên hoặc ID)..."
                                             className="w-full pl-10 pr-4 py-2.5 bg-background dark:bg-slate-900 border-border group-focus-within:border-indigo-500/50 group-focus-within:ring-4 group-focus-within:ring-indigo-500/10 border-2 rounded-xl text-sm transition-all outline-none text-foreground font-semibold placeholder-slate-500 shadow-inner"
                                             value={searchQuery}
                                             onChange={(e) => setSearchQuery(e.target.value)}
@@ -867,6 +875,7 @@ export default function Dashboard() {
                                         {selectedClass}
                                     </span>
                                     {view === 'admin' && <span className="font-semibold text-slate-900 dark:text-white">Quản trị hệ thống</span>}
+                                    {view === 'subject_performance' && <span className="font-semibold text-slate-900 dark:text-white">Hiệu suất theo bản ghi</span>}
                                     {view === 'grades' && currentStudent && (
                                         <>
                                             <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600" />
@@ -942,6 +951,10 @@ export default function Dashboard() {
 
                             {view === 'admin' && (
                                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}><AdminUserList /></motion.div>
+                            )}
+
+                            {view === 'subject_performance' && (
+                                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}><AdminSubjectPerformance /></motion.div>
                             )}
 
                             {(view === 'students' || view === 'search') && (
@@ -1080,13 +1093,13 @@ export default function Dashboard() {
             <AnimatePresence>
                 {view === 'grades' && currentStudent && (
                     <motion.div initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 50 }} className="fixed bottom-6 right-6 z-40">
-                        <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 max-w-md w-full relative transition-colors"><button onClick={() => { const el = document.getElementById('gpa-simulator-container'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }} className="absolute -top-3 -right-3 bg-indigo-600 text-white p-2 rounded-full shadow-lg hover:bg-indigo-700 transition"><Sparkles className="w-5 h-5" /></button><div className="text-sm font-medium text-slate-600 dark:text-slate-200 mb-2">Xem thành tích tích lũy dự kiến?</div><div className="text-xs text-slate-400 dark:text-slate-400">Cuộn xuống dưới cùng để thêm môn học dự kiến.</div></div>
+                        <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 max-w-md w-full relative transition-colors"><button onClick={() => { const el = document.getElementById('gpa-simulator-container'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }} className="absolute -top-3 -right-3 bg-indigo-600 text-white p-2 rounded-full shadow-lg hover:bg-indigo-700 transition"><Sparkles className="w-5 h-5" /></button><div className="text-sm font-medium text-slate-600 dark:text-slate-200 mb-2">Xem thành tích tích lũy dự kiến?</div><div className="text-xs text-slate-400 dark:text-slate-400">Cuộn xuống dưới cùng để thêm bản ghi dự kiến.</div></div>
                     </motion.div>
                 )}
             </AnimatePresence>
 
             {view === 'grades' && currentStudent && (
-                <div id="gpa-simulator-container" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20"><div className="mt-12 border-t border-slate-200 pt-8"><h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2"><Sparkles className="w-6 h-6 text-indigo-500" />Mô phỏng Chỉ số TB Dự Kiến</h2><GPASimulator currentCredits={totalCredits} currentPoints={totalPoints} /></div></div>
+                <div id="gpa-simulator-container" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20"><div className="mt-12 border-t border-slate-200 pt-8"><h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2"><Sparkles className="w-6 h-6 text-indigo-500" />Mô phỏng Performance Dự Kiến</h2><GPASimulator currentCredits={totalCredits} currentPoints={totalPoints} /></div></div>
             )}
             <FeedbackButton username={username} />
 

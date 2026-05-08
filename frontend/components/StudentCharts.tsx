@@ -211,7 +211,7 @@ export default function StudentCharts({ student, scale }: StudentChartsProps) {
                     <div class="font-bold text-slate-900 dark:text-white mb-2 pb-1 border-b border-slate-100 dark:border-slate-700">${d.semester}</div>
                     <div class="flex items-center gap-2 mb-3">
                         <span class="flex-1 px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg text-xs font-bold text-center">
-                            Điểm TB: ${d.gpa.toFixed(2)}
+                            Performance: ${d.gpa.toFixed(2)}
                         </span>
                     </div>
                     <div class="space-y-0.5">
@@ -344,7 +344,7 @@ export default function StudentCharts({ student, scale }: StudentChartsProps) {
                     </div>
                     <div>
                         <h3 className="font-bold text-slate-900 dark:text-white">
-                            {chartType === 'trend' ? 'Xu hướng Điểm TB' : 'Phân bổ Kết quả'}
+                            {chartType === 'trend' ? 'Xu hướng Performance' : 'Phân bổ Kết quả'}
                         </h3>
                         <p className="text-xs text-slate-500">Trực quan hóa dữ liệu Thành Tích</p>
                     </div>

@@ -42,10 +42,10 @@ export default function GradeTable({ grades }: GradeTableProps) {
             <table className="w-full text-sm text-left font-medium">
                 <thead className="text-xs text-slate-500 dark:text-slate-400 uppercase bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700 transition-colors">
                     <tr>
-                        <th className="px-3 md:px-6 py-3 md:py-4 font-bold tracking-wider">Môn Học</th>
+                        <th className="px-3 md:px-6 py-3 md:py-4 font-bold tracking-wider">Bản Ghi</th>
                         <th className="px-2 md:px-6 py-3 md:py-4 font-bold tracking-wider text-center">Tín Chỉ</th>
-                        <th className="px-2 md:px-6 py-3 md:py-4 font-bold tracking-wider text-center">Thành Tích</th>
-                        <th className="px-2 md:px-6 py-3 md:py-4 font-bold tracking-wider text-center">Điểm (hệ 4)</th>
+                        <th className="px-2 md:px-6 py-3 md:py-4 font-bold tracking-wider text-center">Metric</th>
+                        <th className="px-2 md:px-6 py-3 md:py-4 font-bold tracking-wider text-center">Thành Tích (hệ 4)</th>
                         <th className="px-2 md:px-6 py-3 md:py-4 font-bold tracking-wider text-center">Kết quả</th>
                     </tr>
                 </thead>

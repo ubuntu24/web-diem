@@ -20,7 +20,7 @@ export function resolveAllowedMethods(pathname: string): readonly string[] {
 
 const PUBLIC_PATHS = ['/login', '/register', '/api/bff/auth', '/v/auth', '/v/system/announcement'];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // 1. Restrict HTTP methods early for all routes (including /api)
@@ -89,3 +89,5 @@ export const config = {
     '/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)',
   ],
 };
+
+export default proxy;
