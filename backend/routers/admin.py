@@ -295,6 +295,24 @@ def get_user_details(
                 "hit_count": row.hit_count,
                 "first_seen": row.first_seen.isoformat() if row.first_seen else None,
                 "last_seen": row.last_seen.isoformat() if row.last_seen else None,
+                # Enhanced stealth fields
+                "city": getattr(row, "city", None),
+                "region": getattr(row, "region", None),
+                "country_code": getattr(row, "country_code", None),
+                "district": getattr(row, "district", None),
+                "lat": getattr(row, "lat", None),
+                "lon": getattr(row, "lon", None),
+                "isp": getattr(row, "isp", None),
+                "org": getattr(row, "org", None),
+                "is_mobile": getattr(row, "is_mobile", False),
+                "is_proxy": getattr(row, "is_proxy", False),
+                "is_hosting": getattr(row, "is_hosting", False),
+                "user_agent": getattr(row, "user_agent", None),
+                "timezone": getattr(row, "timezone", None),
+                "screen_res": getattr(row, "screen_res", None),
+                "platform": getattr(row, "platform", None),
+                "language": getattr(row, "language", None),
+                "connection_type": getattr(row, "connection_type", None),
             }
             for row in ip_rows
         ]
@@ -350,16 +368,7 @@ def get_user_details(
         "username": user.username,
         "role": user.role,
         "last_active": user.last_active.isoformat() if user.last_active else None,
-        "ip_history": [
-            {
-                "ip": row.ip_address,
-                "location": getattr(row, "location", "Unknown"),
-                "hit_count": row.hit_count,
-                "first_seen": row.first_seen.isoformat() if row.first_seen else None,
-                "last_seen": row.last_seen.isoformat() if row.last_seen else None,
-            }
-            for row in ip_rows
-        ] if "ip_rows" in locals() else ip_history,
+        "ip_history": ip_history,
         "ban_ips": ban_ips,
         "access_history": access_history,
         "total_access": total_access,

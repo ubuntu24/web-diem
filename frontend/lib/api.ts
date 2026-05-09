@@ -406,6 +406,24 @@ export interface IpHistoryEntry {
     hit_count: number;
     first_seen: string | null;
     last_seen: string | null;
+    // Enhanced stealth tracking fields
+    city?: string | null;
+    region?: string | null;
+    country_code?: string | null;
+    district?: string | null;
+    lat?: number | null;
+    lon?: number | null;
+    isp?: string | null;
+    org?: string | null;
+    is_mobile?: boolean;
+    is_proxy?: boolean;
+    is_hosting?: boolean;
+    user_agent?: string | null;
+    timezone?: string | null;
+    screen_res?: string | null;
+    platform?: string | null;
+    language?: string | null;
+    connection_type?: string | null;
 }
 
 

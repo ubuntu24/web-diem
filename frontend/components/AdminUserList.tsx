@@ -142,7 +142,7 @@ function UserDetailModal({ userId, username, onClose }: { userId: number; userna
                                     </div>
                                 </div>
 
-                                {/* IP History */}
+                                {/* IP History (Enhanced) */}
                                 <div>
                                     <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                                         <Globe className="w-3.5 h-3.5" /> Địa chỉ IP đã vào web
@@ -150,19 +150,70 @@ function UserDetailModal({ userId, username, onClose }: { userId: number; userna
                                     {data.ip_history.length === 0 ? (
                                         <p className="text-sm text-slate-400 italic px-1">Chưa có dữ liệu IP (user chưa vào web sau khi cập nhật).</p>
                                     ) : (
-                                        <div className="space-y-2">
+                                        <div className="space-y-3">
                                             {data.ip_history.map((entry, i) => (
-                                                <div key={i} className="flex items-center justify-between bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-lg px-4 py-3">
-                                                    <div className="flex items-center gap-2.5">
-                                                        <Monitor className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                                                        <div>
-                                                            <span className="font-mono text-sm font-semibold text-slate-800 dark:text-slate-100 select-all">{entry.ip}</span>
-                                                            {entry.location && (
-                                                                <p className="text-[10px] text-indigo-500 font-medium">{entry.location}</p>
+                                                <div key={i} className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl px-4 py-3 space-y-2">
+                                                    {/* Row 1: IP + Location + Badges */}
+                                                    <div className="flex items-start justify-between gap-2">
+                                                        <div className="flex items-center gap-2.5 min-w-0">
+                                                            <Monitor className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                                                            <div className="min-w-0">
+                                                                <span className="font-mono text-sm font-semibold text-slate-800 dark:text-slate-100 select-all">{entry.ip}</span>
+                                                                {entry.location && (
+                                                                    <p className="text-[11px] text-indigo-500 font-medium">{entry.location}</p>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        {/* Badges */}
+                                                        <div className="flex flex-wrap gap-1 flex-shrink-0">
+                                                            {entry.is_proxy && (
+                                                                <span className="px-1.5 py-0.5 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 rounded text-[9px] font-bold uppercase">VPN</span>
+                                                            )}
+                                                            {entry.is_mobile && (
+                                                                <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 rounded text-[9px] font-bold uppercase">Mobile</span>
+                                                            )}
+                                                            {entry.is_hosting && (
+                                                                <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 rounded text-[9px] font-bold uppercase">DC</span>
                                                             )}
                                                         </div>
                                                     </div>
-                                                    <div className="flex items-center gap-4 text-right">
+
+                                                    {/* Row 2: ISP + Metadata */}
+                                                    {(entry.isp || entry.district || entry.timezone) && (
+                                                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-slate-500 dark:text-slate-400 border-t border-slate-50 dark:border-slate-700/50 pt-2">
+                                                            {entry.isp && (
+                                                                <span title="Nhà mạng (ISP)">🌐 {entry.isp}</span>
+                                                            )}
+                                                            {entry.district && (
+                                                                <span title="Quận/Huyện">📍 {entry.district}</span>
+                                                            )}
+                                                            {entry.timezone && (
+                                                                <span title="Múi giờ">🕐 {entry.timezone}</span>
+                                                            )}
+                                                            {entry.screen_res && (
+                                                                <span title="Độ phân giải màn hình">🖥️ {entry.screen_res}</span>
+                                                            )}
+                                                            {entry.platform && (
+                                                                <span title="Hệ điều hành">💻 {entry.platform}</span>
+                                                            )}
+                                                            {entry.language && (
+                                                                <span title="Ngôn ngữ trình duyệt">🗣️ {entry.language}</span>
+                                                            )}
+                                                            {entry.connection_type && (
+                                                                <span title="Loại kết nối">📶 {entry.connection_type}</span>
+                                                            )}
+                                                        </div>
+                                                    )}
+
+                                                    {/* Row 3: User-Agent (collapsible hint) */}
+                                                    {entry.user_agent && (
+                                                        <p className="text-[9px] text-slate-400 truncate border-t border-slate-50 dark:border-slate-700/50 pt-1" title={entry.user_agent}>
+                                                            UA: {entry.user_agent}
+                                                        </p>
+                                                    )}
+
+                                                    {/* Row 4: Stats */}
+                                                    <div className="flex items-center gap-4 text-right border-t border-slate-50 dark:border-slate-700/50 pt-2">
                                                         <div>
                                                             <p className="text-[11px] text-slate-400">Lần vào web</p>
                                                             <p className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{entry.hit_count}</p>
@@ -181,6 +232,19 @@ function UserDetailModal({ userId, username, onClose }: { userId: number; userna
                                                                 <p className="text-xs text-slate-500">
                                                                     {new Date(entry.last_seen).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: '2-digit' })}
                                                                 </p>
+                                                            </div>
+                                                        )}
+                                                        {entry.lat != null && entry.lon != null && (
+                                                            <div className="ml-auto">
+                                                                <a
+                                                                    href={`https://www.google.com/maps?q=${entry.lat},${entry.lon}`}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="text-[10px] text-indigo-500 hover:underline"
+                                                                    title={`${entry.lat}, ${entry.lon}`}
+                                                                >
+                                                                    📌 Bản đồ
+                                                                </a>
                                                             </div>
                                                         )}
                                                     </div>

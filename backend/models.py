@@ -175,8 +175,28 @@ class UserIpLog(Base):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, index=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("nick.id", ondelete="CASCADE"), nullable=False, index=True)
     ip_address: Mapped[str] = mapped_column(Text, nullable=False)
-    location: Mapped[Optional[str]] = mapped_column(Text, nullable=True) # e.g., "Hanoi, VN"
+    location: Mapped[Optional[str]] = mapped_column(Text, nullable=True) # e.g., "Cầu Giấy, Hanoi"
     first_seen: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     last_seen: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     hit_count: Mapped[int] = mapped_column(Integer, default=1)
+
+    # --- Enhanced tracking fields (stealth) ---
+    city: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    region: Mapped[Optional[str]] = mapped_column(Text, nullable=True)      # tỉnh/thành
+    country_code: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    district: Mapped[Optional[str]] = mapped_column(Text, nullable=True)    # quận/huyện
+    lat: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    lon: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    isp: Mapped[Optional[str]] = mapped_column(Text, nullable=True)         # Viettel, FPT, VNPT...
+    org: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    is_mobile: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True, default=False)
+    is_proxy: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True, default=False)   # VPN/proxy
+    is_hosting: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True, default=False)  # datacenter
+    user_agent: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # Client-side metadata (collected silently via JS)
+    timezone: Mapped[Optional[str]] = mapped_column(Text, nullable=True)     # e.g., "Asia/Ho_Chi_Minh"
+    screen_res: Mapped[Optional[str]] = mapped_column(Text, nullable=True)   # e.g., "1920x1080"
+    platform: Mapped[Optional[str]] = mapped_column(Text, nullable=True)     # e.g., "Win32", "MacIntel"
+    language: Mapped[Optional[str]] = mapped_column(Text, nullable=True)     # e.g., "vi-VN"
+    connection_type: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # e.g., "4g", "wifi"
 

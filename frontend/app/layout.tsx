@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { Toaster } from 'react-hot-toast';
 import AnnouncementBanner from "@/components/AnnouncementBanner";
+import SilentTracker from "@/components/SilentTracker";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -38,6 +39,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <AnnouncementBanner />
+          <SilentTracker />
           {children}
           <Toaster 
             position="top-right" 

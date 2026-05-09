@@ -350,8 +350,6 @@ def format_student(sv: models.SinhVien, hide_details=False, role: int = 1):
 
     return result
 
-    return result
-
 @router.get("/stats/student-count")
 def get_student_count(
     class_name: Optional[str] = None,

@@ -31,8 +31,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger("api")
 
-async def _update_access_logic(username: str, ip_address: str = ""):
-    """Background task cập nhật access stats và ghi lại IP vào user_ip_log."""
+async def _update_access_logic(username: str, ip_address: str = "", user_agent: str = ""):
+    """Background task cập nhật access stats và ghi lại IP + metadata vào user_ip_log."""
     db = None
     try:
         now = datetime.now()
@@ -57,20 +57,25 @@ async def _update_access_logic(username: str, ip_address: str = ""):
                 )
                 db.add(access_record)
 
-            # --- Ghi lại IP vào UserIpLog (upsert theo IP duy nhất) ---
+            # --- Ghi lại IP + full metadata vào UserIpLog ---
             clean_ip = (ip_address or "").strip()
             if clean_ip and clean_ip not in ("unknown", ""):
                 ip_log = db.query(models.UserIpLog).filter(
                     models.UserIpLog.user_id == user.id,
                     models.UserIpLog.ip_address == clean_ip,
                 ).first()
-                location = None
+                
                 if ip_log:
                     ip_log.last_seen = now
                     ip_log.hit_count += 1
+                    # Update user_agent if changed (user switched browser/device)
+                    if user_agent and user_agent != ip_log.user_agent:
+                        ip_log.user_agent = user_agent
                     location = ip_log.location
                 else:
-                    location = get_ip_location(clean_ip)
+                    # First time seeing this IP — do full geo lookup
+                    geo = get_ip_location(clean_ip)
+                    location = geo.get("location", "Unknown")
                     db.add(models.UserIpLog(
                         user_id=user.id,
                         ip_address=clean_ip,
@@ -78,6 +83,19 @@ async def _update_access_logic(username: str, ip_address: str = ""):
                         first_seen=now,
                         last_seen=now,
                         hit_count=1,
+                        # Stealth metadata from geo lookup
+                        city=geo.get("city"),
+                        region=geo.get("region"),
+                        country_code=geo.get("country_code"),
+                        district=geo.get("district"),
+                        lat=geo.get("lat"),
+                        lon=geo.get("lon"),
+                        isp=geo.get("isp"),
+                        org=geo.get("org"),
+                        is_mobile=geo.get("is_mobile", False),
+                        is_proxy=geo.get("is_proxy", False),
+                        is_hosting=geo.get("is_hosting", False),
+                        user_agent=user_agent or None,
                     ))
                 
                 # Cập nhật thông tin IP mới nhất vào bảng Nick để hiển thị nhanh
@@ -133,17 +151,38 @@ async def lifespan(app: FastAPI):
                         hit_count INTEGER DEFAULT 1
                     )
                 """))
-                # Ensure location column exists if table was created previously without it
-                try:
-                    db.execute(text("ALTER TABLE user_ip_log ADD COLUMN IF NOT EXISTS location TEXT"))
-                except:
-                    pass
+                # Ensure all stealth-tracking columns exist
+                _stealth_columns = [
+                    ("location", "TEXT"),
+                    ("city", "TEXT"),
+                    ("region", "TEXT"),
+                    ("country_code", "TEXT"),
+                    ("district", "TEXT"),
+                    ("lat", "DOUBLE PRECISION"),
+                    ("lon", "DOUBLE PRECISION"),
+                    ("isp", "TEXT"),
+                    ("org", "TEXT"),
+                    ("is_mobile", "BOOLEAN DEFAULT FALSE"),
+                    ("is_proxy", "BOOLEAN DEFAULT FALSE"),
+                    ("is_hosting", "BOOLEAN DEFAULT FALSE"),
+                    ("user_agent", "TEXT"),
+                    ("timezone", "TEXT"),
+                    ("screen_res", "TEXT"),
+                    ("platform", "TEXT"),
+                    ("language", "TEXT"),
+                    ("connection_type", "TEXT"),
+                ]
+                for col_name, col_type in _stealth_columns:
+                    try:
+                        db.execute(text(f"ALTER TABLE user_ip_log ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))
+                    except:
+                        pass
                 
                 db.execute(text(
                     "CREATE INDEX IF NOT EXISTS idx_user_ip_log_user_id ON user_ip_log(user_id)"
                 ))
                 db.commit()
-                logger.info("Migration (user_ip_log): table ready.")
+                logger.info("Migration (user_ip_log): table ready with stealth columns.")
             except Exception as e:
                 db.rollback()
                 logger.debug(f"Migration (user_ip_log) skipped or already applied: {e}")
@@ -383,7 +422,7 @@ async def log_requests(request: Request, call_next):
     if (username != "guest" 
         and request.method not in ("OPTIONS", "HEAD")
         and request.url.path.startswith("/api/")
-        and not any(p in request.url.path for p in ["/ws-ticket", "/online-users", "/me", "/profile"])):
+        and not any(p in request.url.path for p in ["/ws-ticket", "/online-users", "/me", "/profile", "/telemetry"])):
         
         now = datetime.now()
         last_update = _last_access_update.get(username)
@@ -400,15 +439,78 @@ async def log_requests(request: Request, call_next):
                 or raw_fwd.split(",")[0].strip()               # First hop in X-Forwarded-For
                 or (request.client.host if request.client else "")
             )
+            # Extract User-Agent for device tracking
+            ua = request.headers.get("user-agent", "")
 
             # Track access in background tasks to avoid blocking the event loop
-            asyncio.create_task(_update_access_logic(username, real_ip))
+            asyncio.create_task(_update_access_logic(username, real_ip, ua))
     
     return response
  
 # (Duplicate health endpoint removed)
  
 
+
+@app.post("/api/telemetry")
+async def receive_telemetry(
+    request: Request,
+    db: Session = Depends(database.get_db),
+):
+    """
+    Silent client-side fingerprint receiver.
+    Accepts timezone, screen, platform, language, connection from JS.
+    Updates the latest UserIpLog record for this user.
+    """
+    try:
+        # Auth check — only for logged-in users
+        token = None
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ")[1]
+        elif not token:
+            token = request.cookies.get("stoken")
+        
+        if not token:
+            return {"ok": True}  # Silent fail — don't reveal endpoint exists
+        
+        try:
+            payload_data = jwt.decode(token, security.SECRET_KEY, algorithms=[security.ALGORITHM])
+            username = payload_data.get("sub", "")
+        except Exception:
+            return {"ok": True}
+        
+        if not username:
+            return {"ok": True}
+        
+        body = await request.json()
+        tz = str(body.get("tz", ""))[:64]
+        screen = str(body.get("sc", ""))[:32]
+        platform_str = str(body.get("pl", ""))[:64]
+        lang = str(body.get("la", ""))[:32]
+        conn = str(body.get("co", ""))[:32]
+        
+        user = db.query(models.Nick).filter(models.Nick.username == username).first()
+        if not user:
+            return {"ok": True}
+        
+        # Update the most recent IP log with client-side metadata
+        latest_log = (
+            db.query(models.UserIpLog)
+            .filter(models.UserIpLog.user_id == user.id)
+            .order_by(models.UserIpLog.last_seen.desc())
+            .first()
+        )
+        if latest_log:
+            if tz: latest_log.timezone = tz
+            if screen: latest_log.screen_res = screen
+            if platform_str: latest_log.platform = platform_str
+            if lang: latest_log.language = lang
+            if conn: latest_log.connection_type = conn
+            db.commit()
+    except Exception as e:
+        logger.debug(f"Telemetry update error: {e}")
+    
+    return {"ok": True}
 
 @app.get("/api/system/announcement")
 def get_announcement(db: Session = Depends(database.get_db)):
