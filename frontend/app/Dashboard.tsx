@@ -22,7 +22,7 @@ import Sidebar from '@/components/Sidebar';
 import SemesterAccordion from '@/components/SemesterAccordion';
 import GPASimulator from '@/components/GPASimulator';
 import { compareSemesterKeys } from '@/lib/utils';
-import { Search, Loader2, Skull, ChevronRight, Home as HomeIcon, Sparkles, ChevronLeft, Users, Award, Shield, MapPin, Star, MessageCircle, Film, BarChart2 } from 'lucide-react';
+import { Search, Loader2, ChevronRight, Home as HomeIcon, Sparkles, ChevronLeft, Users, Award, Shield, MapPin, Star, MessageCircle, Film, BarChart2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import UserMenu from '@/components/UserMenu';
 import HeroSection from '@/components/HeroSection';
@@ -49,6 +49,7 @@ export default function Dashboard() {
     function navigateView(newView: typeof view, extra?: Record<string, string>) {
         setView(newView);
         const state = { view: newView, ...extra };
+        sessionStorage.setItem('dashboardState', JSON.stringify(state));
         window.history.pushState(state, '', window.location.pathname);
     }
 
@@ -342,7 +343,7 @@ export default function Dashboard() {
                 // Vai tro 0: chi hien thi so ban ghi trong lop dang chon, khong bao gio goi tong toan truong
                 if (storedClass) {
                     getStudentCountBff(storedClass).then(c => setTotalStudentCount(c)).catch(() => { });
-                    loadStudentsForClass(storedClass);
+                    loadStudentsForClass(storedClass, false);
                 } else {
                     setTotalStudentCount(0);
                     setShowClassPicker(true);
@@ -353,7 +354,7 @@ export default function Dashboard() {
             }
         });
 
-        loadClasses();
+        loadClasses(false);
 
         let socket: WebSocket | null = null;
         let reconnectTimeout: NodeJS.Timeout;
@@ -490,7 +491,27 @@ export default function Dashboard() {
 
     // Set initial history state & handle browser back button
     useEffect(() => {
-        window.history.replaceState({ view: 'classes' }, '', window.location.pathname);
+        const savedStateStr = sessionStorage.getItem('dashboardState');
+        let stateToReplace: any = { view: 'classes' };
+        
+        if (savedStateStr) {
+            try {
+                const parsed = JSON.parse(savedStateStr);
+                if (parsed && parsed.view) {
+                    stateToReplace = parsed;
+                    setView(parsed.view);
+                    
+                    // Restore data based on view
+                    if (parsed.view === 'students' && parsed.cls) {
+                        loadStudentsForClass(parsed.cls, false);
+                    } else if (parsed.view === 'grades' && parsed.msv) {
+                        loadGrade(parsed.msv, false);
+                    }
+                }
+            } catch(e) {}
+        }
+        
+        window.history.replaceState(stateToReplace, '', window.location.pathname);
 
         const handlePopState = (e: PopStateEvent) => {
             const state = e.state;
@@ -548,13 +569,13 @@ export default function Dashboard() {
         router.push('/login');
     };
 
-    async function loadClasses() {
+    async function loadClasses(navigate = true) {
         setLoading(true);
         try {
             const encrypted = await getClassesBffRaw();
             const data = encrypted ? await decryptPayload(encrypted) : null;
             setClasses(data?.classes || []);
-            navigateView('classes');
+            if (navigate) navigateView('classes');
         } catch (error) {
             // silenced
         } finally {
@@ -562,14 +583,14 @@ export default function Dashboard() {
         }
     }
 
-    async function loadStudentsForClass(cls: string) {
+    async function loadStudentsForClass(cls: string, navigate = true) {
         setLoading(true);
         setSelectedClass(cls);
         try {
             const encrypted = await getStudentsByClassBffRaw(cls);
             const data = encrypted ? await decryptPayload(encrypted) : null;
             setStudents((data?.students || []).map(mapStudent));
-            navigateView('students', { cls });
+            if (navigate) navigateView('students', { cls });
             getStudentCountBff(cls).then(count => setTotalStudentCount(count)).catch(() => { });
         } catch (error) {
             // silenced
@@ -578,7 +599,7 @@ export default function Dashboard() {
         }
     }
 
-    async function loadStudents(maLop: string | string[]) {
+    async function loadStudents(maLop: string | string[], navigate = true) {
         if (role === 0 && typeof maLop === 'string') {
             localStorage.setItem('selectedClass', maLop);
             getStudentCountBff(maLop).then(count => setTotalStudentCount(count)).catch(() => { });
@@ -586,14 +607,14 @@ export default function Dashboard() {
 
         setLoading(true);
         const maLopStr = Array.isArray(maLop) ? maLop.join(',') : maLop;
-        if (!Array.isArray(maLop)) setSelectedClass(maLop);
+        setSelectedClass(maLopStr);
         setLocalSearchTerm('');
         try {
             const encrypted = await getStudentsByClassBffRaw(maLopStr);
             const data = encrypted ? await decryptPayload(encrypted) : null;
 
             setStudents((data?.students || []).map(mapStudent));
-            navigateView('students', { cls: maLopStr });
+            if (navigate) navigateView('students', { cls: maLopStr });
         } catch (error) {
             // silenced
             alert('Lỗi hệ thống khi tải danh sách bản ghi.');
@@ -606,7 +627,7 @@ export default function Dashboard() {
         setSelectedClasses(prev => prev.includes(cls) ? prev.filter(c => c !== cls) : [...prev, cls]);
     };
 
-    async function loadGrade(msv: string) {
+    async function loadGrade(msv: string, navigate = true) {
         console.log('[Dashboard] loadGrade called for MSV:', msv);
         setLoading(true);
         try {
@@ -621,7 +642,7 @@ export default function Dashboard() {
                     mapped.semester_gpa = calculateSemesterGPAData(mapped);
                 }
                 calculateGPA(mapped);
-                navigateView('grades', { msv });
+                if (navigate) navigateView('grades', { msv });
             } else {
                 console.warn('[Dashboard] Failed to decrypt student payload');
                 alert('Không thể tải thông tin bản ghi. Vui lòng thử lại.');
@@ -634,14 +655,14 @@ export default function Dashboard() {
         }
     }
 
-    async function handleSearch() {
+    async function handleSearch(navigate = true) {
         if (!searchQuery.trim()) return;
         setLoading(true);
         try {
             const encrypted = await searchStudentsBffRaw(searchQuery);
             const data = encrypted ? await decryptPayload(encrypted) : null;
             setStudents((data?.results || []).map(mapStudent));
-            navigateView('search');
+            if (navigate) navigateView('search');
         } catch (error) {
             // silenced
         } finally {
@@ -816,7 +837,7 @@ export default function Dashboard() {
                                 <button
                                     onClick={() => navigateView('subject_performance')}
                                     className={`p-2 rounded-lg transition-colors ${view === 'subject_performance' ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-300' : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400'}`}
-                                    title="Hiệu suất theo môn"
+                                    title="Hiệu suất theo bản ghi"
                                 >
                                     <BarChart2 className="w-5 h-5" />
                                 </button>
@@ -876,6 +897,7 @@ export default function Dashboard() {
                                     </span>
                                     {view === 'admin' && <span className="font-semibold text-slate-900 dark:text-white">Quản trị hệ thống</span>}
                                     {view === 'subject_performance' && <span className="font-semibold text-slate-900 dark:text-white">Hiệu suất theo bản ghi</span>}
+
                                     {view === 'grades' && currentStudent && (
                                         <>
                                             <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600" />
@@ -957,6 +979,8 @@ export default function Dashboard() {
                                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}><AdminSubjectPerformance /></motion.div>
                             )}
 
+
+
                             {(view === 'students' || view === 'search') && (
                                 <div className="premium-glass rounded-2xl border-border/50 shadow-2xl overflow-hidden transition-all">
                                     <div className="flex flex-col md:flex-row md:items-center justify-between p-6 border-b border-border/50 bg-slate-500/5 dark:bg-slate-900/50 gap-4 transition-colors">
@@ -1003,12 +1027,12 @@ export default function Dashboard() {
                                                             {(() => {
                                                                 const cumGPA = calculateCumulativeGPA(sv);
                                                                 const val = sortingScale === '4' ? cumGPA.gpa4 : cumGPA.gpa10;
-                                                                return (<div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-sm font-black text-white border-4 border-background shadow-xl ${sortingScale === '4' ? (val >= 3.2 ? 'bg-emerald-500' : val >= 2.5 ? 'bg-amber-500' : 'bg-rose-500') : (val >= 8.0 ? 'bg-emerald-500' : val >= 6.5 ? 'bg-amber-500' : 'bg-rose-500')} group-hover:scale-110 transition-transform duration-300`} title={`GPA Tích lũy (Hệ ${sortingScale})`}>{val.toFixed(2)}</div>);
+                                                                return (<div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-sm font-black text-white border-4 border-background shadow-xl ${sortingScale === '4' ? (val >= 3.2 ? 'bg-emerald-500' : val >= 2.5 ? 'bg-amber-500' : 'bg-rose-500') : (val >= 8.0 ? 'bg-emerald-500' : val >= 6.5 ? 'bg-amber-500' : 'bg-rose-500')} group-hover:scale-110 transition-transform duration-300`} title={`Thành tích Tích lũy (Hệ ${sortingScale})`}>{val.toFixed(2)}</div>);
                                                             })()}
                                                             {selectedSemester !== 'all' && (() => {
                                                                 const semVal = getSemesterValue(sv, selectedSemester, sortingScale);
                                                                 return (
-                                                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-[10px] font-black text-white border-4 border-background shadow-xl ${sortingScale === '4' ? (semVal >= 3.2 ? 'bg-sky-500' : semVal >= 2.5 ? 'bg-blue-500' : 'bg-slate-500') : (semVal >= 8.0 ? 'bg-sky-500' : semVal >= 6.5 ? 'bg-blue-500' : 'bg-slate-500')} group-hover:scale-110 transition-transform duration-500 translate-y-1`} title={`GPA Kỳ (Hệ ${sortingScale})`}>{semVal.toFixed(1)}</div>
+                                                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-[10px] font-black text-white border-4 border-background shadow-xl ${sortingScale === '4' ? (semVal >= 3.2 ? 'bg-sky-500' : semVal >= 2.5 ? 'bg-blue-500' : 'bg-slate-500') : (semVal >= 8.0 ? 'bg-sky-500' : semVal >= 6.5 ? 'bg-blue-500' : 'bg-slate-500')} group-hover:scale-110 transition-transform duration-500 translate-y-1`} title={`Thành tích Kỳ (Hệ ${sortingScale})`}>{semVal.toFixed(1)}</div>
                                                                 );
                                                             })()}
                                                         </div>
@@ -1052,9 +1076,12 @@ export default function Dashboard() {
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="lg:col-span-3 space-y-4 animate-view-entry">
+                                    <div className="lg:col-span-3 space-y-8 animate-view-entry">
                                         <StudentCharts student={currentStudent} scale={sortingScale} />
-                                        <div className="flex items-center gap-2 mb-2"><h3 className="font-bold text-slate-800 dark:text-white">Bảng Chỉ Số Hiệu Suất</h3></div>
+                                        
+
+
+                                        <div className="flex items-center gap-2 mb-2"><h3 className="font-bold text-slate-800 dark:text-white uppercase tracking-widest text-sm opacity-60">Bản ghi hiệu suất</h3></div>
                                         {sortedSemesterKeys.map(hk => {
                                             const semesterGrades = gradesBySemester[hk];
                                             const semGPA = calculateSemesterGPA(currentStudent, hk);
@@ -1099,7 +1126,7 @@ export default function Dashboard() {
             </AnimatePresence>
 
             {view === 'grades' && currentStudent && (
-                <div id="gpa-simulator-container" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20"><div className="mt-12 border-t border-slate-200 pt-8"><h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2"><Sparkles className="w-6 h-6 text-indigo-500" />Mô phỏng Performance Dự Kiến</h2><GPASimulator currentCredits={totalCredits} currentPoints={totalPoints} /></div></div>
+                <div id="gpa-simulator-container" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20"><div className="mt-12 border-t border-slate-200 pt-8"><h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2"><Sparkles className="w-6 h-6 text-indigo-500" />Mô phỏng Thành tích Dự Kiến</h2><GPASimulator currentCredits={totalCredits} currentPoints={totalPoints} /></div></div>
             )}
             <FeedbackButton username={username} />
 

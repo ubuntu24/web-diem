@@ -380,7 +380,7 @@ export default function AdminSubjectPerformance() {
                                                                         <thead className="bg-slate-50/50 dark:bg-slate-900/20 text-slate-400 uppercase font-bold">
                                                                             <tr>
                                                                                 <th className="px-5 py-2">Họ tên</th>
-                                                                                <th className="px-2 py-2 text-center">Metric</th>
+                                                                                <th className="px-2 py-2 text-center">Điểm thi</th>
                                                                                 <th className="px-5 py-2 text-right">Kỳ</th>
                                                                             </tr>
                                                                         </thead>

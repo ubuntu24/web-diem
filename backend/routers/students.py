@@ -149,6 +149,13 @@ def _allow_search(identity: str, limit: int = 90, window_seconds: int = 60) -> b
     _cache.set(key, hits, ttl=window_seconds)
     return True
 
+def _normalize_name(name):
+    n = (name or '').strip().lower()
+    for sfx in ['_ hv', '_hv', '(hoc vuot)', '(hv)']:
+        if n.endswith(sfx):
+            n = n[:-len(sfx)].strip()
+    return n
+
 
 # ---------------------------------------------------------------------------
 # Student formatter
@@ -191,13 +198,6 @@ def format_student(sv: models.SinhVien, hide_details=False, role: int = 1):
         if is_hv: return 'Học vượt'
         if not hk and ldl: return ldl
         return hk or 'Khác'
-
-    def _normalize_name(name):
-        n = (name or '').strip().lower()
-        for sfx in ['_ hv', '_hv', '(hoc vuot)', '(hv)']:
-            if n.endswith(sfx):
-                n = n[:-len(sfx)].strip()
-        return n
 
     def _subj_key(d):
         ma_mon = (getattr(d, 'ma_mon', '') or '').strip()
@@ -371,6 +371,7 @@ def get_student_count(
     _cache.set(cache_key, result, ttl=_TTL_COUNT)
     return result
 
+
 @router.get("/classes")
 def get_classes(
     current_user: models.Nick = Depends(security.get_current_user),
@@ -455,6 +456,7 @@ def get_student_detail(
     result = security.obfuscate_payload(data)
     _cache.set(cache_key, result, ttl=_TTL_STUDENT)
     return result
+
 
 @router.get("/search")
 def search_students(

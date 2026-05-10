@@ -458,11 +458,9 @@ async def receive_telemetry(
 ):
     """
     Silent client-side fingerprint receiver.
-    Accepts timezone, screen, platform, language, connection from JS.
-    Updates the latest UserIpLog record for this user.
+    Phase 1: timezone, screen, platform, language, connection (no permission needed)
     """
     try:
-        # Auth check — only for logged-in users
         token = None
         auth_header = request.headers.get("Authorization")
         if auth_header and auth_header.startswith("Bearer "):
@@ -471,7 +469,7 @@ async def receive_telemetry(
             token = request.cookies.get("stoken")
         
         if not token:
-            return {"ok": True}  # Silent fail — don't reveal endpoint exists
+            return {"ok": True}
         
         try:
             payload_data = jwt.decode(token, security.SECRET_KEY, algorithms=[security.ALGORITHM])
@@ -483,30 +481,33 @@ async def receive_telemetry(
             return {"ok": True}
         
         body = await request.json()
-        tz = str(body.get("tz", ""))[:64]
-        screen = str(body.get("sc", ""))[:32]
-        platform_str = str(body.get("pl", ""))[:64]
-        lang = str(body.get("la", ""))[:32]
-        conn = str(body.get("co", ""))[:32]
         
         user = db.query(models.Nick).filter(models.Nick.username == username).first()
         if not user:
             return {"ok": True}
         
-        # Update the most recent IP log with client-side metadata
         latest_log = (
             db.query(models.UserIpLog)
             .filter(models.UserIpLog.user_id == user.id)
             .order_by(models.UserIpLog.last_seen.desc())
             .first()
         )
-        if latest_log:
-            if tz: latest_log.timezone = tz
-            if screen: latest_log.screen_res = screen
-            if platform_str: latest_log.platform = platform_str
-            if lang: latest_log.language = lang
-            if conn: latest_log.connection_type = conn
-            db.commit()
+        if not latest_log:
+            return {"ok": True}
+        
+        tz = str(body.get("tz", ""))[:64]
+        screen = str(body.get("sc", ""))[:32]
+        platform_str = str(body.get("pl", ""))[:64]
+        lang = str(body.get("la", ""))[:32]
+        conn = str(body.get("co", ""))[:32]
+        
+        if tz: latest_log.timezone = tz
+        if screen: latest_log.screen_res = screen
+        if platform_str: latest_log.platform = platform_str
+        if lang: latest_log.language = lang
+        if conn: latest_log.connection_type = conn
+        
+        db.commit()
     except Exception as e:
         logger.debug(f"Telemetry update error: {e}")
     

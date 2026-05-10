@@ -165,7 +165,7 @@ export function withTtlCache(
     });
 }
 
-export const MaLopSchema = z.string().min(2).max(50).regex(/^[a-zA-Z0-9\s.\-_]+$/, 'Invalid characters in class code');
+export const MaLopSchema = z.string().min(2).max(500).regex(/^[a-zA-Z0-9\s.\-_,]+$/, 'Invalid characters in class code');
 export const MsvSchema = z.string().trim().superRefine((value, ctx) => {
     const isPlainMsv = /^[a-zA-Z0-9]{5,20}$/.test(value);
     const isObfuscatedMsv = /^T_[A-Za-z0-9_-]{20,512}$/.test(value);

@@ -44,7 +44,7 @@ export default function GradeTable({ grades }: GradeTableProps) {
                     <tr>
                         <th className="px-3 md:px-6 py-3 md:py-4 font-bold tracking-wider">Bản Ghi</th>
                         <th className="px-2 md:px-6 py-3 md:py-4 font-bold tracking-wider text-center">Tín Chỉ</th>
-                        <th className="px-2 md:px-6 py-3 md:py-4 font-bold tracking-wider text-center">Metric</th>
+                        <th className="px-2 md:px-6 py-3 md:py-4 font-bold tracking-wider text-center">Điểm thi</th>
                         <th className="px-2 md:px-6 py-3 md:py-4 font-bold tracking-wider text-center">Thành Tích (hệ 4)</th>
                         <th className="px-2 md:px-6 py-3 md:py-4 font-bold tracking-wider text-center">Kết quả</th>
                     </tr>

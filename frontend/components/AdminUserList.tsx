@@ -354,7 +354,7 @@ export default function AdminUserList() {
     useEffect(() => {
         loadData();
         
-        // Cập nhật danh sách online mỗi 30s khi đang ở tab users
+        // Cập nhật danh sách online mỗi 3s khi đang ở tab users để hiển thị off nhanh
         const interval = setInterval(async () => {
             if (activeTab === 'users') {
                 try {
@@ -362,7 +362,7 @@ export default function AdminUserList() {
                     setOnlineUsers(online);
                 } catch(e) {}
             }
-        }, 30000);
+        }, 3000);
         
         return () => clearInterval(interval);
     }, [activeTab]);
