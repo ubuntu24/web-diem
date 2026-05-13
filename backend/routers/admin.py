@@ -461,14 +461,12 @@ def get_audit_logs(
         for l, un in logs
     ]
 
-@router.get("/admin/subjects")
-def get_admin_subjects(
+@router.get("/subjects")
+def get_subjects(
     current_user: models.Nick = Depends(security.get_current_user),
     db: Session = Depends(database.get_db)
 ):
     """Lấy danh sách tất cả các môn học duy nhất trong hệ thống."""
-    if current_user.role != 1:
-        raise HTTPException(status_code=403, detail="Not authorized")
     
     # Lấy các môn học duy nhất (kết hợp mã môn và tên môn)
     subjects = (
@@ -481,15 +479,13 @@ def get_admin_subjects(
     
     return [{"code": s.ma_mon, "name": s.ten_mon} for s in subjects]
 
-@router.get("/admin/subject-scores")
-def get_admin_subject_scores(
+@router.get("/subject-scores")
+def get_subject_scores(
     subject: str, # Có thể là mã môn hoặc tên môn
     current_user: models.Nick = Depends(security.get_current_user),
     db: Session = Depends(database.get_db)
 ):
     """Lấy danh sách người dùng và điểm cho một môn học cụ thể, phân nhóm theo lớp."""
-    if current_user.role != 1:
-        raise HTTPException(status_code=403, detail="Not authorized")
     
     # Tìm tất cả bản ghi điểm cho môn học này
     # Join với SinhVien để lấy mã lớp và họ tên
@@ -508,8 +504,13 @@ def get_admin_subject_scores(
         if ma_lop not in grouped:
             grouped[ma_lop] = []
         
+        # Privacy: Obfuscate MSV if not admin
+        display_msv = sv.msv
+        if current_user.role != 1:
+            display_msv = security.obfuscate_id(sv.msv)
+
         grouped[ma_lop].append({
-            "msv": sv.msv,
+            "msv": display_msv,
             "ho_ten": sv.ho_ten,
             "score": bd.diem_thi,
             "total_10": bd.tong_ket_10,

@@ -629,12 +629,12 @@ export async function getUsersBff(): Promise<AdminUser[]> {
     return res.json();
 }
 
-export async function getAdminSubjectsBffRaw(): Promise<string | null> {
-    return fetchBffRaw('/v/admin/subjects');
+export async function getPerformanceSubjectsBffRaw(): Promise<string | null> {
+    return fetchBffRaw('/v/subjects');
 }
 
-export async function getAdminSubjectScoresBffRaw(subject: string): Promise<string | null> {
-    return fetchBffRaw(`/v/admin/subject-scores?subject=${encodeURIComponent(subject)}`);
+export async function getPerformanceScoresBffRaw(subject: string): Promise<string | null> {
+    return fetchBffRaw(`/v/subject-scores?subject=${encodeURIComponent(subject)}`);
 }
 
 export async function getOnlineUsersListBff(): Promise<string[]> {

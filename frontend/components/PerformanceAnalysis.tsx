@@ -7,7 +7,7 @@ import {
     ChevronDown, ChevronUp
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getAdminSubjectsBffRaw, getAdminSubjectScoresBffRaw } from '@/lib/api';
+import { getPerformanceSubjectsBffRaw, getPerformanceScoresBffRaw } from '@/lib/api';
 import { toast } from 'react-hot-toast';
 
 interface Subject {
@@ -28,7 +28,7 @@ interface ClassGroup {
     [className: string]: ScoreRecord[];
 }
 
-export default function AdminSubjectPerformance() {
+export default function PerformanceAnalysis({ role = 0 }: { role?: number }) {
     const [subjects, setSubjects] = useState<Subject[]>([]);
     const [loadingSubjects, setLoadingSubjects] = useState(true);
     const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
@@ -40,7 +40,7 @@ export default function AdminSubjectPerformance() {
     useEffect(() => {
         const fetchSubjects = async () => {
             try {
-                const res = await getAdminSubjectsBffRaw();
+                const res = await getPerformanceSubjectsBffRaw();
                 if (res) {
                     setSubjects(JSON.parse(res));
                 }
@@ -57,7 +57,7 @@ export default function AdminSubjectPerformance() {
         setSelectedSubject(subject);
         setLoadingData(true);
         try {
-            const res = await getAdminSubjectScoresBffRaw(subject.code);
+            const res = await getPerformanceScoresBffRaw(subject.code);
             if (res) {
                 setSubjectData(JSON.parse(res));
             }
@@ -74,7 +74,7 @@ export default function AdminSubjectPerformance() {
         setLoadingData(true);
         try {
             const results = await Promise.all(
-                items.map(s => getAdminSubjectScoresBffRaw(s.code))
+                items.map(s => getPerformanceScoresBffRaw(s.code))
             );
             
             const mergedData: ClassGroup = {};
@@ -83,7 +83,6 @@ export default function AdminSubjectPerformance() {
                     const data: ClassGroup = JSON.parse(res);
                     Object.entries(data).forEach(([className, records]) => {
                         if (!mergedData[className]) mergedData[className] = [];
-                        // Combine records, potentially deduplicating if needed, but here we just append
                         mergedData[className] = [...mergedData[className], ...records];
                     });
                 }
@@ -136,11 +135,11 @@ export default function AdminSubjectPerformance() {
                         <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-200 dark:shadow-indigo-900/20">
                             <BarChart2 className="w-6 h-6" />
                         </div>
-                        Hiệu Suất Theo Môn
+                        Chỉ số Hiệu suất
                     </h2>
                     <p className="text-slate-500 dark:text-slate-400 mt-1 max-w-lg">
-                        Phân tích kết quả học tập của tất cả người dùng theo từng bản ghi cụ thể. 
-                        Dữ liệu được phân nhóm theo lớp để dễ dàng theo dõi.
+                        Phân tích kết quả thực hiện của tất cả người dùng theo từng bản ghi cụ thể. 
+                        Dữ liệu được phân nhóm theo mã định danh để dễ dàng theo dõi.
                     </p>
                 </div>
 
@@ -310,7 +309,7 @@ export default function AdminSubjectPerformance() {
                                         </div>
                                     </div>
                                     <div className="text-right">
-                                        <p className="text-xs font-black text-slate-400 uppercase">Tổng số lớp</p>
+                                        <p className="text-xs font-black text-slate-400 uppercase">Tổng số nhóm</p>
                                         <div className="flex items-center gap-4 justify-end">
                                             <p className="text-2xl font-black text-indigo-600">{Object.keys(subjectData || {}).length}</p>
                                             <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
@@ -380,7 +379,7 @@ export default function AdminSubjectPerformance() {
                                                                         <thead className="bg-slate-50/50 dark:bg-slate-900/20 text-slate-400 uppercase font-bold">
                                                                             <tr>
                                                                                 <th className="px-5 py-2">Họ tên</th>
-                                                                                <th className="px-2 py-2 text-center">Điểm thi</th>
+                                                                                <th className="px-2 py-2 text-center">Kết quả</th>
                                                                                 <th className="px-5 py-2 text-right">Kỳ</th>
                                                                             </tr>
                                                                         </thead>
@@ -395,7 +394,12 @@ export default function AdminSubjectPerformance() {
                                                                                     <td className="px-5 py-3 font-bold text-slate-700 dark:text-slate-300">
                                                                                         <div className="flex flex-col">
                                                                                             <span>{r.ho_ten}</span>
-                                                                                            <span className="text-[9px] font-mono text-slate-400 group-hover:text-indigo-400 transition-colors uppercase">{r.msv}</span>
+                                                                                            {/* Only show ID if admin */}
+                                                                                            {role === 1 && r.msv && (
+                                                                                                <span className="text-[9px] font-mono text-slate-400 group-hover:text-indigo-400 transition-colors uppercase truncate max-w-[150px]">
+                                                                                                    {r.msv}
+                                                                                                </span>
+                                                                                            )}
                                                                                         </div>
                                                                                     </td>
                                                                                     <td className="px-2 py-3 text-center">

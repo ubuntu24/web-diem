@@ -27,7 +27,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import UserMenu from '@/components/UserMenu';
 import HeroSection from '@/components/HeroSection';
 import AdminUserList from '@/components/AdminUserList';
-import AdminSubjectPerformance from '@/components/AdminSubjectPerformance';
+import PerformanceAnalysis from '@/components/PerformanceAnalysis';
 import ClassPicker from '@/components/ClassPicker';
 import FeedbackButton from '@/components/FeedbackButton';
 import StudentCharts from '@/components/StudentCharts';
@@ -35,7 +35,7 @@ import anime from 'animejs/lib/anime.js';
 
 export default function Dashboard() {
     const router = useRouter();
-    const [view, setView] = useState<'classes' | 'students' | 'grades' | 'search' | 'admin' | 'subject_performance'>('classes');
+    const [view, setView] = useState<'classes' | 'students' | 'grades' | 'search' | 'admin' | 'performance_analysis'>('classes');
     const [loading, setLoading] = useState(false);
     const [classes, setClasses] = useState<string[]>([]);
     const [students, setStudents] = useState<Student[]>([]);
@@ -835,9 +835,20 @@ export default function Dashboard() {
                                     <Shield className="w-5 h-5" />
                                 </button>
                                 <button
-                                    onClick={() => navigateView('subject_performance')}
-                                    className={`p-2 rounded-lg transition-colors ${view === 'subject_performance' ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-300' : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400'}`}
-                                    title="Hiệu suất theo bản ghi"
+                                    onClick={() => navigateView('performance_analysis')}
+                                    className={`p-2 rounded-lg transition-colors ${view === 'performance_analysis' ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-300' : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400'}`}
+                                    title="Chỉ số hiệu suất"
+                                >
+                                    <BarChart2 className="w-5 h-5" />
+                                </button>
+                            </div>
+                        )}
+                        {role === 0 && (
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => navigateView('performance_analysis')}
+                                    className={`p-2 rounded-lg transition-colors ${view === 'performance_analysis' ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-300' : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400'}`}
+                                    title="Chỉ số hiệu suất"
                                 >
                                     <BarChart2 className="w-5 h-5" />
                                 </button>
@@ -975,8 +986,8 @@ export default function Dashboard() {
                                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}><AdminUserList /></motion.div>
                             )}
 
-                            {view === 'subject_performance' && (
-                                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}><AdminSubjectPerformance /></motion.div>
+                            {view === 'performance_analysis' && (
+                                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}><PerformanceAnalysis role={role} /></motion.div>
                             )}
 
 
