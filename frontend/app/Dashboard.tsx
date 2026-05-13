@@ -907,7 +907,7 @@ export default function Dashboard() {
                                         {selectedClass}
                                     </span>
                                     {view === 'admin' && <span className="font-semibold text-slate-900 dark:text-white">Quản trị hệ thống</span>}
-                                    {view === 'subject_performance' && <span className="font-semibold text-slate-900 dark:text-white">Hiệu suất theo bản ghi</span>}
+                                    {view === 'performance_analysis' && <span className="font-semibold text-slate-900 dark:text-white">Hiệu suất theo bản ghi</span>}
 
                                     {view === 'grades' && currentStudent && (
                                         <>
