@@ -14,26 +14,39 @@ function _hasRetakeExam(grade: Grade): boolean {
 }
 
 /**
- * Thi lại: phát hiện bằng 1 trong 3 cách:
- * 1. DB đánh dấu da_thi_lai_trong_ky = true
- * 2. Có điểm thi KN (diem_thi_kn_*)
- * 3. tong_ket_1 < 4 nhưng tong_ket_10 >= 4 (trượt lần 1, qua lần cuối)
- * → Và tổng kết >= 4 (đã qua, nếu trượt hẳn thì là học lại)
+ * Thi lại:
+ * 1. Nếu tổng kết >= 4 (đã qua): Cần xem có trượt lần 1 (tong_ket_1 < 4) hoặc có điểm thi KN (thi lại) không.
+ * 2. Nếu tổng kết < 4 (đang trượt): Nếu CHƯA thi lại lần 2 (chưa có điểm thi KN) thì hiển thị "Thi lại".
  */
 function _isRetake(grade: Grade): boolean {
     const tk10 = parseFloat(grade.tong_ket_10 || '');
-    if (isNaN(tk10) || tk10 < 4) return false; // trượt hẳn → học lại, không phải thi lại
+    if (isNaN(tk10)) return false;
 
     const tk1 = parseFloat(grade.tong_ket_1 || '');
     const failedFirst = !isNaN(tk1) && tk1 < 4;
+    const hasRetakeScore = _hasRetakeExam(grade);
 
-    return !!grade.da_thi_lai_trong_ky || _hasRetakeExam(grade) || failedFirst;
+    if (tk10 < 4) {
+        // Trượt nhưng CHƯA có điểm thi lại => Thuộc diện chờ Thi lại
+        return !hasRetakeScore;
+    } else {
+        // Đã qua nhưng TỪNG trượt hoặc CÓ điểm thi lại => Đã Thi lại
+        return failedFirst || hasRetakeScore;
+    }
 }
 
-/** Học lại: tổng kết < 4 (trượt hẳn, kể cả đã thi lại vẫn trượt) */
+/** 
+ * Học lại: 
+ * Tổng kết < 4 (trượt) VÀ ĐÃ THI LẠI (có điểm KN) mà vẫn trượt.
+ */
 function _isRelearn(grade: Grade): boolean {
     const tk10 = parseFloat(grade.tong_ket_10 || '');
-    return !isNaN(tk10) && tk10 < 4;
+    if (isNaN(tk10) || tk10 >= 4) return false;
+
+    const hasRetakeScore = _hasRetakeExam(grade);
+    
+    // Đã thi lại mà vẫn trượt => Học lại
+    return hasRetakeScore;
 }
 
 export default function GradeTable({ grades }: GradeTableProps) {
