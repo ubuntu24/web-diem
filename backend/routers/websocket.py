@@ -56,6 +56,20 @@ class ConnectionManager:
         if to_kick:
             await self.broadcast_online_count()
 
+    async def disconnect_user(self, username: str):
+        """Gracefully disconnects all connections for a specific user (e.g. on logout)"""
+        to_kick = [conn for conn in self.active_connections if conn.get("user") == username]
+        
+        for conn in to_kick:
+            try:
+                await conn["ws"].close()
+            except Exception as e:
+                logger.debug(f"Disconnect user error: {e}")
+            self.disconnect(conn["ws"])
+            
+        if to_kick:
+            await self.broadcast_online_count()
+
     async def broadcast_to_admins(self, message: dict):
         """Sends a message ONLY to authenticated administrators."""
         msg_str = json.dumps(message)
@@ -426,4 +440,5 @@ async def websocket_endpoint(websocket: WebSocket):
     except Exception as e:
         logger.exception(f"WebSocket Fatal Error: {e}")
         manager.disconnect(websocket)
+        await manager.broadcast_online_count()
 

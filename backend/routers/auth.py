@@ -5,6 +5,7 @@ import database
 import models
 import schemas
 import security
+from jose import jwt
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
@@ -67,7 +68,19 @@ def login(payload: schemas.LoginRequest, request: Request, db: Session = Depends
     return response
 
 @router.post("/logout")
-def logout():
+async def logout(request: Request):
+    from .websocket import manager
+    
+    token = request.cookies.get("stoken")
+    if token:
+        try:
+            payload = jwt.decode(token, security.SECRET_KEY, algorithms=[security.ALGORITHM])
+            username = payload.get("sub")
+            if username:
+                await manager.disconnect_user(username)
+        except Exception:
+            pass
+
     response = JSONResponse(content={"message": "Logged out successfully"})
     response.delete_cookie("stoken", path="/")
     return response
