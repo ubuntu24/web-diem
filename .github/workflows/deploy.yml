@@ -8,6 +8,8 @@ on:
 jobs:
   build-and-deploy:
     runs-on: self-hosted
+    env:
+      KUBECONFIG: /home/mrs/.kube/config
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
