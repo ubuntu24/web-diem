@@ -50,7 +50,13 @@ export default function Dashboard() {
         setView(newView);
         const state = { view: newView, ...extra };
         sessionStorage.setItem('dashboardState', JSON.stringify(state));
-        window.history.pushState(state, '', window.location.pathname);
+        
+        const params = new URLSearchParams();
+        params.set('view', newView);
+        if (extra) {
+            Object.entries(extra).forEach(([k, v]) => params.set(k, v));
+        }
+        window.history.pushState(state, '', `?${params.toString()}`);
     }
 
     const [role, setRole] = useState<number>(0);
@@ -316,6 +322,12 @@ export default function Dashboard() {
             if (role !== undefined) localStorage.setItem('role', role.toString());
 
             if (role === 0) {
+                const params = new URLSearchParams(window.location.search);
+                if (params.get('view') === 'admin') {
+                    setView('classes');
+                    params.set('view', 'classes');
+                    window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
+                }
                 const limit = classChangeLimit ?? 5;
                 setClassChangeLimit(limit);
 
@@ -491,10 +503,23 @@ export default function Dashboard() {
 
     // Set initial history state & handle browser back button
     useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const viewParam = params.get('view');
+        const clsParam = params.get('cls');
+        const msvParam = params.get('msv');
+
         const savedStateStr = sessionStorage.getItem('dashboardState');
         let stateToReplace: any = { view: 'classes' };
         
-        if (savedStateStr) {
+        if (viewParam) {
+            setView(viewParam as any);
+            if (viewParam === 'students' && clsParam) {
+                loadStudentsForClass(clsParam, false);
+            } else if (viewParam === 'grades' && msvParam) {
+                loadGrade(msvParam, false);
+            }
+            stateToReplace = { view: viewParam, cls: clsParam, msv: msvParam };
+        } else if (savedStateStr) {
             try {
                 const parsed = JSON.parse(savedStateStr);
                 if (parsed && parsed.view) {
@@ -511,7 +536,7 @@ export default function Dashboard() {
             } catch(e) {}
         }
         
-        window.history.replaceState(stateToReplace, '', window.location.pathname);
+        window.history.replaceState(stateToReplace, '', window.location.pathname + window.location.search);
 
         const handlePopState = (e: PopStateEvent) => {
             const state = e.state;
@@ -923,9 +948,12 @@ export default function Dashboard() {
 
                 <AnimatePresence mode="wait">
                     {loading ? (
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center justify-center py-20">
-                            <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-4" />
-                            <p className="text-slate-500 font-medium">Đang xử lý...</p>
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6">
+                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 animate-pulse">
+                                {[...Array(12)].map((_, i) => (
+                                    <div key={i} className="h-32 bg-slate-100 dark:bg-slate-800/50 rounded-2xl border border-border/50"></div>
+                                ))}
+                            </div>
                         </motion.div>
                     ) : (
                         <>
@@ -983,7 +1011,14 @@ export default function Dashboard() {
                             )}
 
                             {view === 'admin' && (
-                                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}><AdminUserList /></motion.div>
+                                role === 1 ? (
+                                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}><AdminUserList /></motion.div>
+                                ) : (
+                                    <div className="text-center py-20 text-slate-500">
+                                        <Shield className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
+                                        <p className="font-medium">Bạn không có quyền truy cập trang này.</p>
+                                    </div>
+                                )
                             )}
 
                             {view === 'performance_analysis' && (
@@ -1073,7 +1108,7 @@ export default function Dashboard() {
                                                 {role !== 0 && (<p className="text-sm text-indigo-500 font-black font-mono mt-2 tracking-widest uppercase">{currentStudent.msv}</p>)}
                                             </div>
                                             <div className="pt-6 space-y-4">
-                                                <InfoRow label="LỚP" value={currentStudent.ma_lop} />
+                                                <InfoRow label="LỚP" value={currentStudent.ma_lop || selectedClass} />
                                                 {role !== 0 && (
                                                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="space-y-4">
                                                         <InfoRow label="NGÀY SINH" value={currentStudent.ngay_sinh} />

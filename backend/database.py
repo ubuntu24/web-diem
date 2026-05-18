@@ -100,6 +100,18 @@ def sync_schema():
                 conn.execute(text("ALTER TABLE nick ADD COLUMN IF NOT EXISTS last_ip TEXT"))
                 conn.execute(text("ALTER TABLE nick ADD COLUMN IF NOT EXISTS last_location TEXT"))
 
+            # 3. Thêm index cho bang_diem.msv (Tối ưu tốc độ)
+            if 'bang_diem' in table_names:
+                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_bang_diem_msv ON bang_diem (msv)"))
+
+            # 4. Thêm index cho user_access.user_id (Tối ưu tốc độ)
+            if 'user_access' in table_names:
+                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_user_access_user_id ON user_access (user_id)"))
+
+            # 5. Thêm index cho sinh_vien.ma_lop (Tối ưu tốc độ)
+            if 'sinh_vien' in table_names:
+                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_sinh_vien_ma_lop ON sinh_vien (ma_lop)"))
+
             conn.commit()
         
         # create_tables() sẽ tự động tạo bảng mới nếu chưa có

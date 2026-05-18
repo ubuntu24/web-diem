@@ -112,7 +112,7 @@ function UserDetailModal({ userId, username, onClose }: { userId: number; userna
                                         icon={<Clock className="w-4 h-4 text-amber-500" />}
                                         label="Hoạt động cuối"
                                         value={data.last_active
-                                            ? new Date(data.last_active).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })
+                                            ? new Date(data.last_active).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
                                             : 'N/A'}
                                         color="amber"
                                     />
@@ -220,17 +220,17 @@ function UserDetailModal({ userId, username, onClose }: { userId: number; userna
                                                         </div>
                                                         {entry.first_seen && (
                                                             <div>
-                                                                <p className="text-[11px] text-slate-400">Lần đầu</p>
+                                                                <p className="text-[11px] text-slate-400">Vào lúc</p>
                                                                 <p className="text-xs text-slate-500">
-                                                                    {new Date(entry.first_seen).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                                                                    {new Date(entry.first_seen).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
                                                                 </p>
                                                             </div>
                                                         )}
                                                         {entry.last_seen && (
                                                             <div>
-                                                                <p className="text-[11px] text-slate-400">Lần cuối</p>
+                                                                <p className="text-[11px] text-slate-400">Kết thúc</p>
                                                                 <p className="text-xs text-slate-500">
-                                                                    {new Date(entry.last_seen).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                                                                    {new Date(entry.last_seen).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
                                                                 </p>
                                                             </div>
                                                         )}
