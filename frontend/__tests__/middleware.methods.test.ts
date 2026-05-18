@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveAllowedMethods } from '@/middleware';
+import { resolveAllowedMethods } from '@/proxy';
 
 describe('HTTP method policy', () => {
     it('uses default allow-list on public routes', () => {
