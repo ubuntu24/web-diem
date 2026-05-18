@@ -6,8 +6,36 @@ on:
       - main
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          
+      - name: Run Frontend Tests
+        run: |
+          cd frontend
+          npm install
+          npm run test
+          
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          
+      - name: Run Backend Tests
+        run: |
+          cd backend
+          pip install -r requirements.txt
+          python3 -m pytest
+
   build-and-deploy:
     runs-on: self-hosted
+    needs: test
     env:
       KUBECONFIG: /home/mrs/.kube/config
     steps:
@@ -55,8 +83,8 @@ jobs:
       # ─── BƯỚC 3: Nạp ảnh vào K3s (containerd) ────────────────────────────────
       - name: Import images into K3s containerd
         run: |
-          docker save web-diem-backend:latest  | sudo k3s ctr images import -
-          docker save web-diem-frontend:latest | sudo k3s ctr images import -
+          docker save web-diem-backend:latest  | k3s ctr images import -
+          docker save web-diem-frontend:latest | k3s ctr images import -
           # Dọn dẹp ảnh Docker cũ để tiết kiệm disk
           docker image prune -a -f --filter "until=24h"
 
