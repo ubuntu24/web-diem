@@ -15,27 +15,26 @@ jobs:
       # ─── BƯỚC 1: Tạo file .env cho quá trình build ───────────────────────────
       - name: Create .env files for build
         run: |
-          # Dùng lại cách ghi file thông thường, không dùng sudo
-          echo "$FRONTEND_ENV" > frontend/.env
-          echo "$BACKEND_ENV" > backend/.env
+          # Đảm bảo thư mục tồn tại
+          mkdir -p frontend backend
           
-          # Ghi từng biến vào backend/.env
-          [ -n "$REDIS_URL" ]             && echo "REDIS_URL=$REDIS_URL"                       >> backend/.env
-          [ -n "$DATABASE_URL" ]          && echo "DATABASE_URL=$DATABASE_URL"                 >> backend/.env
-          [ -n "$ADMIN_PASSWORD" ]        && echo "ADMIN_PASSWORD=$ADMIN_PASSWORD"             >> backend/.env
-          [ -n "$TELEGRAM_BOT_TOKEN" ]    && echo "TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN"     >> backend/.env
-          [ -n "$TELEGRAM_CHAT_ID" ]      && echo "TELEGRAM_CHAT_ID=$TELEGRAM_CHAT_ID"         >> backend/.env
-          # Ghi thêm telegram vào frontend nếu cần
-          [ -n "$TELEGRAM_BOT_TOKEN" ]    && echo "TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN"     >> frontend/.env
-          [ -n "$TELEGRAM_CHAT_ID" ]      && echo "TELEGRAM_CHAT_ID=$TELEGRAM_CHAT_ID"         >> frontend/.env
-        env:
-          FRONTEND_ENV: ${{ secrets.FRONTEND_ENV }}
-          BACKEND_ENV: ${{ secrets.BACKEND_ENV }}
-          REDIS_URL: ${{ secrets.REDIS_URL }}
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          # Dùng Heredoc để ghi file an toàn tuyệt đối với ký tự đặc biệt
+          cat << 'EOF' > frontend/.env
+          ${{ secrets.FRONTEND_ENV }}
+          EOF
+          
+          cat << 'EOF' > backend/.env
+          ${{ secrets.BACKEND_ENV }}
+          EOF
+          
+          # Ghi tiếp các biến khác
+          [ -n "${{ secrets.REDIS_URL }}" ]             && echo "REDIS_URL=${{ secrets.REDIS_URL }}"                       >> backend/.env
+          [ -n "${{ secrets.DATABASE_URL }}" ]          && echo "DATABASE_URL=${{ secrets.DATABASE_URL }}"                 >> backend/.env
+          [ -n "${{ secrets.ADMIN_PASSWORD }}" ]        && echo "ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }}"             >> backend/.env
+          [ -n "${{ secrets.TELEGRAM_BOT_TOKEN }}" ]    && echo "TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}"     >> backend/.env
+          [ -n "${{ secrets.TELEGRAM_CHAT_ID }}" ]      && echo "TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID }}"         >> backend/.env
+          [ -n "${{ secrets.TELEGRAM_BOT_TOKEN }}" ]    && echo "TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}"     >> frontend/.env
+          [ -n "${{ secrets.TELEGRAM_CHAT_ID }}" ]      && echo "TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID }}"         >> frontend/.env
 
       # ─── BƯỚC 2: Build Docker images ─────────────────────────────────────────
       - name: Build Backend image
