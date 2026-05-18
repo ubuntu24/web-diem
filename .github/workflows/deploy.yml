@@ -15,15 +15,9 @@ jobs:
       # ─── BƯỚC 1: Tạo file .env cho quá trình build ───────────────────────────
       - name: Create .env files for build
         run: |
-          # Xóa file cũ nếu có bằng sudo để tránh lỗi quyền ghi
-          sudo rm -f frontend/.env backend/.env
-          
-          # Tạo file mới bằng sudo
-          echo "$FRONTEND_ENV" | sudo tee frontend/.env > /dev/null
-          echo "$BACKEND_ENV" | sudo tee backend/.env > /dev/null
-          
-          # Cấp quyền lại cho user hiện tại (runner) để ghi tiếp
-          sudo chown $USER:$USER frontend/.env backend/.env
+          # Dùng lại cách ghi file thông thường, không dùng sudo
+          echo "$FRONTEND_ENV" > frontend/.env
+          echo "$BACKEND_ENV" > backend/.env
           
           # Ghi từng biến vào backend/.env
           [ -n "$REDIS_URL" ]             && echo "REDIS_URL=$REDIS_URL"                       >> backend/.env
