@@ -1,4 +1,4 @@
-name: WEB DIEM
+name: WEB DIEM - K3s Deploy
 
 on:
   push:
@@ -6,92 +6,89 @@ on:
       - main
 
 jobs:
-  build-and-test:
+  build-and-deploy:
     runs-on: self-hosted
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Create .env files
+      # ─── BƯỚC 1: Tạo file .env cho quá trình build ───────────────────────────
+      - name: Create .env files for build
         run: |
           echo "$FRONTEND_ENV" > frontend/.env
+          # Ghi từng biến vào backend/.env
           echo "$BACKEND_ENV" > backend/.env
-          [ -n "$REDIS_URL" ] && echo "REDIS_URL=$REDIS_URL" >> backend/.env
-          # 🚀 CLEAN & EXTRACT TOKEN
-          CLEAN_TOKEN=$(echo "$CF_TOKEN" | grep -oE "ey[a-zA-Z0-9+/=_.-]+" | head -n 1 || echo "$CF_TOKEN" | tr -d '[:space:]')
-          
-          # SAFE DEBUG: Verify integrity without leaking secret
-          echo "DEBUG: Token Length is ${#CLEAN_TOKEN}"
-          echo "DEBUG: Token starts with ${CLEAN_TOKEN:0:8}..."
-          echo "DEBUG: Token ends with ...${CLEAN_TOKEN: -8}"
-          
-          # Create dedicated tunnel env file
-          printf "TUNNEL_TOKEN=%s\n" "$CLEAN_TOKEN" > .env.tunnel
-          # Keep root .env for compatibility
-          printf "CF_TOKEN=%s\n" "$CLEAN_TOKEN" > .env
+          [ -n "$REDIS_URL" ]             && echo "REDIS_URL=$REDIS_URL"                       >> backend/.env
+          [ -n "$DATABASE_URL" ]          && echo "DATABASE_URL=$DATABASE_URL"                 >> backend/.env
+          [ -n "$ADMIN_PASSWORD" ]        && echo "ADMIN_PASSWORD=$ADMIN_PASSWORD"             >> backend/.env
+          [ -n "$TELEGRAM_BOT_TOKEN" ]    && echo "TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN"     >> backend/.env
+          [ -n "$TELEGRAM_CHAT_ID" ]      && echo "TELEGRAM_CHAT_ID=$TELEGRAM_CHAT_ID"         >> backend/.env
+          # Ghi thêm telegram vào frontend nếu cần
+          [ -n "$TELEGRAM_BOT_TOKEN" ]    && echo "TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN"     >> frontend/.env
+          [ -n "$TELEGRAM_CHAT_ID" ]      && echo "TELEGRAM_CHAT_ID=$TELEGRAM_CHAT_ID"         >> frontend/.env
         env:
           FRONTEND_ENV: ${{ secrets.FRONTEND_ENV }}
           BACKEND_ENV: ${{ secrets.BACKEND_ENV }}
           REDIS_URL: ${{ secrets.REDIS_URL }}
-          CF_TOKEN: ${{ secrets.CF_TOKEN }}
-
-
-      - name: Build Frontend
-        run: |
-          docker compose build frontend
-
-      - name: Build Backend
-        run: |
-          docker compose build backend
-
-  deploy:
-    needs: build-and-test
-    runs-on: self-hosted
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Create .env files
-        run: |
-          # 📝 Prepare Frontend Env
-          echo "$FRONTEND_ENV" > frontend/.env
-          [ -n "$TELEGRAM_BOT_TOKEN" ] && echo "TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN" >> frontend/.env
-          [ -n "$TELEGRAM_CHAT_ID" ] && echo "TELEGRAM_CHAT_ID=$TELEGRAM_CHAT_ID" >> frontend/.env
-          
-          # 📝 Prepare Backend Env
-          echo "$BACKEND_ENV" > backend/.env
-          [ -n "$DATABASE_URL" ] && echo "DATABASE_URL=$DATABASE_URL" >> backend/.env
-          [ -n "$ADMIN_PASSWORD" ] && echo "ADMIN_PASSWORD=$ADMIN_PASSWORD" >> backend/.env
-          [ -n "$REDIS_URL" ] && echo "REDIS_URL=$REDIS_URL" >> backend/.env
-
-          # 🚀 CLEAN & EXTRACT CF TOKEN
-          CLEAN_TOKEN=$(echo "$CF_TOKEN" | grep -oE "ey[a-zA-Z0-9+/=_.-]+" | head -n 1 || echo "$CF_TOKEN" | tr -d '[:space:]')
-          printf "TUNNEL_TOKEN=%s\n" "$CLEAN_TOKEN" > .env.tunnel
-          printf "CF_TOKEN=%s\n" "$CLEAN_TOKEN" > .env
-        env:
-          FRONTEND_ENV: ${{ secrets.FRONTEND_ENV }}
-          BACKEND_ENV: ${{ secrets.BACKEND_ENV }}
-          CF_TOKEN: ${{ secrets.CF_TOKEN }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          REDIS_URL: ${{ secrets.REDIS_URL }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
-
-      - name: Deploy
-        run: |
-          # 🧹 Total Cleanup to prevent stale images
-          docker compose down --remove-orphans
-          # 🏗️ Force Fresh Build
-          docker compose build --no-cache
-          # 🚀 Launch
-          docker compose up -d --remove-orphans
-          # ♻️ Prune
-          docker image prune -a -f --filter "until=24h"
-        env:
-          FRONTEND_ENV: ${{ secrets.FRONTEND_ENV }}
-          BACKEND_ENV: ${{ secrets.BACKEND_ENV }}
-          CF_TOKEN: ${{ secrets.CF_TOKEN }}
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+      # ─── BƯỚC 2: Build Docker images ─────────────────────────────────────────
+      - name: Build Backend image
+        run: docker build -t web-diem-backend:latest ./backend
+
+      - name: Build Frontend image
+        run: docker build -t web-diem-frontend:latest --build-arg API_URL=http://backend:8000 ./frontend
+
+      # ─── BƯỚC 3: Nạp ảnh vào K3s (containerd) ────────────────────────────────
+      - name: Import images into K3s containerd
+        run: |
+          docker save web-diem-backend:latest  | sudo k3s ctr images import -
+          docker save web-diem-frontend:latest | sudo k3s ctr images import -
+          # Dọn dẹp ảnh Docker cũ để tiết kiệm disk
+          docker image prune -a -f --filter "until=24h"
+
+      # ─── BƯỚC 4: Tạo/Cập nhật K8s Secrets từ GitHub Secrets ─────────────────
+      - name: Apply K8s Secrets
+        run: |
+          # Secret cho backend (đọc toàn bộ file .env)
+          kubectl create secret generic backend-env \
+            --from-env-file=backend/.env \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          # Secret cho frontend
+          kubectl create secret generic frontend-env \
+            --from-env-file=frontend/.env \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          # Secret cho Cloudflare Tunnel Token
+          CLEAN_TOKEN=$(echo "$CF_TOKEN" | grep -oE "ey[a-zA-Z0-9+/=_.-]+" | head -n 1 || echo "$CF_TOKEN" | tr -d '[:space:]')
+          kubectl create secret generic cloudflared-secret \
+            --from-literal=TUNNEL_TOKEN="$CLEAN_TOKEN" \
+            --dry-run=client -o yaml | kubectl apply -f -
+        env:
+          CF_TOKEN: ${{ secrets.CF_TOKEN }}
+
+      # ─── BƯỚC 5: Áp dụng cấu hình K3s ───────────────────────────────────────
+      - name: Apply K3s manifests
+        run: kubectl apply -f k8s/lifesuck-single-node.yaml
+
+      # ─── BƯỚC 6: Rollout restart để K3s dùng ảnh mới nhất ───────────────────
+      - name: Rollout restart deployments
+        run: |
+          kubectl rollout restart deployment/backend
+          kubectl rollout restart deployment/frontend
+          kubectl rollout restart deployment/cloudflared
+
+      # ─── BƯỚC 7: Chờ và xác nhận deploy thành công ───────────────────────────
+      - name: Wait for deployments to be ready
+        run: |
+          kubectl rollout status deployment/backend  --timeout=120s
+          kubectl rollout status deployment/frontend --timeout=120s
+          kubectl rollout status deployment/cloudflared --timeout=60s
+
+      # ─── BƯỚC 8: In trạng thái cuối cùng ────────────────────────────────────
+      - name: Show pod status
+        run: kubectl get pods -o wide

@@ -1,0 +1,141 @@
+---
+# Backend Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        image: web-diem-backend:latest
+        imagePullPolicy: Never  # Dùng ảnh local đã import vào K3s
+        ports:
+        - containerPort: 8000
+        envFrom:
+        - secretRef:
+            name: backend-env  # Lấy toàn bộ biến môi trường từ K8s Secret
+        env:
+        - name: BACKEND_HOST
+          value: "0.0.0.0"
+        - name: BACKEND_PORT
+          value: "8000"
+        - name: NODE_ENV
+          value: "production"
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+          requests:
+            cpu: "250m"
+            memory: "256Mi"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 15
+          failureThreshold: 5
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 15
+          periodSeconds: 10
+---
+# Backend Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+spec:
+  ports:
+  - port: 8000
+    targetPort: 8000
+  selector:
+    app: backend
+---
+# Frontend Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: web-diem-frontend:latest
+        imagePullPolicy: Never  # Dùng ảnh local đã import vào K3s
+        ports:
+        - containerPort: 3000
+        envFrom:
+        - secretRef:
+            name: frontend-env  # Lấy toàn bộ biến môi trường từ K8s Secret
+        env:
+        - name: API_URL
+          value: "http://backend:8000"
+        - name: NODE_ENV
+          value: "production"
+        - name: DOCKER_ENV
+          value: "true"
+        resources:
+          limits:
+            cpu: "1000m"
+            memory: "1Gi"
+          requests:
+            cpu: "500m"
+            memory: "512Mi"
+---
+# Frontend Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+spec:
+  ports:
+  - port: 3000
+    targetPort: 3000
+  selector:
+    app: frontend
+---
+# Cloudflared Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudflared
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cloudflared
+  template:
+    metadata:
+      labels:
+        app: cloudflared
+    spec:
+      containers:
+      - name: cloudflared
+        image: cloudflare/cloudflared:latest
+        args: ["tunnel", "--no-autoupdate", "run"]
+        env:
+        - name: TUNNEL_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: cloudflared-secret
+              key: TUNNEL_TOKEN
