@@ -53,8 +53,8 @@ jobs:
       # ─── BƯỚC 3: Nạp ảnh vào K3s (containerd) ────────────────────────────────
       - name: Import images into K3s containerd
         run: |
-          docker save web-diem-backend:latest  | sudo k3s ctr images import -
-          docker save web-diem-frontend:latest | sudo k3s ctr images import -
+          docker save web-diem-backend:latest  | k3s ctr images import -
+          docker save web-diem-frontend:latest | k3s ctr images import -
           # Dọn dẹp ảnh Docker cũ để tiết kiệm disk
           docker image prune -a -f --filter "until=24h"
 
