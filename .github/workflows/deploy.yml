@@ -15,26 +15,14 @@ jobs:
       # ─── BƯỚC 1: Tạo file .env cho quá trình build ───────────────────────────
       - name: Create .env files for build
         run: |
-          # Đảm bảo thư mục tồn tại
-          mkdir -p frontend backend
-          
-          # Dùng Heredoc để ghi file an toàn tuyệt đối với ký tự đặc biệt
-          cat << 'EOF' > frontend/.env
-          ${{ secrets.FRONTEND_ENV }}
-          EOF
-          
-          cat << 'EOF' > backend/.env
-          ${{ secrets.BACKEND_ENV }}
-          EOF
-          
-          # Ghi tiếp các biến khác
-          [ -n "${{ secrets.REDIS_URL }}" ]             && echo "REDIS_URL=${{ secrets.REDIS_URL }}"                       >> backend/.env
-          [ -n "${{ secrets.DATABASE_URL }}" ]          && echo "DATABASE_URL=${{ secrets.DATABASE_URL }}"                 >> backend/.env
-          [ -n "${{ secrets.ADMIN_PASSWORD }}" ]        && echo "ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }}"             >> backend/.env
-          [ -n "${{ secrets.TELEGRAM_BOT_TOKEN }}" ]    && echo "TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}"     >> backend/.env
-          [ -n "${{ secrets.TELEGRAM_CHAT_ID }}" ]      && echo "TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID }}"         >> backend/.env
-          [ -n "${{ secrets.TELEGRAM_BOT_TOKEN }}" ]    && echo "TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}"     >> frontend/.env
-          [ -n "${{ secrets.TELEGRAM_CHAT_ID }}" ]      && echo "TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID }}"         >> frontend/.env
+          echo "=== Đang chạy ở thư mục ==="
+          pwd
+          echo "=== User hiện tại ==="
+          whoami
+          echo "=== Danh sách file và quyền ==="
+          ls -la
+          echo "=== Thử tạo file ==="
+          touch test_file.txt && echo "Tạo file thành công" || echo "Không thể tạo file"
 
       # ─── BƯỚC 2: Build Docker images ─────────────────────────────────────────
       - name: Build Backend image
