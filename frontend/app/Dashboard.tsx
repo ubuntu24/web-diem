@@ -1143,8 +1143,9 @@ export default function Dashboard() {
                                                                     const isAcademicCdr = (cdr.loai_du_lieu !== 'ChuanDauRa');
                                                                     const title = isAcademicCdr ? cdr.ten_mon : (cdr.so_tin_chi || cdr.ten_mon);
                                                                     const subtitle = isAcademicCdr ? `Mã môn: ${cdr.ma_mon}` : cdr.ten_mon;
-                                                                    const statusText = cdr.ket_qua || 'Chưa nộp';
-                                                                    const isCompleted = statusText.includes('Hoàn tất') || statusText.toLowerCase() === 'đạt';
+                                                                    const rawStatus = cdr.ket_qua || 'Chưa nộp';
+                                                                    const statusText = rawStatus === 'Học lại' ? 'Chưa hoàn tất' : rawStatus;
+                                                                    const isCompleted = statusText === 'Hoàn tất' || statusText.toLowerCase() === 'đạt' || statusText === 'Hoàn thành';
                                                                     return (
                                                                         <div key={idx} className="flex items-center justify-between p-2.5 bg-slate-500/5 dark:bg-slate-800/50 rounded-xl border border-slate-200/50 dark:border-slate-700/50 text-xs">
                                                                             <div className="text-left font-bold text-slate-700 dark:text-slate-300 min-w-0 flex-1 pr-2">
