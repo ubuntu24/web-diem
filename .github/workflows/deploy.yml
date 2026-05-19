@@ -81,6 +81,7 @@ jobs:
         run: docker build -t web-diem-frontend:latest --build-arg API_URL=http://backend:8000 ./frontend
 
       # ─── BƯỚC 3: Nạp ảnh vào K3s (containerd) ────────────────────────────────
+      # Lưu ý: Cần cấu hình passwordless sudo cho user mrs trên VPS để chạy không cần mật khẩu
       - name: Import images into K3s containerd
         run: |
           docker save web-diem-backend:latest  | sudo k3s ctr -n k8s.io images import -
