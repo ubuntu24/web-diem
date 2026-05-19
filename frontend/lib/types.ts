@@ -65,6 +65,7 @@ export interface Grade {
 
 export interface Student {
     msv: string;
+    masked_msv?: string;
     ho_ten: string;
     ngay_sinh: string;
     ma_lop: string;

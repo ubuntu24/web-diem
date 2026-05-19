@@ -289,10 +289,13 @@ def format_student(sv: models.SinhVien, hide_details=False, role: int = 1):
     # --- Build response with Masked Fields (Privacy) ---
     display_msv = security.obfuscate_id(sv.msv) if role == 0 else sv.msv
     display_name = sv.ho_ten or ''
+    # Masked MSV: e.g. 221••••049 for role 0, full MSV for role 1
+    masked_msv = (sv.msv[:3] + "••••" + sv.msv[-3:]) if (len(sv.msv) > 6 and role == 0) else sv.msv
 
     result = {
-        "i": display_msv,    # msv
+        "i": display_msv,    # msv token
         "n": display_name,   # ho_ten
+        "m": masked_msv,     # masked_msv for display
         "b": str(sv.ngay_sinh) if (sv.ngay_sinh and role != 0) else None, # ngay_sinh
         "c": sv.ma_lop if role != 0 else None,      # ma_lop
         "p": sv.noi_sinh if role != 0 else None,    # noi_sinh
