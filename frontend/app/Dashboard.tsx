@@ -1100,7 +1100,7 @@ export default function Dashboard() {
                                                     </div>
                                                     <div className="flex-1 min-w-0">
                                                         <div className="font-black text-lg md:text-xl text-foreground group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors break-words leading-tight">{sv.ho_ten}</div>
-                                                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-2 font-bold uppercase tracking-widest"><><span className="font-mono text-indigo-500/70">{sv.masked_msv || sv.msv}</span><span className="w-1.5 h-1.5 rounded-full bg-border"></span></>{role !== 0 && sv.ngay_sinh && <span className="flex items-center gap-1"><Award className="w-3.5 h-3.5" />{sv.ngay_sinh}</span>}</div>
+                                                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-2 font-bold uppercase tracking-widest">{role !== 0 && <><span className="font-mono text-indigo-500/70">{sv.msv}</span><span className="w-1.5 h-1.5 rounded-full bg-border"></span></>}{role !== 0 && sv.ngay_sinh && <span className="flex items-center gap-1"><Award className="w-3.5 h-3.5" />{sv.ngay_sinh}</span>}</div>
                                                     </div>
                                                     {sv.ma_lop && (<div className="hidden sm:block px-4 py-2 bg-slate-500/5 dark:bg-slate-800 rounded-xl text-xs font-black text-slate-500 dark:text-slate-400 border border-border group-hover:border-indigo-500/50 transition-colors uppercase tracking-widest">{sv.ma_lop}</div>)}
                                                     <div className="w-10 h-10 rounded-full flex items-center justify-center group-hover:bg-indigo-500/10 transition-all"><ChevronRight className="w-6 h-6 text-slate-300 dark:text-slate-600 group-hover:text-indigo-500 group-hover:translate-x-1 transition-all" /></div>
@@ -1120,7 +1120,7 @@ export default function Dashboard() {
                                                     <UserIconBig />
                                                 </div>
                                                 <h2 className="text-2xl font-black text-foreground leading-tight">{currentStudent.ho_ten}</h2>
-                                                <p className="text-sm text-indigo-500 font-black font-mono mt-2 tracking-widest uppercase">{currentStudent.masked_msv || currentStudent.msv}</p>
+                                                {role !== 0 && <p className="text-sm text-indigo-500 font-black font-mono mt-2 tracking-widest uppercase">{currentStudent.msv}</p>}
                                             </div>
                                             <div className="pt-6 space-y-4">
                                                 <InfoRow label="LỚP" value={currentStudent.ma_lop || selectedClass} />
