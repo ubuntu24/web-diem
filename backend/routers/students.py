@@ -66,12 +66,15 @@ def _is_excluded_grade(grade):
       2. Name keyword matching
       3. Score sanity (tong_ket_10 > 10 with no diem_chu → non-academic)
     """
-    ma_mon = (getattr(grade, 'ma_mon', '') or '').strip()
-    if ma_mon in _EXCLUDED_MA_MON:
+    ma_mon = (getattr(grade, 'ma_mon', '') or '').strip().upper()
+    if ma_mon in _EXCLUDED_MA_MON or ma_mon.startswith('CDR'):
         return True
 
     name = (getattr(grade, 'ten_mon', '') or '').strip().lower()
     if name and any(kw in name for kw in _EXCLUDED_NAME_KEYWORDS):
+        return True
+
+    if name.startswith('chuẩn đầu ra') or getattr(grade, 'loai_du_lieu', '') == 'ChuanDauRa':
         return True
 
     # Safety net: score > 10 without letter grade is non-academic
@@ -237,8 +240,29 @@ def format_student(sv: models.SinhVien, hide_details=False, role: int = 1):
     tp10 = sum(v['s10'] * v['credit'] for v in subject_map.values() if v['s10'] >= 4.0)
     tc = sum(v['credit'] for v in subject_map.values() if v['s10'] >= 4.0)
 
-    gpa_4 = round(tp4 / tc, 2) if tc > 0 else 0.0
-    gpa_10 = round(tp10 / tc, 2) if tc > 0 else 0.0
+    # Find school's calculated GPA from 'TongKet' rows (user wants to use school's value)
+    school_gpa_4 = None
+    school_gpa_10 = None
+    if diem_sorted:
+        for d in reversed(diem_sorted):
+            if getattr(d, 'loai_du_lieu', '') == 'TongKet':
+                val4 = getattr(d, 'tb_tich_luy_4', None)
+                val10 = getattr(d, 'tb_tich_luy_10', None)
+                if school_gpa_4 is None and val4 is not None:
+                    try:
+                        school_gpa_4 = float(str(val4).replace(',', '.'))
+                    except ValueError:
+                        pass
+                if school_gpa_10 is None and val10 is not None:
+                    try:
+                        school_gpa_10 = float(str(val10).replace(',', '.'))
+                    except ValueError:
+                        pass
+                if school_gpa_4 is not None and school_gpa_10 is not None:
+                    break
+
+    gpa_4 = school_gpa_4 if school_gpa_4 is not None else (round(tp4 / tc, 2) if tc > 0 else 0.0)
+    gpa_10 = school_gpa_10 if school_gpa_10 is not None else (round(tp10 / tc, 2) if tc > 0 else 0.0)
 
     # Calculate History GPA (hg) map
     hg = {}

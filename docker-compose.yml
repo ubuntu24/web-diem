@@ -31,6 +31,17 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    ports:
+      - "8191:8191"
+    environment:
+      - LOG_LEVEL=info
+    restart: always
+    networks:
+      - backend-network
+
   backend:
     build:
       context: ./backend

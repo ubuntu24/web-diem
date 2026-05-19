@@ -81,6 +81,30 @@ export default function GradeTable({ grades }: GradeTableProps) {
 function GradeRow({ grade, isPass, isHigh }: { grade: Grade; isPass: boolean; isHigh: boolean }) {
     const [isOpen, setIsOpen] = useState(false);
 
+    if (grade.loai_du_lieu === 'ChuanDauRa') {
+        return (
+            <tr className="border-b border-slate-50 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                <td className="px-3 md:px-6 py-3 md:py-4 font-medium text-slate-900 dark:text-slate-200 min-w-[150px]">
+                    {grade.ten_mon}
+                </td>
+                <td className="px-2 md:px-6 py-3 md:py-4 text-center text-slate-500 dark:text-slate-400">
+                    {grade.so_tin_chi || '-'}
+                </td>
+                <td className="px-2 md:px-6 py-3 md:py-4 text-center text-slate-600 dark:text-slate-300">
+                    {grade.diem_chu || '-'}
+                </td>
+                <td className="px-2 md:px-6 py-3 md:py-4 text-center text-slate-600 dark:text-slate-300">
+                    -
+                </td>
+                <td className="px-2 md:px-6 py-3 md:py-4 text-center">
+                    <span className={`inline-flex items-center justify-center px-2.5 py-1 rounded-full text-[11px] font-black border ${(grade.ket_qua || '').includes('Hoàn tất') ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800' : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800'}`}>
+                        {grade.ket_qua || '-'}
+                    </span>
+                </td>
+            </tr>
+        );
+    }
+
     const getGradeColor = (diem_chu: string) => {
         if (!diem_chu) return 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700';
         const char = diem_chu.charAt(0).toUpperCase();

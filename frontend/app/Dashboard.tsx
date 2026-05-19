@@ -115,6 +115,14 @@ export default function Dashboard() {
         return grade.normalized_semester || grade.hoc_ky || 'Khác';
     }
 
+    function isChuanDauRa(grade: Grade): boolean {
+        if (grade.loai_du_lieu === 'ChuanDauRa') return true;
+        const name = (grade.ten_mon || '').trim().toLowerCase();
+        const code = (grade.ma_mon || '').trim().toUpperCase();
+        if (code.startsWith('CDR') || name.startsWith('chuẩn đầu ra')) return true;
+        return false;
+    }
+
     // ---------------------------------------------------------------------------
     // Field Mapping (Privacy)
     // ---------------------------------------------------------------------------
@@ -699,7 +707,11 @@ export default function Dashboard() {
         const cum = calculateCumulativeGPA(student);
         setTotalCredits(cum.totalCredits);
         setTotalPoints(cum.totalPoints4);
-        const val = sortingScale === '4' ? cum.gpa4 : cum.gpa10;
+        
+        // Use backend GPA if available (user requested not to calculate)
+        const backendGPA = sortingScale === '4' ? student.gpa : student.gpa10;
+        const val = backendGPA || (sortingScale === '4' ? cum.gpa4 : cum.gpa10);
+        
         setGpa(val > 0 ? val.toFixed(2) : 'N/A');
 
         // Populate semester_gpa for charts if missing
@@ -741,7 +753,9 @@ export default function Dashboard() {
 
     const gradesBySemester = (() => {
         // Buoc 1: Gom thanh tich theo tung ky
-        const grouped = (currentStudent?.diem || []).reduce((acc, grade) => {
+        const grouped = (currentStudent?.diem || [])
+            .filter(g => !isChuanDauRa(g))
+            .reduce((acc, grade) => {
             const hk = getNormalizedSemester(grade);
             if (!acc[hk]) acc[hk] = [];
             acc[hk].push(grade);
@@ -1085,7 +1099,7 @@ export default function Dashboard() {
                                                     </div>
                                                     <div className="flex-1 min-w-0">
                                                         <div className="font-black text-lg md:text-xl text-foreground group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors break-words leading-tight">{sv.ho_ten}</div>
-                                                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-2 font-bold uppercase tracking-widest">{role !== 0 && (<><span className="font-mono text-indigo-500/70">{sv.msv}</span><span className="w-1.5 h-1.5 rounded-full bg-border"></span></>)}{role !== 0 && sv.ngay_sinh && <span className="flex items-center gap-1"><Award className="w-3.5 h-3.5" />{sv.ngay_sinh}</span>}</div>
+                                                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-2 font-bold uppercase tracking-widest"><><span className="font-mono text-indigo-500/70">{sv.msv}</span><span className="w-1.5 h-1.5 rounded-full bg-border"></span></>{role !== 0 && sv.ngay_sinh && <span className="flex items-center gap-1"><Award className="w-3.5 h-3.5" />{sv.ngay_sinh}</span>}</div>
                                                     </div>
                                                     {sv.ma_lop && (<div className="hidden sm:block px-4 py-2 bg-slate-500/5 dark:bg-slate-800 rounded-xl text-xs font-black text-slate-500 dark:text-slate-400 border border-border group-hover:border-indigo-500/50 transition-colors uppercase tracking-widest">{sv.ma_lop}</div>)}
                                                     <div className="w-10 h-10 rounded-full flex items-center justify-center group-hover:bg-indigo-500/10 transition-all"><ChevronRight className="w-6 h-6 text-slate-300 dark:text-slate-600 group-hover:text-indigo-500 group-hover:translate-x-1 transition-all" /></div>
@@ -1105,7 +1119,7 @@ export default function Dashboard() {
                                                     <UserIconBig />
                                                 </div>
                                                 <h2 className="text-2xl font-black text-foreground leading-tight">{currentStudent.ho_ten}</h2>
-                                                {role !== 0 && (<p className="text-sm text-indigo-500 font-black font-mono mt-2 tracking-widest uppercase">{currentStudent.msv}</p>)}
+                                                <p className="text-sm text-indigo-500 font-black font-mono mt-2 tracking-widest uppercase">{currentStudent.msv}</p>
                                             </div>
                                             <div className="pt-6 space-y-4">
                                                 <InfoRow label="LỚP" value={currentStudent.ma_lop || selectedClass} />
@@ -1115,6 +1129,37 @@ export default function Dashboard() {
                                                         <InfoRow label="QUÊ QUÁN" value={currentStudent.noi_sinh} />
                                                     </motion.div>
                                                 )}
+                                                
+                                                {/* Chuẩn đầu ra section */}
+                                                {(() => {
+                                                    const cdrGrades = (currentStudent?.diem || []).filter(isChuanDauRa);
+                                                    if (cdrGrades.length === 0) return null;
+                                                    return (
+                                                        <div className="pt-6 border-t border-slate-200/50 dark:border-slate-700/50 space-y-3">
+                                                            <div className="text-left"><span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">Chuẩn đầu ra</span></div>
+                                                            <div className="space-y-2">
+                                                                {cdrGrades.map((cdr, idx) => {
+                                                                    const isAcademicCdr = (cdr.loai_du_lieu !== 'ChuanDauRa');
+                                                                    const title = isAcademicCdr ? cdr.ten_mon : (cdr.so_tin_chi || cdr.ten_mon);
+                                                                    const subtitle = isAcademicCdr ? `Mã môn: ${cdr.ma_mon}` : cdr.ten_mon;
+                                                                    const statusText = cdr.ket_qua || 'Chưa nộp';
+                                                                    const isCompleted = statusText.includes('Hoàn tất') || statusText.toLowerCase() === 'đạt';
+                                                                    return (
+                                                                        <div key={idx} className="flex items-center justify-between p-2.5 bg-slate-500/5 dark:bg-slate-800/50 rounded-xl border border-slate-200/50 dark:border-slate-700/50 text-xs">
+                                                                            <div className="text-left font-bold text-slate-700 dark:text-slate-300 min-w-0 flex-1 pr-2">
+                                                                                <div className="truncate text-slate-800 dark:text-slate-200" title={title}>{title}</div>
+                                                                                <div className="text-[9px] opacity-60 truncate" title={subtitle}>{subtitle}</div>
+                                                                            </div>
+                                                                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-black border shrink-0 ${isCompleted ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800' : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800'}`}>
+                                                                                {statusText}
+                                                                            </span>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })()}
                                             </div>
                                             <div className="mt-8 p-6 bg-gradient-to-br from-indigo-600 to-violet-700 dark:from-indigo-600/20 dark:to-violet-700/20 border-2 border-indigo-400/20 rounded-2xl text-white text-center shadow-2xl shadow-indigo-500/20">
                                                 <div className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80 mb-1 text-indigo-100 italic">CÔNG LỰC TÍCH LŨY</div>
