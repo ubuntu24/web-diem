@@ -526,3 +526,126 @@ def get_public_announcement(db: Session = Depends(database.get_db)):
     config = db.query(models.SystemConfig).filter(models.SystemConfig.key == "announcement").first()
     return {"message": config.value if config else ""}
 
+
+# ---------------------------------------------------------------------------
+# Hidden Subject Rules — Admin only
+# ---------------------------------------------------------------------------
+
+@router.get("/admin/hidden-subjects/{msv}")
+def get_hidden_subjects(
+    msv: str,
+    current_user: models.Nick = Depends(security.get_current_user),
+    db: Session = Depends(database.get_db),
+):
+    """Liệt kê các môn đang bị ẩn của một sinh viên."""
+    if current_user.role != 1:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    rules = db.query(models.HiddenSubjectRule).filter(
+        models.HiddenSubjectRule.msv == msv
+    ).all()
+
+    return [
+        {
+            "id": r.id,
+            "msv": r.msv,
+            "subject_key": r.subject_key,
+            "note": r.note,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+        }
+        for r in rules
+    ]
+
+
+@router.post("/admin/hidden-subjects")
+def hide_subject(
+    payload: dict,
+    request: Request,
+    current_user: models.Nick = Depends(security.get_current_user),
+    db: Session = Depends(database.get_db),
+):
+    """Ẩn một môn học của một sinh viên với người dùng thường (role 0)."""
+    if current_user.role != 1:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    msv = (payload.get("msv") or "").strip()
+    subject_key = (payload.get("subject_key") or "").strip()
+    note = (payload.get("note") or "").strip() or None
+
+    if not msv or not subject_key:
+        raise HTTPException(status_code=400, detail="msv and subject_key are required")
+
+    # Upsert: nếu đã tồn tại thì cập nhật note
+    existing = db.query(models.HiddenSubjectRule).filter(
+        models.HiddenSubjectRule.msv == msv,
+        models.HiddenSubjectRule.subject_key == subject_key,
+    ).first()
+
+    if existing:
+        existing.note = note
+    else:
+        rule = models.HiddenSubjectRule(
+            msv=msv,
+            subject_key=subject_key,
+            created_by=current_user.id,
+            note=note,
+        )
+        db.add(rule)
+
+    db.commit()
+
+    # Xóa cache role0 của sinh viên đó để user thường thấy ngay
+    import cache as _cache
+    _cache.delete_prefix(f"student:{msv}:role0")
+    _cache.delete_prefix("class:v6:")
+    _cache.delete_prefix("search:")
+
+    logger.info(
+        "admin_action=hide_subject actor=%s msv=%s subject_key=%s ip=%s",
+        current_user.username, msv, subject_key,
+        request.client.host if request.client else "unknown",
+    )
+
+    return {"message": f"Subject '{subject_key}' hidden for student {msv}"}
+
+
+@router.delete("/admin/hidden-subjects")
+def unhide_subject(
+    payload: dict,
+    request: Request,
+    current_user: models.Nick = Depends(security.get_current_user),
+    db: Session = Depends(database.get_db),
+):
+    """Bỏ ẩn một môn học của một sinh viên."""
+    if current_user.role != 1:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    msv = (payload.get("msv") or "").strip()
+    subject_key = (payload.get("subject_key") or "").strip()
+
+    if not msv or not subject_key:
+        raise HTTPException(status_code=400, detail="msv and subject_key are required")
+
+    deleted = db.query(models.HiddenSubjectRule).filter(
+        models.HiddenSubjectRule.msv == msv,
+        models.HiddenSubjectRule.subject_key == subject_key,
+    ).delete()
+
+    db.commit()
+
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Rule not found")
+
+    # Xóa cache để user thường thấy môn trở lại
+    import cache as _cache
+    _cache.delete_prefix(f"student:{msv}:role0")
+    _cache.delete_prefix("class:v6:")
+    _cache.delete_prefix("search:")
+
+    logger.info(
+        "admin_action=unhide_subject actor=%s msv=%s subject_key=%s ip=%s",
+        current_user.username, msv, subject_key,
+        request.client.host if request.client else "unknown",
+    )
+
+    return {"message": f"Subject '{subject_key}' unhidden for student {msv}"}

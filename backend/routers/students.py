@@ -160,15 +160,27 @@ def _normalize_name(name):
     return n
 
 
+def _subject_key(grade):
+    ma_mon = (getattr(grade, 'ma_mon', '') or '').strip().upper()
+    ten_mon = (getattr(grade, 'ten_mon', '') or '').strip().lower()
+    ldl = (getattr(grade, 'loai_du_lieu', '') or '').strip()
+    if ldl in ('ChuanDauRa', 'TongKet') or (ma_mon.startswith('CDR') and ma_mon != '1') or (ten_mon.startswith('chuẩn đầu ra') and ma_mon != '1'):
+        return None
+    norm = _normalize_name(getattr(grade, 'ten_mon', ''))
+    return (f"N_{norm}" if norm else '') or getattr(grade, 'ma_mon', '').strip()
+
+
 # ---------------------------------------------------------------------------
 # Student formatter
 # ---------------------------------------------------------------------------
 
-def format_student(sv: models.SinhVien, hide_details=False, role: int = 1):
+def format_student(sv: models.SinhVien, hide_details=False, role: int = 1, hidden_keys: set = None):
     """Format a student record for the frontend.
     
     Fast path: When hide_details=True, we avoid building the large 'd' array.
+    hidden_keys: set of subject_key strings to exclude from 'd' for role-0 users.
     """
+    _hidden = hidden_keys or set()
 
     # Sort grades by id (oldest → newest) for consistent retake handling
     # If grades are not loaded (to avoid N+1), we skip this.
@@ -203,15 +215,6 @@ def format_student(sv: models.SinhVien, hide_details=False, role: int = 1):
         if not hk and ldl: return ldl
         return hk or 'Khác'
 
-    def _subj_key(d):
-        ma_mon = (getattr(d, 'ma_mon', '') or '').strip().upper()
-        ten_mon = (getattr(d, 'ten_mon', '') or '').strip().lower()
-        ldl = getattr(d, 'loai_du_lieu', '')
-        if ldl in ('ChuanDauRa', 'TongKet') or (ma_mon.startswith('CDR') and ma_mon != '1') or (ten_mon.startswith('chuẩn đầu ra') and ma_mon != '1'):
-            return None
-        norm = _normalize_name(getattr(d, 'ten_mon', ''))
-        return (f"N_{norm}" if norm else '') or getattr(d, 'ma_mon', '').strip()
-
     # --- Compute GPA from scratch (never trust summary fields) ---
     subject_map = {}  # key → {score4, score10, credit}
     sem_subject_map = {} # (sem, key) → {score4, score10, credit}
@@ -226,7 +229,7 @@ def format_student(sv: models.SinhVien, hide_details=False, role: int = 1):
                 if credit <= 0 or s10 is None:
                     continue
 
-                key = _subj_key(d)
+                key = _subject_key(d)
                 sem = _get_semester(d)
                 
                 # HIGHEST attempt wins for Cumulative GPA
@@ -295,7 +298,7 @@ def format_student(sv: models.SinhVien, hide_details=False, role: int = 1):
         sem_subject = {}  # (semester, subject_key) → best grade row
         for d in diem_sorted:
             sem = _get_semester(d)
-            subj_key = _subj_key(d)
+            subj_key = _subject_key(d)
             if not subj_key: continue
             
             group_key = (sem, subj_key)
@@ -318,10 +321,13 @@ def format_student(sv: models.SinhVien, hide_details=False, role: int = 1):
         for d in diem_sorted:
             row_id = getattr(d, 'id', None)
             sem = _get_semester(d)
-            subj_key = _subj_key(d)
+            subj_key = _subject_key(d)
             group_key = (sem, subj_key)
 
             if subj_key:
+                # Admin (role 1) always sees all subjects
+                if role == 0 and subj_key in _hidden:
+                    continue
                 if row_id is not None and row_id in best_ids:
                     if group_key in seen_keys: continue
                     seen_keys.add(group_key)
@@ -434,7 +440,7 @@ def get_students_by_class(
         result = security.obfuscate_payload(data)
         return result
 
-    # For class lists, ALWAYS hide details (perf win)
+    # For class lists, ALWAYS hide details (perf win) — hidden_keys not needed (d=None)
     data = {"students": [format_student(sv, hide_details=True, role=role) for sv in students]}
     result = security.obfuscate_payload(data)
     _cache.set(cache_key, result, ttl=_TTL_CLASS)
@@ -464,7 +470,15 @@ def get_student_detail(
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
 
-    data = format_student(student, role=role)
+    # Load hidden subject rules for this student (only relevant for role 0)
+    hidden_keys: set = set()
+    if role == 0:
+        rules = db.query(models.HiddenSubjectRule.subject_key).filter(
+            models.HiddenSubjectRule.msv == real_msv
+        ).all()
+        hidden_keys = {r.subject_key for r in rules}
+
+    data = format_student(student, role=role, hidden_keys=hidden_keys)
     result = security.obfuscate_payload(data)
     _cache.set(cache_key, result, ttl=_TTL_STUDENT)
     return result

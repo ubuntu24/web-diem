@@ -12,6 +12,7 @@ from sqlalchemy import (
     Integer,
     Text,
     Float,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -200,3 +201,16 @@ class UserIpLog(Base):
     language: Mapped[Optional[str]] = mapped_column(Text, nullable=True)     # e.g., "vi-VN"
     connection_type: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # e.g., "4g", "wifi"
 
+
+class HiddenSubjectRule(Base):
+    """Admin ẩn một môn học cụ thể của một sinh viên khỏi view của người dùng thường (role 0)."""
+    __tablename__ = "hidden_subject_rules"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    msv: Mapped[str] = mapped_column(Text, nullable=False, index=True)
+    subject_key: Mapped[str] = mapped_column(Text, nullable=False)   # N_<tên> hoặc ma_mon raw
+    created_by: Mapped[int] = mapped_column(BigInteger, ForeignKey("nick.id", ondelete="CASCADE"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    __table_args__ = (UniqueConstraint("msv", "subject_key", name="uq_hidden_msv_subject"),)

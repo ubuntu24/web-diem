@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Grade } from '@/lib/types';
-import { ChevronDown, RotateCcw, BookX } from 'lucide-react';
+import { getSubjectKey } from '@/lib/utils';
+import { ChevronDown, RotateCcw, BookX, EyeOff, Eye, Loader2 } from 'lucide-react';
 
 interface GradeTableProps {
     grades: Grade[];
+    /** MSV của sinh viên đang xem — chỉ truyền khi admin role=1 đang xem người khác */
+    adminMsv?: string;
 }
 
 /** Có điểm thi KN (thi lần 2) */
@@ -13,43 +16,23 @@ function _hasRetakeExam(grade: Grade): boolean {
     return !!(grade.diem_thi_kn_1 || grade.diem_thi_kn_2 || grade.diem_thi_kn_3 || grade.diem_thi_kn_4);
 }
 
-/**
- * Thi lại:
- * 1. Nếu tổng kết >= 4 (đã qua): Cần xem có trượt lần 1 (tong_ket_1 < 4) hoặc có điểm thi KN (thi lại) không.
- * 2. Nếu tổng kết < 4 (đang trượt): Nếu CHƯA thi lại lần 2 (chưa có điểm thi KN) thì hiển thị "Thi lại".
- */
 function _isRetake(grade: Grade): boolean {
     const tk10 = parseFloat(grade.tong_ket_10 || '');
     if (isNaN(tk10)) return false;
-
     const tk1 = parseFloat(grade.tong_ket_1 || '');
     const failedFirst = !isNaN(tk1) && tk1 < 4;
     const hasRetakeScore = _hasRetakeExam(grade);
-
-    if (tk10 < 4) {
-        // Trượt nhưng CHƯA có điểm thi lại => Thuộc diện chờ Thi lại
-        return !hasRetakeScore;
-    } else {
-        // Đã qua nhưng TỪNG trượt hoặc CÓ điểm thi lại => Đã Thi lại
-        return failedFirst || hasRetakeScore;
-    }
+    if (tk10 < 4) return !hasRetakeScore;
+    else return failedFirst || hasRetakeScore;
 }
 
-/** 
- * Học lại: 
- * Tổng kết < 4 (trượt) VÀ ĐÃ THI LẠI (có điểm KN) mà vẫn trượt.
- */
 function _isRelearn(grade: Grade): boolean {
     const tk10 = parseFloat(grade.tong_ket_10 || '');
     if (isNaN(tk10) || tk10 >= 4) return false;
-
-    const hasRetakeScore = _hasRetakeExam(grade);
-    
-    // Đã thi lại mà vẫn trượt => Học lại
-    return hasRetakeScore;
+    return _hasRetakeExam(grade);
 }
 
-export default function GradeTable({ grades }: GradeTableProps) {
+export default function GradeTable({ grades, adminMsv }: GradeTableProps) {
     return (
         <div className="overflow-x-auto">
             <table className="w-full text-sm text-left font-medium">
@@ -60,16 +43,20 @@ export default function GradeTable({ grades }: GradeTableProps) {
                         <th className="px-2 md:px-6 py-3 md:py-4 font-bold tracking-wider text-center">Thành tích thi</th>
                         <th className="px-2 md:px-6 py-3 md:py-4 font-bold tracking-wider text-center">Thành Tích (hệ 4)</th>
                         <th className="px-2 md:px-6 py-3 md:py-4 font-bold tracking-wider text-center">Kết quả</th>
+                        {adminMsv && <th className="px-2 md:px-6 py-3 md:py-4 font-bold tracking-wider text-center w-10"></th>}
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {grades.map((grade, index) => {
                         const score = parseFloat(grade.tong_ket_10);
                         const isHigh = !isNaN(score) && score >= 8.5;
-                        const isPass = grade.diem_chu !== 'F' && Boolean(grade.diem_chu);
-
                         return (
-                            <GradeRow key={index} grade={grade} isPass={isPass} isHigh={isHigh} />
+                            <GradeRow
+                                key={index}
+                                grade={grade}
+                                isHigh={isHigh}
+                                adminMsv={adminMsv}
+                            />
                         );
                     })}
                 </tbody>
@@ -78,8 +65,42 @@ export default function GradeTable({ grades }: GradeTableProps) {
     );
 }
 
-function GradeRow({ grade, isPass, isHigh }: { grade: Grade; isPass: boolean; isHigh: boolean }) {
+type DetailItem = {
+    label: string;
+    value?: string | null;
+    highlight?: boolean;
+};
+
+function GradeRow({ grade, isHigh, adminMsv }: { grade: Grade; isHigh: boolean; adminMsv?: string }) {
     const [isOpen, setIsOpen] = useState(false);
+    const [hiding, setHiding] = useState(false);
+    const [hidden, setHidden] = useState(false);
+
+    const subjectKey = getSubjectKey(grade);
+
+    const handleToggleHide = useCallback(async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!adminMsv || !subjectKey) return;
+        setHiding(true);
+        try {
+            const method = hidden ? 'DELETE' : 'POST';
+            const res = await fetch('/api/bff/admin/hidden-subjects', {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ msv: adminMsv, subject_key: subjectKey }),
+            });
+            if (res.ok) {
+                setHidden(!hidden);
+            } else {
+                const err = await res.json().catch(() => ({}));
+                alert(err?.detail || 'Lỗi khi cập nhật trạng thái ẩn');
+            }
+        } catch {
+            alert('Lỗi kết nối');
+        } finally {
+            setHiding(false);
+        }
+    }, [adminMsv, subjectKey, hidden]);
 
     if (grade.loai_du_lieu === 'ChuanDauRa') {
         return (
@@ -101,6 +122,7 @@ function GradeRow({ grade, isPass, isHigh }: { grade: Grade; isPass: boolean; is
                         {grade.ket_qua || '-'}
                     </span>
                 </td>
+                {adminMsv && <td />}
             </tr>
         );
     }
@@ -108,7 +130,6 @@ function GradeRow({ grade, isPass, isHigh }: { grade: Grade; isPass: boolean; is
     const getGradeColor = (diem_chu: string) => {
         if (!diem_chu) return 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700';
         const char = diem_chu.charAt(0).toUpperCase();
-
         switch (char) {
             case 'A': return 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800';
             case 'B': return 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800';
@@ -120,7 +141,7 @@ function GradeRow({ grade, isPass, isHigh }: { grade: Grade; isPass: boolean; is
         }
     };
 
-    const details = [
+    const details: DetailItem[] = [
         { label: 'Chuyên Cần', value: grade.chuyen_can },
         { label: 'Thường Kỳ 1', value: grade.thuong_ky_1 },
         { label: 'Thường Kỳ 2', value: grade.thuong_ky_2 },
@@ -162,7 +183,7 @@ function GradeRow({ grade, isPass, isHigh }: { grade: Grade; isPass: boolean; is
     return (
         <>
             <tr
-                className={`transition-all border-b border-slate-50 dark:border-slate-800 ${isHigh ? 'bg-blue-50/40 dark:bg-blue-900/10' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'} ${hasDetails ? 'cursor-pointer' : ''} ${isOpen ? 'bg-slate-50/80 dark:bg-slate-800/80' : ''}`}
+                className={`transition-all border-b border-slate-50 dark:border-slate-800 ${hidden ? 'opacity-40 bg-slate-100/60 dark:bg-slate-800/40' : isHigh ? 'bg-blue-50/40 dark:bg-blue-900/10' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'} ${hasDetails ? 'cursor-pointer' : ''} ${isOpen ? 'bg-slate-50/80 dark:bg-slate-800/80' : ''}`}
                 onClick={() => hasDetails && setIsOpen(!isOpen)}
             >
                 <td className="px-3 md:px-6 py-3 md:py-4 font-medium text-slate-900 dark:text-slate-200 min-w-[150px]">
@@ -180,7 +201,12 @@ function GradeRow({ grade, isPass, isHigh }: { grade: Grade; isPass: boolean; is
                                 Học lại
                             </span>
                         )}
-
+                        {hidden && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-tight bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-600 shrink-0 mt-0.5">
+                                <EyeOff className="w-2.5 h-2.5" />
+                                Đang ẩn
+                            </span>
+                        )}
                         {hasDetails && (
                             <ChevronDown className={`w-4 h-4 text-slate-400 shrink-0 transition-transform duration-300 mt-0.5 ${isOpen ? 'rotate-180' : ''}`} />
                         )}
@@ -196,18 +222,38 @@ function GradeRow({ grade, isPass, isHigh }: { grade: Grade; isPass: boolean; is
                         {grade.diem_chu || '-'}
                     </span>
                 </td>
+                {adminMsv && (
+                    <td className="px-2 py-3 text-center">
+                        <button
+                            onClick={handleToggleHide}
+                            disabled={hiding}
+                            title={hidden ? 'Bỏ ẩn môn này' : 'Ẩn môn này với user'}
+                            className={`p-1.5 rounded-lg transition-all active:scale-95 ${hidden
+                                ? 'text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20'
+                                : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700'
+                                }`}
+                        >
+                            {hiding
+                                ? <Loader2 className="w-4 h-4 animate-spin" />
+                                : hidden
+                                    ? <Eye className="w-4 h-4" />
+                                    : <EyeOff className="w-4 h-4" />
+                            }
+                        </button>
+                    </td>
+                )}
             </tr>
             {hasDetails && isOpen && (
                 <tr className="animate-in fade-in zoom-in-95 duration-300">
-                    <td colSpan={5} className="px-6 py-6 bg-slate-50/50 dark:bg-slate-900/30 border-b border-slate-100 dark:border-slate-800 shadow-inner">
+                    <td colSpan={adminMsv ? 6 : 5} className="px-6 py-6 bg-slate-50/50 dark:bg-slate-900/30 border-b border-slate-100 dark:border-slate-800 shadow-inner">
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
                             {details.map((item, i) => (
-                                <div key={i} className={`p-3 rounded-xl border shadow-[0_2px_4px_rgba(0,0,0,0.02)] flex flex-col items-center text-center ${(item as any).highlight
+                                <div key={i} className={`p-3 rounded-xl border shadow-[0_2px_4px_rgba(0,0,0,0.02)] flex flex-col items-center text-center ${item.highlight
                                     ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
                                     : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'
                                     }`}>
                                     <div className="text-[9px] uppercase tracking-wider font-extrabold text-slate-400 dark:text-slate-500 mb-1">{item.label}</div>
-                                    <div className={`text-base font-bold font-mono ${(item as any).highlight
+                                    <div className={`text-base font-bold font-mono ${item.highlight
                                         ? 'text-red-500 dark:text-red-400'
                                         : 'text-blue-600 dark:text-blue-400'
                                         }`}>{item.value}</div>

@@ -70,7 +70,7 @@ export function getNormalizedSemester(grade: Grade): string {
     return hk || 'Khác';
 }
 
-function normalizeSubjectName(name: string): string {
+export function normalizeSubjectName(name: string): string {
     let rawName = (name || '').trim().toLowerCase();
     const suffixes = ['_ hv', '_hv', '(hoc vuot)', '(hv)'];
     for (const suffix of suffixes) {
@@ -81,7 +81,7 @@ function normalizeSubjectName(name: string): string {
     return rawName;
 }
 
-function getSubjectKey(g: Grade): string {
+export function getSubjectKey(g: Grade): string {
     const rawName = normalizeSubjectName(g.ten_mon || '');
     return (rawName ? `N_${rawName}` : '') || (g.ma_mon || '').trim();
 }

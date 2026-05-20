@@ -9,9 +9,11 @@ interface SemesterAccordionProps {
     semester: string;
     grades: Grade[];
     gpa: string;
+    /** MSV của sinh viên đang xem — chỉ truyền khi admin xem người khác */
+    adminMsv?: string;
 }
 
-export default function SemesterAccordion({ semester, grades, gpa }: SemesterAccordionProps) {
+export default function SemesterAccordion({ semester, grades, gpa, adminMsv }: SemesterAccordionProps) {
     const [isOpen, setIsOpen] = useState(false);
 
     // Filter out empty subjects (summary rows)
@@ -45,7 +47,7 @@ export default function SemesterAccordion({ semester, grades, gpa }: SemesterAcc
 
             {isOpen && (
                 <div className="animate-in fade-in slide-in-from-top-2 duration-200">
-                    <GradeTable grades={validGrades} />
+                    <GradeTable grades={validGrades} adminMsv={adminMsv} />
                 </div>
             )}
         </div>

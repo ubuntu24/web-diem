@@ -1180,7 +1180,7 @@ export default function Dashboard() {
                                             const semesterGrades = gradesBySemester[hk];
                                             const semGPA = calculateSemesterGPA(currentStudent, hk);
                                             const displayGPA = (sortingScale === '4' ? semGPA.gpa4 : semGPA.gpa10).toFixed(2);
-                                            return (<SemesterAccordion key={hk} semester={hk} grades={semesterGrades} gpa={displayGPA} />);
+                                            return (<SemesterAccordion key={hk} semester={hk} grades={semesterGrades} gpa={displayGPA} adminMsv={role === 1 ? currentStudent.msv : undefined} />);
                                         })}
                                     </div>
                                 </motion.div>
