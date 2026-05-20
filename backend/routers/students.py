@@ -74,7 +74,7 @@ def _is_excluded_grade(grade):
     if name and any(kw in name for kw in _EXCLUDED_NAME_KEYWORDS):
         return True
 
-    if name.startswith('chuẩn đầu ra') or getattr(grade, 'loai_du_lieu', '') == 'ChuanDauRa':
+    if (name.startswith('chuẩn đầu ra') and ma_mon != '1') or getattr(grade, 'loai_du_lieu', '') == 'ChuanDauRa':
         return True
 
     # Safety net: score > 10 without letter grade is non-academic
@@ -174,9 +174,10 @@ def format_student(sv: models.SinhVien, hide_details=False, role: int = 1):
     # If grades are not loaded (to avoid N+1), we skip this.
     diem_loaded = getattr(sv, 'diem', None)
     diem_sorted = sorted(
-        diem_loaded or [],
+        [r for r in (diem_loaded or []) if (getattr(r, 'ma_mon', '') or '').strip().upper() != '1'],
         key=lambda r: (getattr(r, 'id', 0) or 0)
     ) if diem_loaded else []
+
 
     # --- Backend semester normalization logic ---
     def _get_semester(d):
@@ -203,9 +204,13 @@ def format_student(sv: models.SinhVien, hide_details=False, role: int = 1):
         return hk or 'Khác'
 
     def _subj_key(d):
-        ma_mon = (getattr(d, 'ma_mon', '') or '').strip()
+        ma_mon = (getattr(d, 'ma_mon', '') or '').strip().upper()
+        ten_mon = (getattr(d, 'ten_mon', '') or '').strip().lower()
+        ldl = getattr(d, 'loai_du_lieu', '')
+        if ldl in ('ChuanDauRa', 'TongKet') or (ma_mon.startswith('CDR') and ma_mon != '1') or (ten_mon.startswith('chuẩn đầu ra') and ma_mon != '1'):
+            return None
         norm = _normalize_name(getattr(d, 'ten_mon', ''))
-        return (f"N_{norm}" if norm else '') or ma_mon
+        return (f"N_{norm}" if norm else '') or getattr(d, 'ma_mon', '').strip()
 
     # --- Compute GPA from scratch (never trust summary fields) ---
     subject_map = {}  # key → {score4, score10, credit}
@@ -240,29 +245,9 @@ def format_student(sv: models.SinhVien, hide_details=False, role: int = 1):
     tp10 = sum(v['s10'] * v['credit'] for v in subject_map.values() if v['s10'] >= 4.0)
     tc = sum(v['credit'] for v in subject_map.values() if v['s10'] >= 4.0)
 
-    # Find school's calculated GPA from 'TongKet' rows (user wants to use school's value)
-    school_gpa_4 = None
-    school_gpa_10 = None
-    if diem_sorted:
-        for d in reversed(diem_sorted):
-            if getattr(d, 'loai_du_lieu', '') == 'TongKet':
-                val4 = getattr(d, 'tb_tich_luy_4', None)
-                val10 = getattr(d, 'tb_tich_luy_10', None)
-                if school_gpa_4 is None and val4 is not None:
-                    try:
-                        school_gpa_4 = float(str(val4).replace(',', '.'))
-                    except ValueError:
-                        pass
-                if school_gpa_10 is None and val10 is not None:
-                    try:
-                        school_gpa_10 = float(str(val10).replace(',', '.'))
-                    except ValueError:
-                        pass
-                if school_gpa_4 is not None and school_gpa_10 is not None:
-                    break
-
-    gpa_4 = school_gpa_4 if school_gpa_4 is not None else (round(tp4 / tc, 2) if tc > 0 else 0.0)
-    gpa_10 = school_gpa_10 if school_gpa_10 is not None else (round(tp10 / tc, 2) if tc > 0 else 0.0)
+    # Force GPA calculation from scratch (never use school's summary fields)
+    gpa_4 = round(tp4 / tc, 2) if tc > 0 else 0.0
+    gpa_10 = round(tp10 / tc, 2) if tc > 0 else 0.0
 
     # Calculate History GPA (hg) map
     hg = {}

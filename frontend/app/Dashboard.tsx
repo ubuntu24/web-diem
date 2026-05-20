@@ -119,6 +119,7 @@ export default function Dashboard() {
         if (grade.loai_du_lieu === 'ChuanDauRa') return true;
         const name = (grade.ten_mon || '').trim().toLowerCase();
         const code = (grade.ma_mon || '').trim().toUpperCase();
+        if (code === '1') return false;
         if (code.startsWith('CDR') || name.startsWith('chuẩn đầu ra')) return true;
         return false;
     }
@@ -208,7 +209,7 @@ export default function Dashboard() {
             gpa: s.g,
             gpa10: s.g10,
             total_credits: s.tc,
-            diem: s.d ? s.d.map(mapGrade) : null,
+            diem: s.d ? s.d.map(mapGrade).filter((g: Grade) => (g.ma_mon || '').trim() !== '1') : null,
             semesters: Array.isArray(s.hs) ? s.hs : [],
             semester_gpa: semesterGpa,
         };

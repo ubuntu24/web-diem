@@ -532,3 +532,6 @@ if __name__ == "__main__":
     port = int(os.getenv("BACKEND_PORT", 8000))
     # Use reload=True for development only
     uvicorn.run("main:app", host=host, port=port, reload=True)
+
+# Reload triggered by Antigravity at 2026-05-19
+
