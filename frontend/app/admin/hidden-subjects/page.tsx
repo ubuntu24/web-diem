@@ -1,17 +1,24 @@
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+"use client";
+
+import React, { useState } from 'react';
 import { toast } from 'react-hot-toast';
-import { fetchBff } from '@/app/api/bff/_utils';
+
+type HiddenSubjectRule = {
+  id: number;
+  msv: string;
+  subject_key: string;
+  note: string | null;
+  created_at: string | null;
+};
 
 export default function HiddenSubjectAdmin() {
-  const router = useRouter();
   const [msv, setMsv] = useState('');
   const [subjectKey, setSubjectKey] = useState('');
   const [note, setNote] = useState('');
-  const [list, setList] = useState<Array<any>>([]);
+  const [list, setList] = useState<HiddenSubjectRule[]>([]);
 
   const loadList = async (studentMsv: string) => {
-    const res = await fetchBff(`/admin/hidden-subjects?msv=${studentMsv}`);
+    const res = await fetch(`/api/bff/admin/hidden-subjects?msv=${encodeURIComponent(studentMsv)}`);
     if (res.ok) {
       const data = await res.json();
       setList(data);
@@ -22,7 +29,11 @@ export default function HiddenSubjectAdmin() {
 
   const handleHide = async () => {
     const payload = { msv, subject_key: subjectKey, note };
-    const res = await fetchBff('/admin/hidden-subjects', { method: 'POST', body: JSON.stringify(payload) });
+    const res = await fetch('/api/bff/admin/hidden-subjects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
     if (res.ok) {
       toast.success('Subject hidden');
       await loadList(msv);
@@ -33,7 +44,11 @@ export default function HiddenSubjectAdmin() {
 
   const handleUnhide = async (key: string) => {
     const payload = { msv, subject_key: key };
-    const res = await fetchBff('/admin/hidden-subjects', { method: 'DELETE', body: JSON.stringify(payload) });
+    const res = await fetch('/api/bff/admin/hidden-subjects', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
     if (res.ok) {
       toast.success('Subject unhidden');
       await loadList(msv);
@@ -75,7 +90,7 @@ export default function HiddenSubjectAdmin() {
               <tr key={r.id}>
                 <td>{r.subject_key}</td>
                 <td>{r.note}</td>
-                <td>{new Date(r.created_at).toLocaleString()}</td>
+                <td>{r.created_at ? new Date(r.created_at).toLocaleString() : '-'}</td>
                 <td>
                   <button className="btn btn-sm btn-error" onClick={() => handleUnhide(r.subject_key)}>
                     Unhide
