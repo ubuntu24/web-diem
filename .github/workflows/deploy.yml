@@ -75,17 +75,17 @@ jobs:
 
       # ─── BƯỚC 2: Build Docker images ─────────────────────────────────────────
       - name: Build Backend image
-        run: docker build -t web-diem-backend:latest ./backend
+        run: docker build -t web-diem-backend:${{ github.sha }} ./backend
 
       - name: Build Frontend image
-        run: docker build -t web-diem-frontend:latest --build-arg API_URL=http://backend:8000 ./frontend
+        run: docker build -t web-diem-frontend:${{ github.sha }} --build-arg API_URL=http://backend:8000 ./frontend
 
       # ─── BƯỚC 3: Nạp ảnh vào K3s (containerd) ────────────────────────────────
       # Lưu ý: Cần cấu hình passwordless sudo cho user mrs trên VPS để chạy không cần mật khẩu
       - name: Import images into K3s containerd
         run: |
-          docker save web-diem-backend:latest  | sudo k3s ctr -n k8s.io images import -
-          docker save web-diem-frontend:latest | sudo k3s ctr -n k8s.io images import -
+          docker save web-diem-backend:${{ github.sha }}  | sudo k3s ctr -n k8s.io images import -
+          docker save web-diem-frontend:${{ github.sha }} | sudo k3s ctr -n k8s.io images import -
           # Dọn dẹp ảnh Docker cũ để tiết kiệm disk
           docker image prune -a -f --filter "until=24h"
 
@@ -112,7 +112,10 @@ jobs:
 
       # ─── BƯỚC 5: Áp dụng cấu hình K3s ───────────────────────────────────────
       - name: Apply K3s manifests
-        run: kubectl apply -f k8s/lifesuck-single-node.yaml
+        run: |
+          sed -i "s/web-diem-backend:latest/web-diem-backend:${{ github.sha }}/g" k8s/lifesuck-single-node.yaml
+          sed -i "s/web-diem-frontend:latest/web-diem-frontend:${{ github.sha }}/g" k8s/lifesuck-single-node.yaml
+          kubectl apply -f k8s/lifesuck-single-node.yaml
 
       # ─── BƯỚC 6: Rollout restart để K3s dùng ảnh mới nhất ───────────────────
       - name: Rollout restart deployments
