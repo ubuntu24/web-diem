@@ -1,6 +1,7 @@
 import ipaddress
 import json
 import logging
+import asyncio
 from datetime import datetime
 from typing import List, Optional
 
@@ -258,9 +259,29 @@ async def websocket_endpoint(websocket: WebSocket):
 
     try:
         while True:
-            data = await websocket.receive_text()
+            try:
+                # Require a ping or message at least every 30 seconds
+                data = await asyncio.wait_for(websocket.receive_text(), timeout=30.0)
+            except asyncio.TimeoutError:
+                logger.info(f"WebSocket: Connection timed out ({client_ip})")
+                manager.disconnect(websocket)
+                await manager.broadcast_online_count()
+                try:
+                    await websocket.close()
+                except Exception:
+                    pass
+                break
+            
             try:
                 msg = json.loads(data)
+
+                # Handle ping
+                if msg.get("type") == "ping":
+                    try:
+                        await websocket.send_text(json.dumps({"type": "pong"}))
+                    except Exception:
+                        pass
+                    continue
 
                 # Auth via one-time ticket (preferred) or JWT fallback
                 if msg.get("type") in ["auth_ticket", "auth"]:

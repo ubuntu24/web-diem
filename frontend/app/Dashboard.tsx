@@ -381,6 +381,7 @@ export default function Dashboard() {
         let socket: WebSocket | null = null;
         let reconnectTimeout: NodeJS.Timeout;
         let onlinePollInterval: NodeJS.Timeout | null = null;
+        let pingInterval: NodeJS.Timeout | null = null;
         let reconnectAttempts = 0;
         let stopped = false;
 
@@ -451,6 +452,13 @@ export default function Dashboard() {
                     const fp = getDeviceFingerprint();
                     socket?.send(JSON.stringify({ type: 'auth_ticket', ticket, fp }));
                 }
+
+                if (pingInterval) clearInterval(pingInterval);
+                pingInterval = setInterval(() => {
+                    if (socket?.readyState === WebSocket.OPEN) {
+                        socket.send(JSON.stringify({ type: 'ping' }));
+                    }
+                }, 15000);
             };
             socket.onmessage = (event) => {
                 try {
@@ -482,6 +490,7 @@ export default function Dashboard() {
             socket.onclose = () => {
                 if (stopped) return;
                 setChatSocket(null);
+                if (pingInterval) clearInterval(pingInterval);
                 reconnectAttempts += 1;
 
                 if (reconnectAttempts >= 4) {
@@ -501,6 +510,7 @@ export default function Dashboard() {
 
         return () => {
             stopped = true;
+            if (pingInterval) clearInterval(pingInterval);
             if (socket) {
                 socket.onclose = null;
                 socket.close();
