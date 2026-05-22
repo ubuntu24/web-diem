@@ -113,9 +113,9 @@ jobs:
       # ─── BƯỚC 5: Áp dụng cấu hình K3s ───────────────────────────────────────
       - name: Apply K3s manifests
         run: |
-          sed -i "s/web-diem-backend:latest/web-diem-backend:${{ github.sha }}/g" k8s/lifesuck-single-node.yaml
-          sed -i "s/web-diem-frontend:latest/web-diem-frontend:${{ github.sha }}/g" k8s/lifesuck-single-node.yaml
           kubectl apply -f k8s/lifesuck-single-node.yaml
+          kubectl set image deployment/backend backend=web-diem-backend:${{ github.sha }}
+          kubectl set image deployment/frontend frontend=web-diem-frontend:${{ github.sha }}
 
       # ─── BƯỚC 6: Rollout restart để K3s dùng ảnh mới nhất ───────────────────
       - name: Rollout restart deployments
