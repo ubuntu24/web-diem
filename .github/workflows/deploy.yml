@@ -5,6 +5,10 @@ on:
     branches:
       - main
 
+concurrency:
+  group: production-deploy-main
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -38,6 +42,8 @@ jobs:
     needs: test
     env:
       KUBECONFIG: /home/mrs/.kube/config
+      BACKEND_IMAGE: web-diem-backend:${{ github.sha }}
+      FRONTEND_IMAGE: web-diem-frontend:${{ github.sha }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -75,23 +81,25 @@ jobs:
 
       # ─── BƯỚC 2: Build Docker images ─────────────────────────────────────────
       - name: Build Backend image
-        run: docker build -t web-diem-backend:${{ github.sha }} ./backend
+        run: docker build --pull --no-cache -t "$BACKEND_IMAGE" ./backend
 
       - name: Build Frontend image
-        run: docker build --no-cache -t web-diem-frontend:${{ github.sha }} --build-arg API_URL=http://backend:8000 ./frontend
+        run: docker build --pull --no-cache -t "$FRONTEND_IMAGE" --build-arg API_URL=http://backend:8000 ./frontend
 
       # ─── BƯỚC 3: Nạp ảnh vào K3s (containerd) ────────────────────────────────
       # Lưu ý: Cần cấu hình passwordless sudo cho user mrs trên VPS để chạy không cần mật khẩu
       - name: Import images into K3s containerd
         run: |
-          docker save web-diem-backend:${{ github.sha }}  | sudo k3s ctr -n k8s.io images import -
-          docker save web-diem-frontend:${{ github.sha }} | sudo k3s ctr -n k8s.io images import -
+          set -euo pipefail
+          docker save "$BACKEND_IMAGE"  | sudo k3s ctr -n k8s.io images import -
+          docker save "$FRONTEND_IMAGE" | sudo k3s ctr -n k8s.io images import -
           # Dọn dẹp ảnh Docker cũ để tiết kiệm disk
           docker image prune -a -f --filter "until=24h"
 
       # ─── BƯỚC 4: Tạo/Cập nhật K8s Secrets từ GitHub Secrets ─────────────────
       - name: Apply K8s Secrets
         run: |
+          set -euo pipefail
           # Secret cho backend (đọc toàn bộ file .env)
           kubectl create secret generic backend-env \
             --from-env-file=backend/.env \
@@ -113,23 +121,25 @@ jobs:
       # ─── BƯỚC 5: Áp dụng cấu hình K3s ───────────────────────────────────────
       - name: Apply K3s manifests
         run: |
-          kubectl apply -f k8s/lifesuck-single-node.yaml
-          kubectl set image deployment/backend backend=web-diem-backend:${{ github.sha }}
-          kubectl set image deployment/frontend frontend=web-diem-frontend:${{ github.sha }}
+          set -euo pipefail
+          sed \
+            -e "s|web-diem-backend:latest|$BACKEND_IMAGE|g" \
+            -e "s|web-diem-frontend:latest|$FRONTEND_IMAGE|g" \
+            k8s/lifesuck-single-node.yaml | kubectl apply -f -
 
-      # ─── BƯỚC 6: Rollout restart để K3s dùng ảnh mới nhất ───────────────────
+      # ─── BƯỚC 6: Restart Cloudflared để nạp token/env mới ───────────────────
       - name: Rollout restart deployments
         run: |
-          kubectl rollout restart deployment/backend
-          kubectl rollout restart deployment/frontend
+          set -euo pipefail
           kubectl rollout restart deployment/cloudflared
 
       # ─── BƯỚC 7: Chờ và xác nhận deploy thành công ───────────────────────────
       - name: Wait for deployments to be ready
         run: |
-          kubectl rollout status deployment/backend  --timeout=120s
-          kubectl rollout status deployment/frontend --timeout=120s
-          kubectl rollout status deployment/cloudflared --timeout=60s
+          set -euo pipefail
+          kubectl rollout status deployment/backend  --timeout=180s
+          kubectl rollout status deployment/frontend --timeout=180s
+          kubectl rollout status deployment/cloudflared --timeout=90s
 
       # ─── BƯỚC 8: In trạng thái cuối cùng ────────────────────────────────────
       - name: Show pod status
