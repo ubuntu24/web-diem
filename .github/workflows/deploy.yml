@@ -78,7 +78,7 @@ jobs:
         run: docker build -t web-diem-backend:${{ github.sha }} ./backend
 
       - name: Build Frontend image
-        run: docker build -t web-diem-frontend:${{ github.sha }} --build-arg API_URL=http://backend:8000 ./frontend
+        run: docker build --no-cache -t web-diem-frontend:${{ github.sha }} --build-arg API_URL=http://backend:8000 ./frontend
 
       # ─── BƯỚC 3: Nạp ảnh vào K3s (containerd) ────────────────────────────────
       # Lưu ý: Cần cấu hình passwordless sudo cho user mrs trên VPS để chạy không cần mật khẩu
