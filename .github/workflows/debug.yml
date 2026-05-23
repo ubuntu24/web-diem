@@ -1,0 +1,18 @@
+name: Debug K3s
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  debug:
+    runs-on: self-hosted
+    env:
+      KUBECONFIG: /home/mrs/.kube/config
+    steps:
+      - name: Get Pods
+        run: kubectl get pods -o wide
+      - name: Describe Frontend Pod
+        run: kubectl describe deployment frontend
+      - name: Describe Backend Pod
+        run: kubectl describe deployment backend
