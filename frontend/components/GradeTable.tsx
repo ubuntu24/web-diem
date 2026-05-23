@@ -43,7 +43,7 @@ export default function GradeTable({ grades, adminMsv }: GradeTableProps) {
                         <th className="px-2 md:px-6 py-3 md:py-4 font-bold tracking-wider text-center">Thành tích thi</th>
                         <th className="px-2 md:px-6 py-3 md:py-4 font-bold tracking-wider text-center">Thành Tích (hệ 4)</th>
                         <th className="px-2 md:px-6 py-3 md:py-4 font-bold tracking-wider text-center">Kết quả</th>
-                        {adminMsv && <th className="px-2 md:px-6 py-3 md:py-4 font-bold tracking-wider text-center w-10"></th>}
+                        {adminMsv && <th className="px-2 md:px-6 py-3 md:py-4 font-bold tracking-wider text-center">Ẩn môn</th>}
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -226,11 +226,11 @@ function GradeRow({ grade, isHigh, adminMsv }: { grade: Grade; isHigh: boolean; 
                     <td className="px-2 py-3 text-center">
                         <button
                             onClick={handleToggleHide}
-                            disabled={hiding}
+                            disabled={hiding || !subjectKey}
                             title={hidden ? 'Bỏ ẩn môn này' : 'Ẩn môn này với user'}
-                            className={`p-1.5 rounded-lg transition-all active:scale-95 ${hidden
-                                ? 'text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20'
-                                : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700'
+                            className={`inline-flex items-center justify-center gap-1 px-2 py-1 rounded-lg border text-xs font-semibold transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${hidden
+                                ? 'text-amber-700 border-amber-300 bg-amber-50 hover:bg-amber-100 dark:text-amber-300 dark:border-amber-700 dark:bg-amber-900/20 dark:hover:bg-amber-900/30'
+                                : 'text-slate-700 border-slate-300 bg-white hover:bg-slate-100 dark:text-slate-200 dark:border-slate-600 dark:bg-slate-800 dark:hover:bg-slate-700'
                                 }`}
                         >
                             {hiding
@@ -239,6 +239,7 @@ function GradeRow({ grade, isHigh, adminMsv }: { grade: Grade; isHigh: boolean; 
                                     ? <Eye className="w-4 h-4" />
                                     : <EyeOff className="w-4 h-4" />
                             }
+                            <span className="hidden md:inline">{hidden ? 'Bỏ ẩn' : 'Ẩn'}</span>
                         </button>
                     </td>
                 )}
