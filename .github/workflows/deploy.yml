@@ -40,6 +40,9 @@ jobs:
   build-and-deploy:
     runs-on: self-hosted
     needs: test
+    permissions:
+      contents: read
+      packages: write
     env:
       KUBECONFIG: /home/ubuntu/.kube/config
       BACKEND_IMAGE: ghcr.io/${{ github.repository }}/web-diem-backend:${{ github.sha }}
