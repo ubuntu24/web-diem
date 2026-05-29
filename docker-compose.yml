@@ -91,7 +91,6 @@ services:
     container_name: web-diem-frontend
     expose:
       - "3000"
-
     env_file:
       - ./frontend/.env
     environment:

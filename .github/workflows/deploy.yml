@@ -1,4 +1,4 @@
-name: WEB DIEM - Docker Deploy
+name: WEB DIEM - K3s Deploy
 
 on:
   push:
@@ -40,15 +40,21 @@ jobs:
   build-and-deploy:
     runs-on: self-hosted
     needs: test
+    env:
+      KUBECONFIG: /home/mrs/.kube/config
+      BACKEND_IMAGE: web-diem-backend:${{ github.sha }}
+      FRONTEND_IMAGE: web-diem-frontend:${{ github.sha }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # ─── BƯỚC 1: Tạo file .env cho quá trình build và chạy ───────────────────────────
+      # ─── BƯỚC 1: Tạo file .env cho quá trình build ───────────────────────────
       - name: Create .env files for build
         run: |
+          # Reassure user and proceed safely
           echo "=== Tạo file .env an toàn ==="
           
+          # Tạo file ở thư mục gốc (nơi vừa test touch thành công)
           cat << 'EOF' > temp_frontend_env
           ${{ secrets.FRONTEND_ENV }}
           EOF
@@ -57,14 +63,12 @@ jobs:
           ${{ secrets.BACKEND_ENV }}
           EOF
           
-          # Lấy chuỗi token thực sự cho Cloudflare
-          CLEAN_TOKEN=$(echo "${{ secrets.CF_TOKEN }}" | grep -oE "ey[a-zA-Z0-9+/=_.-]+" | head -n 1 || echo "${{ secrets.CF_TOKEN }}" | tr -d '[:space:]')
-          echo "TUNNEL_TOKEN=$CLEAN_TOKEN" > .env.tunnel
-          
+          # Move vào thư mục đích
           mkdir -p frontend backend
           mv temp_frontend_env frontend/.env
           mv temp_backend_env backend/.env
           
+          # Ghi tiếp các biến khác
           [ -n "${{ secrets.REDIS_URL }}" ]             && echo "REDIS_URL=${{ secrets.REDIS_URL }}"                       >> backend/.env
           [ -n "${{ secrets.DATABASE_URL }}" ]          && echo "DATABASE_URL=${{ secrets.DATABASE_URL }}"                 >> backend/.env
           [ -n "${{ secrets.ADMIN_PASSWORD }}" ]        && echo "ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }}"             >> backend/.env
@@ -75,14 +79,68 @@ jobs:
           
           echo "=== Tạo file .env thành công ==="
 
-      # ─── BƯỚC 2: Triển khai bằng Docker Compose ─────────────────────────────────────────
-      - name: Deploy with Docker Compose
+      # ─── BƯỚC 2: Build Docker images ─────────────────────────────────────────
+      - name: Build Backend image
+        run: docker build --pull --no-cache -t "$BACKEND_IMAGE" ./backend
+
+      - name: Build Frontend image
+        run: docker build --pull --no-cache -t "$FRONTEND_IMAGE" --build-arg API_URL=http://backend:8000 ./frontend
+
+      # ─── BƯỚC 3: Nạp ảnh vào K3s (containerd) ────────────────────────────────
+      # Lưu ý: Cần cấu hình passwordless sudo cho user mrs trên VPS để chạy không cần mật khẩu
+      - name: Import images into K3s containerd
         run: |
-          echo "=== Khởi động Docker Compose ==="
-          # Khởi chạy tất cả dịch vụ trong chế độ background, tự động build lại nếu có code mới
-          docker compose up -d --build
-          
-          # Dọn dẹp ảnh Docker cũ để tiết kiệm disk (giữ lại các ảnh trong 24h gần nhất)
+          set -euo pipefail
+          docker save "$BACKEND_IMAGE"  | sudo k3s ctr -n k8s.io images import -
+          docker save "$FRONTEND_IMAGE" | sudo k3s ctr -n k8s.io images import -
+          # Dọn dẹp ảnh Docker cũ để tiết kiệm disk
           docker image prune -a -f --filter "until=24h"
-          
-          echo "=== Triển khai thành công ==="
+
+      # ─── BƯỚC 4: Tạo/Cập nhật K8s Secrets từ GitHub Secrets ─────────────────
+      - name: Apply K8s Secrets
+        run: |
+          set -euo pipefail
+          # Secret cho backend (đọc toàn bộ file .env)
+          kubectl create secret generic backend-env \
+            --from-env-file=backend/.env \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          # Secret cho frontend
+          kubectl create secret generic frontend-env \
+            --from-env-file=frontend/.env \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          # Secret cho Cloudflare Tunnel Token
+          CLEAN_TOKEN=$(echo "$CF_TOKEN" | grep -oE "ey[a-zA-Z0-9+/=_.-]+" | head -n 1 || echo "$CF_TOKEN" | tr -d '[:space:]')
+          kubectl create secret generic cloudflared-secret \
+            --from-literal=TUNNEL_TOKEN="$CLEAN_TOKEN" \
+            --dry-run=client -o yaml | kubectl apply -f -
+        env:
+          CF_TOKEN: ${{ secrets.CF_TOKEN }}
+
+      # ─── BƯỚC 5: Áp dụng cấu hình K3s ───────────────────────────────────────
+      - name: Apply K3s manifests
+        run: |
+          set -euo pipefail
+          sed \
+            -e "s|web-diem-backend:latest|$BACKEND_IMAGE|g" \
+            -e "s|web-diem-frontend:latest|$FRONTEND_IMAGE|g" \
+            k8s/lifesuck-single-node.yaml | kubectl apply -f -
+
+      # ─── BƯỚC 6: Restart Cloudflared để nạp token/env mới ───────────────────
+      - name: Rollout restart deployments
+        run: |
+          set -euo pipefail
+          kubectl rollout restart deployment/cloudflared
+
+      # ─── BƯỚC 7: Chờ và xác nhận deploy thành công ───────────────────────────
+      - name: Wait for deployments to be ready
+        run: |
+          set -euo pipefail
+          kubectl rollout status deployment/backend  --timeout=180s
+          kubectl rollout status deployment/frontend --timeout=180s
+          kubectl rollout status deployment/cloudflared --timeout=90s
+
+      # ─── BƯỚC 8: In trạng thái cuối cùng ────────────────────────────────────
+      - name: Show pod status
+        run: kubectl get pods -o wide
