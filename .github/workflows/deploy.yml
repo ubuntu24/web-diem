@@ -57,6 +57,10 @@ jobs:
           ${{ secrets.BACKEND_ENV }}
           EOF
           
+          # Lấy chuỗi token thực sự cho Cloudflare
+          CLEAN_TOKEN=$(echo "${{ secrets.CF_TOKEN }}" | grep -oE "ey[a-zA-Z0-9+/=_.-]+" | head -n 1 || echo "${{ secrets.CF_TOKEN }}" | tr -d '[:space:]')
+          echo "TUNNEL_TOKEN=$CLEAN_TOKEN" > .env.tunnel
+          
           mkdir -p frontend backend
           mv temp_frontend_env frontend/.env
           mv temp_backend_env backend/.env
