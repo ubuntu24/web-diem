@@ -91,6 +91,8 @@ services:
     container_name: web-diem-frontend
     expose:
       - "3000"
+    ports:
+      - "80:3000"
     env_file:
       - ./frontend/.env
     environment:
@@ -118,26 +120,26 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    container_name: cloudflared
-    restart: always
-    env_file:
-      - .env.tunnel
-    command: tunnel --no-autoupdate run
-    networks:
-      - frontend-network
-      - backend-network
-    depends_on:
-      frontend:
-        condition: service_started
-      backend:
-        condition: service_started
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+#  cloudflared:
+#    image: cloudflare/cloudflared:latest
+#    container_name: cloudflared
+#    restart: always
+#    env_file:
+#      - .env.tunnel
+#    command: tunnel --no-autoupdate run
+#    networks:
+#      - frontend-network
+#      - backend-network
+#    depends_on:
+#      frontend:
+#        condition: service_started
+#      backend:
+#        condition: service_started
+#    logging:
+#      driver: "json-file"
+#      options:
+#        max-size: "10m"
+#        max-file: "3"
 
 networks:
   frontend-network:

@@ -28,7 +28,7 @@ export default function LoginPage() {
                 toast.success('Đăng nhập thành công!');
                 // Full navigation guarantees new cookies are used immediately by RSC routes.
                 setTimeout(() => {
-                    window.location.href = '/dashboard';
+                    window.location.href = '/';
                 }, 800);
             } else {
                 throw new Error('Đăng nhập không thành công, không nhận được token.');

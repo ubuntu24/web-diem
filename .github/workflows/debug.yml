@@ -1,4 +1,4 @@
-name: Debug K3s
+name: Debug K3s Issue
 on:
   push:
     branches:
@@ -10,9 +10,17 @@ jobs:
     env:
       KUBECONFIG: /home/mrs/.kube/config
     steps:
-      - name: Get Pods
-        run: kubectl get pods -o wide
-      - name: Describe Frontend Pod
-        run: kubectl describe deployment frontend
-      - name: Describe Backend Pod
-        run: kubectl describe deployment backend
+      - name: Dump Pods
+        run: |
+          kubectl get pods -o wide > pods.txt
+          kubectl describe deployment frontend > deploy.txt
+          kubectl get events --sort-by='.lastTimestamp' | tail -n 50 > events.txt
+      
+      - name: Create Issue
+        uses: peter-evans/create-issue-from-file@v4
+        with:
+          title: K3s Debug Info
+          content-filepath: ./pods.txt
+          labels: debug
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
