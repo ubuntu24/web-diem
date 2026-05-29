@@ -14,10 +14,12 @@ spec:
       labels:
         app: backend
     spec:
+      imagePullSecrets:
+      - name: ghcr-secret
       containers:
       - name: backend
         image: web-diem-backend:latest
-        imagePullPolicy: Never  # Dùng ảnh local đã import vào K3s
+        imagePullPolicy: Always
         ports:
         - containerPort: 8000
         envFrom:
@@ -76,10 +78,12 @@ spec:
       labels:
         app: frontend
     spec:
+      imagePullSecrets:
+      - name: ghcr-secret
       containers:
       - name: frontend
         image: web-diem-frontend:latest
-        imagePullPolicy: Never  # Dùng ảnh local đã import vào K3s
+        imagePullPolicy: Always
         ports:
         - containerPort: 3000
         envFrom:
