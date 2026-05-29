@@ -41,7 +41,7 @@ jobs:
     runs-on: self-hosted
     needs: test
     env:
-      KUBECONFIG: /home/mrs/.kube/config
+      KUBECONFIG: /home/ubuntu/.kube/config
       BACKEND_IMAGE: web-diem-backend:${{ github.sha }}
       FRONTEND_IMAGE: web-diem-frontend:${{ github.sha }}
     steps:
