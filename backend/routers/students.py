@@ -160,6 +160,24 @@ def _normalize_name(name):
     return n
 
 
+def _normalize_class_name(name: str) -> str:
+    return re.sub(r'\s+', ' ', (name or '').strip())
+
+
+def _resolve_class_names(db: Session, class_names: list[str]) -> list[str]:
+    target_norms = {_normalize_class_name(name).lower() for name in class_names if _normalize_class_name(name)}
+    if not target_norms:
+        return []
+
+    variants = db.query(models.SinhVien.ma_lop).distinct().all()
+    resolved = {
+        value
+        for (value,) in variants
+        if value and _normalize_class_name(value).lower() in target_norms
+    }
+    return sorted(resolved)
+
+
 def _subject_key(grade):
     ma_mon = (getattr(grade, 'ma_mon', '') or '').strip().upper()
     ten_mon = (getattr(grade, 'ten_mon', '') or '').strip().lower()
@@ -374,7 +392,8 @@ def get_student_count(
     current_user: models.Nick = Depends(security.get_current_user),
     db: Session = Depends(database.get_db)
 ):
-    cache_key = f"student_count:{class_name or '__all__'}"
+    normalized_class_name = _normalize_class_name(class_name) if class_name else None
+    cache_key = f"student_count:{normalized_class_name or '__all__'}"
     cached = _cache.get(cache_key)
     if cached is not None:
         logger.debug(f"[CACHE HIT] {cache_key}")
@@ -382,8 +401,12 @@ def get_student_count(
 
     from sqlalchemy import func
     query = db.query(func.count(models.SinhVien.msv))
-    if class_name:
-        query = query.filter(models.SinhVien.ma_lop == class_name)
+    if normalized_class_name:
+        resolved_class_names = _resolve_class_names(db, [normalized_class_name])
+        if resolved_class_names:
+            query = query.filter(models.SinhVien.ma_lop.in_(resolved_class_names))
+        else:
+            query = query.filter(models.SinhVien.ma_lop == normalized_class_name)
     data = {"count": query.scalar()}
     result = security.obfuscate_payload(data)
     _cache.set(cache_key, result, ttl=_TTL_COUNT)
@@ -414,25 +437,29 @@ def get_students_by_class(
     db: Session = Depends(database.get_db)
 ):
     # Support multiple classes separated by commas
-    class_list = sorted([c.strip() for c in ma_lop.split(",") if c.strip()])
+    class_list = sorted([_normalize_class_name(c) for c in ma_lop.split(",") if _normalize_class_name(c)])
     if not class_list:
         raise HTTPException(status_code=400, detail="Invalid class list")
 
     logger.info(f"Searching students for classes: {class_list} (user: {current_user.username if current_user else 'anon'})")
 
     role = current_user.role if current_user else 0
-    cache_key = f"class:v6:{','.join(class_list)}:role{role}"
+    cache_key = f"class:v7:{','.join(class_list)}:role{role}"
     cached = _cache.get(cache_key)
     if cached is not None:
         return cached
+
+    resolved_class_list = _resolve_class_names(db, class_list)
+    if not resolved_class_list:
+        resolved_class_list = class_list
 
     # Optimization: Use selectinload instead of joinedload to avoid massive join duplication (N+1 fix)
     from sqlalchemy.orm import selectinload
     students = db.query(models.SinhVien).options(
         selectinload(models.SinhVien.diem)
-    ).filter(models.SinhVien.ma_lop.in_(class_list)).all()
+    ).filter(models.SinhVien.ma_lop.in_(resolved_class_list)).all()
 
-    logger.info(f"Found {len(students)} students for {class_list}")
+    logger.info(f"Found {len(students)} students for {resolved_class_list}")
 
     if not students:
         # Return empty result instead of 404 to be more robust
