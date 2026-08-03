@@ -1,4 +1,4 @@
-name: WEB DIEM - K3s Deploy
+name: WEB DIEM - Build and Push
 
 on:
   push:
@@ -37,14 +37,13 @@ jobs:
           pip install -r requirements.txt
           python3 -m pytest
 
-  build-and-deploy:
+  build-and-push:
     runs-on: self-hosted
     needs: test
     permissions:
       contents: read
       packages: write
     env:
-      KUBECONFIG: /home/ubuntu/.kube/config
       BACKEND_IMAGE: ghcr.io/${{ github.repository }}/web-diem-backend:${{ github.sha }}
       FRONTEND_IMAGE: ghcr.io/${{ github.repository }}/web-diem-frontend:${{ github.sha }}
     steps:
@@ -93,69 +92,37 @@ jobs:
       # ─── BƯỚC 3: Build & Push Docker images lên GHCR ───────────────────────
       - name: Build and Push Backend image
         run: |
-          docker build --pull -t "$BACKEND_IMAGE" ./backend
-          docker push "$BACKEND_IMAGE"
+          set -euo pipefail
+          MAX_RETRIES=5
+          for i in $(seq 1 $MAX_RETRIES); do
+            echo "Build attempt $i/$MAX_RETRIES"
+            if docker build --network host --pull -t "$BACKEND_IMAGE" ./backend; then
+              docker push "$BACKEND_IMAGE"
+              break
+            fi
+            if [ $i -eq $MAX_RETRIES ]; then
+              echo "Backend build failed after $MAX_RETRIES attempts"
+              exit 1
+            fi
+            sleep $((i * 10))
+          done
 
       - name: Build and Push Frontend image
         run: |
-          docker build --pull -t "$FRONTEND_IMAGE" --build-arg API_URL=http://backend:8000 ./frontend
-          docker push "$FRONTEND_IMAGE"
-          
+          set -euo pipefail
+          MAX_RETRIES=5
+          for i in $(seq 1 $MAX_RETRIES); do
+            echo "Build attempt $i/$MAX_RETRIES"
+            if docker build --network host --pull -t "$FRONTEND_IMAGE" --build-arg API_URL=http://backend:8000 ./frontend; then
+              docker push "$FRONTEND_IMAGE"
+              break
+            fi
+            if [ $i -eq $MAX_RETRIES ]; then
+              echo "Frontend build failed after $MAX_RETRIES attempts"
+              exit 1
+            fi
+            sleep $((i * 10))
+          done
+
           # Dọn dẹp ảnh Docker cũ trên runner để tiết kiệm disk
           docker image prune -a -f --filter "until=24h"
-
-      # ─── BƯỚC 4: Tạo/Cập nhật K8s Secrets từ GitHub Secrets ─────────────────
-      - name: Apply K8s Secrets
-        run: |
-          set -euo pipefail
-          # Secret cho backend (đọc toàn bộ file .env)
-          kubectl create secret generic backend-env \
-            --from-env-file=backend/.env \
-            --dry-run=client -o yaml | kubectl apply -f -
-
-          # Secret cho frontend
-          kubectl create secret generic frontend-env \
-            --from-env-file=frontend/.env \
-            --dry-run=client -o yaml | kubectl apply -f -
-
-          # Secret cho GHCR (để K3s có thể tải ảnh từ GitHub về)
-          kubectl create secret docker-registry ghcr-secret \
-            --docker-server=ghcr.io \
-            --docker-username=${{ github.actor }} \
-            --docker-password=${{ secrets.GHCR_PAT }} \
-            --dry-run=client -o yaml | kubectl apply -f -
-
-          # Secret cho Cloudflare Tunnel Token
-          CLEAN_TOKEN=$(echo "$CF_TOKEN" | grep -oE "ey[a-zA-Z0-9+/=_.-]+" | head -n 1 || echo "$CF_TOKEN" | tr -d '[:space:]')
-          kubectl create secret generic cloudflared-secret \
-            --from-literal=TUNNEL_TOKEN="$CLEAN_TOKEN" \
-            --dry-run=client -o yaml | kubectl apply -f -
-        env:
-          CF_TOKEN: ${{ secrets.CF_TOKEN }}
-
-      # ─── BƯỚC 5: Áp dụng cấu hình K3s ───────────────────────────────────────
-      - name: Apply K3s manifests
-        run: |
-          set -euo pipefail
-          sed \
-            -e "s|web-diem-backend:latest|$BACKEND_IMAGE|g" \
-            -e "s|web-diem-frontend:latest|$FRONTEND_IMAGE|g" \
-            k8s/lifesuck-single-node.yaml | kubectl apply -f -
-
-      # ─── BƯỚC 6: Restart Cloudflared để nạp token/env mới ───────────────────
-      - name: Rollout restart deployments
-        run: |
-          set -euo pipefail
-          kubectl rollout restart deployment/cloudflared
-
-      # ─── BƯỚC 7: Chờ và xác nhận deploy thành công ───────────────────────────
-      - name: Wait for deployments to be ready
-        run: |
-          set -euo pipefail
-          kubectl rollout status deployment/backend  --timeout=180s
-          kubectl rollout status deployment/frontend --timeout=180s
-          kubectl rollout status deployment/cloudflared --timeout=90s
-
-      # ─── BƯỚC 8: In trạng thái cuối cùng ────────────────────────────────────
-      - name: Show pod status
-        run: kubectl get pods -o wide
