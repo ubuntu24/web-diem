@@ -6,9 +6,15 @@ export const API_BASE_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_U
 const BFF_CACHE_MAX_KEYS = Number(process.env.BFF_CACHE_MAX_KEYS || 1000);
 
 export async function fetchUpstream(url: string, init?: RequestInit): Promise<{ status: number, body: string }> {
-    const res = await fetch(url, init);
-    const text = await res.text();
-    return { status: res.status, body: maybeDecryptUpstreamBody(text) ?? text };
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
+    try {
+        const res = await fetch(url, { ...init, signal: init?.signal || controller.signal });
+        const text = await res.text();
+        return { status: res.status, body: maybeDecryptUpstreamBody(text) ?? text };
+    } finally {
+        clearTimeout(timer);
+    }
 }
 
 function unwrapJsonString(text: string): string {

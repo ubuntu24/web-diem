@@ -42,13 +42,14 @@ if raw_url:
 elif not SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
     print(f"[INFO] DB_CONNECTION: Using manually constructed URL")
 
+pg_options = "-c statement_timeout=10000 -c lock_timeout=5000"
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
     pool_size=10,
     max_overflow=20,
     pool_pre_ping=True,
     pool_recycle=1800,
-    connect_args={"connect_timeout": 5} if "postgresql" in SQLALCHEMY_DATABASE_URL else {},
+    connect_args={"connect_timeout": 5, "options": pg_options} if "postgresql" in SQLALCHEMY_DATABASE_URL else {},
 )
 
 # Create a SessionLocal class

@@ -12,14 +12,22 @@ export async function POST(request: Request) {
     }
 
     try {
-        const res = await fetch(`${API_BASE_URL}/api/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(parsed.data),
-            cache: 'no-store',
-        });
-
-        const text = await res.text();
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 10000);
+        let res: Response;
+        let text: string;
+        try {
+            res = await fetch(`${API_BASE_URL}/api/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(parsed.data),
+                cache: 'no-store',
+                signal: controller.signal,
+            });
+            text = await res.text();
+        } finally {
+            clearTimeout(timer);
+        }
         if (!res.ok) {
             console.error('[BFF Login Error] Backend returned:', text);
             return new Response(text || 'Backend Internal Error', {
