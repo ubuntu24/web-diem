@@ -131,7 +131,10 @@ jobs:
 
       - name: Deploy Containers with Docker Compose
         run: |
-          echo "=== Starting Docker Compose services ==="
+          echo "=== Removing old containers & Starting Docker Compose services ==="
+          docker compose down --remove-orphans || true
+          docker rm -f flaresolverr web-diem-backend web-diem-frontend cloudflared web-diem-redis 2>/dev/null || true
           docker compose up -d --build
           docker compose ps
+
 
