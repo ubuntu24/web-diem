@@ -39,7 +39,7 @@ function unwrapJsonString(text: string): string {
 }
 
 function maybeDecryptUpstreamBody(text: string): string | null {
-    const payloadKey = process.env.PAYLOAD_OBFUSCATION_KEY;
+    const payloadKey = process.env.PAYLOAD_OBFUSCATION_KEY || "PAYLOAD_OBFUSCATION_KEY_2026";
     if (!payloadKey) return null;
 
     const payload = unwrapJsonString(text);
