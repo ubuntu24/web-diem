@@ -486,6 +486,8 @@ def get_subject_scores(
     db: Session = Depends(database.get_db)
 ):
     """Lấy danh sách người dùng và điểm cho một môn học cụ thể, phân nhóm theo lớp."""
+    if current_user.role != 1:
+        raise HTTPException(status_code=403, detail="Not authorized")
     
     # Tìm tất cả bản ghi điểm cho môn học này
     # Join với SinhVien để lấy mã lớp và họ tên

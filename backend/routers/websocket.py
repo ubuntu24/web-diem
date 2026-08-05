@@ -1,3 +1,4 @@
+import html
 import ipaddress
 import json
 import logging
@@ -6,6 +7,7 @@ from datetime import datetime
 from typing import List, Optional
 
 import models
+import cache as _cache
 import security
 from database import SessionLocal
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -13,6 +15,24 @@ from jose import JWTError, jwt
 from sqlalchemy import or_
 
 logger = logging.getLogger(__name__)
+
+_CHAT_RATE_LIMIT_SECONDS = 2
+_CHAT_RATE_LIMIT_COUNT = 1
+
+
+def _allow_chat_message(identity: str) -> bool:
+    now = datetime.utcnow().timestamp()
+    key = f"rl:chat:{identity}"
+    attempts = _cache.get(key) or []
+    attempts = [t for t in attempts if now - t < _CHAT_RATE_LIMIT_SECONDS]
+
+    if len(attempts) >= _CHAT_RATE_LIMIT_COUNT:
+        _cache.set(key, attempts, ttl=_CHAT_RATE_LIMIT_SECONDS)
+        return False
+
+    attempts.append(now)
+    _cache.set(key, attempts, ttl=_CHAT_RATE_LIMIT_SECONDS)
+    return True
 
 
 class ConnectionManager:
@@ -336,35 +356,44 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 # Public Chat Message
                 if msg.get("type") == "chat" and msg.get("message"):
-                    # 🛡️ SECURITY: Rate Limiting (1 message / 2 seconds)
                     now = datetime.now()
-                    diff = (now - last_chat_time).total_seconds()
-                    if diff < 2:
+
+                    # Get current user details from manager
+                    sender = None
+                    sender_ip = policy_ip
+                    sender_fp = device_fp
+                    for conn in manager.active_connections:
+                        if conn["ws"] == websocket:
+                            conn_user = conn.get("user")
+                            if conn_user:
+                                sender = conn_user
+                            sender_ip = conn.get("ip", policy_ip)
+                            sender_fp = conn.get("fp", device_fp)
+                            break
+
+                    if not sender:
+                        continue
+
+                    rate_keys = [f"user:{sender}"]
+                    if sender_ip:
+                        rate_keys.append(f"ip:{sender_ip}")
+                    if sender_fp:
+                        rate_keys.append(f"fp:{sender_fp}")
+
+                    if not all(_allow_chat_message(key) for key in rate_keys):
                         await websocket.send_text(json.dumps({
-                            "type": "error", 
-                            "message": f"Bạn đang gửi tin nhắn quá nhanh. Vui lòng chờ {int(2-diff)+1} giây."
+                            "type": "error",
+                            "message": "Bạn đang gửi tin nhắn quá nhanh. Vui lòng chờ 2 giây."
                         }))
                         continue
-                    
+
                     last_chat_time = now
-                    content = msg["message"].strip()
+                    raw_content = msg["message"]
+                    if not isinstance(raw_content, str):
+                        continue
+
+                    content = html.escape(raw_content.strip(), quote=True)[:1000]
                     if content:
-                        # Get current user details from manager
-                        sender = None
-                        sender_ip = policy_ip
-                        sender_fp = device_fp
-                        for conn in manager.active_connections:
-                            if conn["ws"] == websocket:
-                                conn_user = conn.get("user")
-                                if conn_user:
-                                    sender = conn_user
-                                sender_ip = conn.get("ip", policy_ip)
-                                sender_fp = conn.get("fp", device_fp)
-                                break
-                        
-                        if not sender:
-                            continue
-                        
                         # Store in DB
                         db = SessionLocal()
                         try:

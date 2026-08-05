@@ -1,14 +1,55 @@
 import { cookies, headers } from 'next/headers';
+import { createDecipheriv, createHash } from 'node:crypto';
 import { z } from 'zod';
 
 export const API_BASE_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
-const PAYLOAD_KEY = process.env.PAYLOAD_OBFUSCATION_KEY || "PAYLOAD_OBFUSCATION_KEY_2026";
 const BFF_CACHE_MAX_KEYS = Number(process.env.BFF_CACHE_MAX_KEYS || 1000);
 
 export async function fetchUpstream(url: string, init?: RequestInit): Promise<{ status: number, body: string }> {
     const res = await fetch(url, init);
     const text = await res.text();
-    return { status: res.status, body: text };
+    return { status: res.status, body: maybeDecryptUpstreamBody(text) ?? text };
+}
+
+function unwrapJsonString(text: string): string {
+    const trimmed = text.trim();
+    if (!trimmed.startsWith('"')) return trimmed;
+
+    try {
+        const parsed = JSON.parse(trimmed);
+        return typeof parsed === 'string' ? parsed : trimmed;
+    } catch {
+        return trimmed;
+    }
+}
+
+function maybeDecryptUpstreamBody(text: string): string | null {
+    const payloadKey = process.env.PAYLOAD_OBFUSCATION_KEY;
+    if (!payloadKey) return null;
+
+    const payload = unwrapJsonString(text);
+    if (!payload) return null;
+    if (payload.startsWith('{') || payload.startsWith('[')) return payload;
+
+    try {
+        const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+        const padded = base64.padEnd(base64.length + (4 - base64.length % 4) % 4, '=');
+        const tokenBytes = Buffer.from(padded, 'base64');
+
+        if (tokenBytes[0] !== 0x80 || tokenBytes.length < 1 + 8 + 16 + 32) {
+            return null;
+        }
+
+        const iv = tokenBytes.subarray(9, 25);
+        const ciphertext = tokenBytes.subarray(25, tokenBytes.length - 32);
+        const digest = createHash('sha256').update(Buffer.from(payloadKey)).digest();
+        const aesKey = digest.subarray(16, 32);
+        const decipher = createDecipheriv('aes-128-cbc', aesKey, iv);
+        const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+        return decrypted.toString('utf8');
+    } catch {
+        return null;
+    }
 }
 
 export function badRequest(error: string, details?: unknown): Response {

@@ -23,13 +23,9 @@ function authHeaders(tokenOverride?: string): HeadersInit {
     return headers;
 }
 
-// Fixed Key for "Black Box" decryption
-const OBFUSCATION_PAYLOAD_KEY = "PAYLOAD_OBFUSCATION_KEY_2026";
-
 /**
- * Fetches a URL and returns the raw encrypted payload string (NOT decrypted).
- * Used by Server Actions so the encrypted blob is passed to the browser,
- * which decrypts it locally — plaintext never appears in F12 Network tab.
+ * Fetches a URL and returns the normalized upstream payload.
+ * The BFF now decrypts obfuscated backend responses server-side.
  */
 async function fetchRawEncrypted(url: string, headers: HeadersInit): Promise<string | null> {
     try {
@@ -108,14 +104,7 @@ async function parseResponse<T>(res: Response): Promise<T> {
         try { payload = JSON.parse(text); } catch { /* keep original */ }
     }
 
-    // Try to decrypt if it looks like an obfuscated payload
-    const decrypted = await decryptPayload(payload);
-    if (decrypted && typeof decrypted === 'object') {
-        return decrypted as T;
-    }
-
-    // Last resort fallback
-    try { return JSON.parse(text); } catch { return text as unknown as T; }
+    return decryptPayload(payload) as Promise<T>;
 }
 
 export async function decryptPayload(payload: unknown): Promise<any> {
@@ -138,56 +127,7 @@ export async function decryptPayload(payload: unknown): Promise<any> {
         } catch { /* fall through */ }
     }
 
-    // Actual Fernet (AES-128-CBC) Decryption logic
-    try {
-        // Strip out the base64 wrapper if needed
-        let tokenStr = text;
-        
-        // base64url decode
-        const base64 = tokenStr.replace(/-/g, '+').replace(/_/g, '/');
-        const padded = base64.padEnd(base64.length + (4 - base64.length % 4) % 4, '=');
-        
-        const decoded = atob(padded);
-        const tokenBytes = new Uint8Array(decoded.length);
-        for (let i = 0; i < decoded.length; i++) {
-            tokenBytes[i] = decoded.charCodeAt(i);
-        }
-
-        // Fernet token structure:
-        // Version (1) | Timestamp (8) | IV (16) | Ciphertext (N) | HMAC (32)
-        if (tokenBytes[0] !== 0x80) throw new Error("Invalid Fernet version");
-        
-        const iv = tokenBytes.slice(9, 25);
-        const ciphertext = tokenBytes.slice(25, tokenBytes.length - 32);
-        
-        // Derive the 32-byte key (same as Python backend: sha256)
-        const encoder = new TextEncoder();
-        const baseKey = encoder.encode(OBFUSCATION_PAYLOAD_KEY);
-        const digest = await crypto.subtle.digest("SHA-256", baseKey);
-        
-        // Fernet uses the last 16 bytes of the 32-byte key for AES-128-CBC encryption
-        const encryptionKeyBytes = digest.slice(16, 32);
-        
-        const cryptoKey = await crypto.subtle.importKey(
-            "raw",
-            encryptionKeyBytes,
-            { name: "AES-CBC" },
-            false,
-            ["decrypt"]
-        );
-        
-        const decryptedBuffer = await crypto.subtle.decrypt(
-            { name: "AES-CBC", iv: iv },
-            cryptoKey,
-            ciphertext
-        );
-        
-        const decryptedStr = new TextDecoder().decode(decryptedBuffer);
-        return JSON.parse(decryptedStr);
-    } catch (e) {
-        // If decryption fails, it might be raw JSON or error message
-        try { return JSON.parse(text); } catch { return text; }
-    }
+    return text;
 }
 
 export async function getClasses(tokenOverride?: string): Promise<string[]> {

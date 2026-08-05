@@ -1,4 +1,4 @@
-import { authHeadersFromCookies, API_BASE_URL, ProfileUpdateSchema } from '../_utils';
+import { authHeadersFromCookies, API_BASE_URL, ProfileUpdateSchema, requireCsrf } from '../_utils';
 
 export async function GET() {
     const headers = await authHeadersFromCookies();
@@ -17,6 +17,9 @@ export async function GET() {
 
 export async function PATCH(req: Request) {
     console.log('BFF: PATCH /api/bff/profile hit');
+    const csrfErr = await requireCsrf(req);
+    if (csrfErr) return csrfErr;
+
     const headers = await authHeadersFromCookies();
     const body = await req.json();
 
@@ -42,3 +45,4 @@ export async function PATCH(req: Request) {
 
     return Response.json({ message: 'Profile updated successfully' });
 }
+

@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { API_BASE_URL, authHeadersFromCookies, fetchUpstream } from '@/app/api/bff/_utils';
+import { API_BASE_URL, authHeadersFromCookies, fetchUpstream, requireCsrf } from '@/app/api/bff/_utils';
 
 export async function GET() {
     const headers = await authHeadersFromCookies();
@@ -15,6 +15,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+    const csrfErr = await requireCsrf(request);
+    if (csrfErr) return csrfErr;
+
     const headers = await authHeadersFromCookies();
     const body = await request.json();
     
@@ -34,3 +37,4 @@ export async function POST(request: NextRequest) {
         headers: { 'Content-Type': 'application/json; charset=utf-8' },
     });
 }
+

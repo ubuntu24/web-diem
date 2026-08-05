@@ -1,1 +1,0 @@
-fetch('https://lifesucks.meomeow.qzz.io/v/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'mrs', password: '@dmin' }) }).then(r => r.json()).then(console.log);

@@ -82,7 +82,7 @@ export default function ClassPicker({
                         <div>
                             <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
                                 <MapPin className="w-6 h-6 text-indigo-600" />
-                                Lựa chọn lớp học
+                                Lựa chọn lớp
                             </h2>
                             <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Chọn lớp bạn muốn xem thông tin hôm nay</p>
                         </div>

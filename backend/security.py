@@ -31,9 +31,16 @@ if not SECRET_KEY:
     # Fallback for local development if .env is missing
     SECRET_KEY = "dev-secret-key-replace-this-immediately"
 
-OBFUSCATION_ID_KEY = os.getenv("OBFUSCATION_ID_KEY", "ID_OBFUSCATION_SALT_2026").encode()
-PAYLOAD_OBFUSCATION_KEY = os.getenv("PAYLOAD_OBFUSCATION_KEY", "PAYLOAD_OBFUSCATION_KEY_2026").encode()
+_obf_id_key = os.getenv("OBFUSCATION_ID_KEY")
+_payload_obf_key = os.getenv("PAYLOAD_OBFUSCATION_KEY")
+
+if IS_PRODUCTION and (not _obf_id_key or not _payload_obf_key):
+    raise RuntimeError("OBFUSCATION_ID_KEY and PAYLOAD_OBFUSCATION_KEY must be set in production environment")
+
+OBFUSCATION_ID_KEY = (_obf_id_key or "ID_OBFUSCATION_SALT_2026").encode()
+PAYLOAD_OBFUSCATION_KEY = (_payload_obf_key or "PAYLOAD_OBFUSCATION_KEY_2026").encode()
 _WS_TICKET_TTL = 60
+
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 

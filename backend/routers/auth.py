@@ -17,6 +17,18 @@ import threading
 
 _rl_lock = threading.Lock()
 
+
+def _resolve_client_ip(request: Request) -> str:
+    headers = request.headers
+    for header_name in ("cf-connecting-ip", "true-client-ip", "x-real-ip", "x-forwarded-for"):
+        raw_value = headers.get(header_name)
+        if raw_value:
+            candidate = raw_value.split(",")[0].strip()
+            if candidate:
+                return candidate
+
+    return request.client.host if request.client else "unknown"
+
 def _check_rate_limit(scope: str, identity: str, limit: int, window_seconds: int) -> bool:
     with _rl_lock:
         now = time.time()
@@ -32,8 +44,12 @@ def _check_rate_limit(scope: str, identity: str, limit: int, window_seconds: int
 
 @router.post("/login")
 def login(payload: schemas.LoginRequest, request: Request, db: Session = Depends(database.get_db)):
-    client_ip = request.client.host if request.client else "unknown"
-    if not _check_rate_limit("login", client_ip, limit=12, window_seconds=60):
+    client_ip = _resolve_client_ip(request)
+    normalized_username = payload.username.strip().lower()
+
+    if not _check_rate_limit("login-ip", client_ip, limit=60, window_seconds=60):
+        raise HTTPException(status_code=429, detail="Too many login attempts")
+    if not _check_rate_limit("login-user", f"{client_ip}:{normalized_username}", limit=12, window_seconds=60):
         raise HTTPException(status_code=429, detail="Too many login attempts")
 
     user = db.query(models.Nick).filter(models.Nick.username == payload.username).first()
@@ -87,8 +103,12 @@ async def logout(request: Request):
 
 @router.post("/register")
 def register(payload: schemas.RegisterRequest, request: Request, db: Session = Depends(database.get_db)):
-    client_ip = request.client.host if request.client else "unknown"
-    if not _check_rate_limit("register", client_ip, limit=6, window_seconds=60):
+    client_ip = _resolve_client_ip(request)
+    normalized_username = payload.username.strip().lower()
+
+    if not _check_rate_limit("register-ip", client_ip, limit=30, window_seconds=60):
+        raise HTTPException(status_code=429, detail="Too many register attempts")
+    if not _check_rate_limit("register-user", f"{client_ip}:{normalized_username}", limit=6, window_seconds=60):
         raise HTTPException(status_code=429, detail="Too many register attempts")
 
     # Check if user exists
