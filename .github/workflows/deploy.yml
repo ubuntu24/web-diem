@@ -70,6 +70,10 @@ jobs:
           mv temp_frontend_env frontend/.env
           mv temp_backend_env backend/.env
           
+          # Đảm bảo frontend luôn trỏ tới container backend
+          echo "API_URL=http://backend:8000" >> frontend/.env
+          echo "DOCKER_ENV=true" >> frontend/.env
+          
           # Ghi tiếp các biến khác
           [ -n "${{ secrets.REDIS_URL }}" ]             && echo "REDIS_URL=${{ secrets.REDIS_URL }}"                       >> backend/.env
           [ -n "${{ secrets.DATABASE_URL }}" ]          && echo "DATABASE_URL=${{ secrets.DATABASE_URL }}"                 >> backend/.env

@@ -2,7 +2,16 @@ import { cookies, headers } from 'next/headers';
 import { createDecipheriv, createHash } from 'node:crypto';
 import { z } from 'zod';
 
-export const API_BASE_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+export function getApiBaseUrl(): string {
+    const url = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL;
+    if (url && url.trim()) return url.trim();
+    if (process.env.DOCKER_ENV === 'true' || process.env.NODE_ENV === 'production') {
+        return 'http://backend:8000';
+    }
+    return 'http://127.0.0.1:8000';
+}
+
+export const API_BASE_URL = getApiBaseUrl();
 const BFF_CACHE_MAX_KEYS = Number(process.env.BFF_CACHE_MAX_KEYS || 1000);
 
 export async function fetchUpstream(url: string, init?: RequestInit): Promise<{ status: number, body: string }> {
