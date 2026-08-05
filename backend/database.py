@@ -83,20 +83,28 @@ def sync_schema():
         with engine.connect() as conn:
             # 1. Đồng bộ bảng chat_messages
             if 'chat_messages' in table_names:
-                conn.execute(text("ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS ip_address TEXT"))
-                conn.execute(text("ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS device_fingerprint TEXT"))
-                conn.execute(text("ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS parent_id BIGINT"))
+                chat_cols = {c['name'] for c in inspector.get_columns('chat_messages')}
+                if 'ip_address' not in chat_cols:
+                    conn.execute(text("ALTER TABLE chat_messages ADD COLUMN ip_address TEXT"))
+                if 'device_fingerprint' not in chat_cols:
+                    conn.execute(text("ALTER TABLE chat_messages ADD COLUMN device_fingerprint TEXT"))
+                if 'parent_id' not in chat_cols:
+                    conn.execute(text("ALTER TABLE chat_messages ADD COLUMN parent_id BIGINT"))
 
-            
-            # 2. Đồng bộ bảng nick
+            # 2. Đồng bộ bảng nick (chỉ ALTER TABLE khi cột thực sự chưa có)
             if 'nick' in table_names:
-                # Dùng ADD COLUMN IF NOT EXISTS để tương thích Postgres và tránh lỗi duplicate
-                conn.execute(text("ALTER TABLE nick ADD COLUMN IF NOT EXISTS class_change_limit INTEGER DEFAULT 5"))
-                conn.execute(text("ALTER TABLE nick ADD COLUMN IF NOT EXISTS full_name TEXT"))
-                conn.execute(text("ALTER TABLE nick ADD COLUMN IF NOT EXISTS last_active TIMESTAMP"))
-                conn.execute(text("ALTER TABLE nick ADD COLUMN IF NOT EXISTS reset_limit_at TIMESTAMP"))
-                conn.execute(text("ALTER TABLE nick ADD COLUMN IF NOT EXISTS last_ip TEXT"))
-                conn.execute(text("ALTER TABLE nick ADD COLUMN IF NOT EXISTS last_location TEXT"))
+                nick_cols = {c['name'] for c in inspector.get_columns('nick')}
+                new_nick_cols = [
+                    ("class_change_limit", "INTEGER DEFAULT 5"),
+                    ("full_name", "TEXT"),
+                    ("last_active", "TIMESTAMP"),
+                    ("reset_limit_at", "TIMESTAMP"),
+                    ("last_ip", "TEXT"),
+                    ("last_location", "TEXT"),
+                ]
+                for col_name, col_def in new_nick_cols:
+                    if col_name not in nick_cols:
+                        conn.execute(text(f"ALTER TABLE nick ADD COLUMN {col_name} {col_def}"))
 
             # 3. Thêm index cho bang_diem.msv (Tối ưu tốc độ)
             if 'bang_diem' in table_names:

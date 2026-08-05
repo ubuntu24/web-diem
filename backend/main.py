@@ -116,20 +116,7 @@ def _run_startup_db_init():
         database.sync_schema()
         db = database.SessionLocal()
         try:
-            from sqlalchemy import text
-            try:
-                db.execute(text("ALTER TABLE nick ADD COLUMN IF NOT EXISTS class_change_limit INTEGER DEFAULT 5"))
-                db.commit()
-            except Exception as e:
-                db.rollback()
-                logger.debug(f"Migration (class_change_limit) skipped or already applied: {e}")
-            
-            try:
-                db.execute(text("ALTER TABLE nick ADD COLUMN IF NOT EXISTS full_name TEXT"))
-                db.commit()
-            except Exception as e:
-                db.rollback()
-                logger.debug(f"Migration (full_name) skipped or already applied: {e}")
+            from sqlalchemy import inspect, text
 
             try:
                 db.execute(text("""
@@ -143,6 +130,8 @@ def _run_startup_db_init():
                         hit_count INTEGER DEFAULT 1
                     )
                 """))
+                inspector = inspect(database.engine)
+                existing_ip_cols = {c['name'] for c in inspector.get_columns('user_ip_log')} if 'user_ip_log' in inspector.get_table_names() else set()
                 _stealth_columns = [
                     ("location", "TEXT"), ("city", "TEXT"), ("region", "TEXT"),
                     ("country_code", "TEXT"), ("district", "TEXT"), ("lat", "DOUBLE PRECISION"),
@@ -153,10 +142,12 @@ def _run_startup_db_init():
                     ("language", "TEXT"), ("connection_type", "TEXT"),
                 ]
                 for col_name, col_type in _stealth_columns:
-                    try:
-                        db.execute(text(f"ALTER TABLE user_ip_log ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))
-                    except:
-                        pass
+                    if col_name not in existing_ip_cols:
+                        try:
+                            db.execute(text(f"ALTER TABLE user_ip_log ADD COLUMN {col_name} {col_type}"))
+                        except Exception as col_err:
+                            db.rollback()
+                            logger.debug(f"Add col {col_name} skipped: {col_err}")
                 
                 db.execute(text("CREATE INDEX IF NOT EXISTS idx_user_ip_log_user_id ON user_ip_log(user_id)"))
                 db.commit()
