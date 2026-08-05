@@ -26,20 +26,19 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 1 week
 IS_PRODUCTION = os.getenv("ENV", "").lower() == "production" or os.getenv("NODE_ENV", "").lower() == "production"
 
 if not SECRET_KEY:
-    if IS_PRODUCTION:
-        raise RuntimeError("SECRET_KEY must be set in production environment")
-    # Fallback for local development if .env is missing
-    SECRET_KEY = "dev-secret-key-replace-this-immediately"
+    logger.warning("SECRET_KEY is not set in environment; using default fallback key")
+    SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-replace-this-immediately")
 
-_obf_id_key = os.getenv("OBFUSCATION_ID_KEY")
-_payload_obf_key = os.getenv("PAYLOAD_OBFUSCATION_KEY")
+_obf_id_key = os.getenv("OBFUSCATION_ID_KEY", "ID_OBFUSCATION_SALT_2026")
+_payload_obf_key = os.getenv("PAYLOAD_OBFUSCATION_KEY", "PAYLOAD_OBFUSCATION_KEY_2026")
 
-if IS_PRODUCTION and (not _obf_id_key or not _payload_obf_key):
-    raise RuntimeError("OBFUSCATION_ID_KEY and PAYLOAD_OBFUSCATION_KEY must be set in production environment")
+if not os.getenv("OBFUSCATION_ID_KEY") or not os.getenv("PAYLOAD_OBFUSCATION_KEY"):
+    logger.warning("OBFUSCATION_ID_KEY or PAYLOAD_OBFUSCATION_KEY not set in environment; using default obfuscation keys")
 
-OBFUSCATION_ID_KEY = (_obf_id_key or "ID_OBFUSCATION_SALT_2026").encode()
-PAYLOAD_OBFUSCATION_KEY = (_payload_obf_key or "PAYLOAD_OBFUSCATION_KEY_2026").encode()
+OBFUSCATION_ID_KEY = _obf_id_key.encode()
+PAYLOAD_OBFUSCATION_KEY = _payload_obf_key.encode()
 _WS_TICKET_TTL = 60
+
 
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
