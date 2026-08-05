@@ -55,6 +55,7 @@ services:
       - BACKEND_HOST=0.0.0.0
       - BACKEND_PORT=8000
       - NODE_ENV=production
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000,*}
       - EXTRA_TRUSTED_HOSTS=${EXTRA_TRUSTED_HOSTS:-localhost,127.0.0.1}
     volumes:
       # Removed students.db as Supabase Postgres is used
