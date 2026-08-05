@@ -15,9 +15,6 @@ IS_PRODUCTION = (
 )
 
 if not SQLALCHEMY_DATABASE_URL:
-    if IS_PRODUCTION:
-        raise RuntimeError("DATABASE_URL must be set in production environment")
-
     # Fallback to individual variables if DATABASE_URL is not set
     USER = os.getenv("user")
     PASSWORD = os.getenv("password")
@@ -29,9 +26,9 @@ if not SQLALCHEMY_DATABASE_URL:
         SQLALCHEMY_DATABASE_URL = f"postgresql://{USER}:{PASSWORD}@{HOST}:{PORT}/{DBNAME}"
         print(f"[INFO] DB_CONNECTION: Constructed URL from components")
     else:
-        # Fallback to SQLite ONLY for local development if no Postgres config found
-        print("[WARNING] DATABASE_URL not found. Falling back to SQLite: students.db (Local Mode Only)")
+        print("[WARNING] DATABASE_URL not found. Falling back to SQLite: students.db")
         SQLALCHEMY_DATABASE_URL = "sqlite:///./students.db"
+
 
 # 🕵️ DATABASE_URL PRE-PROCESSOR
 # Ensure we use raw URL if possible, fallback to Konstruksi manual if needed

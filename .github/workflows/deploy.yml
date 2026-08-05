@@ -134,7 +134,14 @@ jobs:
           echo "=== Removing old containers & Starting Docker Compose services ==="
           docker compose down --remove-orphans || true
           docker rm -f flaresolverr web-diem-backend web-diem-frontend cloudflared web-diem-redis 2>/dev/null || true
-          docker compose up -d --build
+          if ! docker compose up -d --build; then
+            echo "=== BACKEND LOGS ==="
+            docker logs web-diem-backend || true
+            echo "=== FRONTEND LOGS ==="
+            docker logs web-diem-frontend || true
+            exit 1
+          fi
           docker compose ps
+
 
 
