@@ -80,6 +80,9 @@ jobs:
           [ -n "${{ secrets.ENV_TUNNEL }}" ]            && echo "${{ secrets.ENV_TUNNEL }}"                                >> .env.tunnel
           [ -n "${{ secrets.TUNNEL_TOKEN }}" ]          && echo "TUNNEL_TOKEN=${{ secrets.TUNNEL_TOKEN }}"                 >> .env.tunnel
           [ -n "${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}" ] && echo "TUNNEL_TOKEN=${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}"   >> .env.tunnel
+          [ -n "${{ secrets.CF_TUNNEL_TOKEN }}" ]        && echo "TUNNEL_TOKEN=${{ secrets.CF_TUNNEL_TOKEN }}"          >> .env.tunnel
+          [ -n "${{ secrets.CLOUDFLARED_TOKEN }}" ]      && echo "TUNNEL_TOKEN=${{ secrets.CLOUDFLARED_TOKEN }}"        >> .env.tunnel
+          [ -n "${{ secrets.CF_TOKEN }}" ]               && echo "TUNNEL_TOKEN=${{ secrets.CF_TOKEN }}"                 >> .env.tunnel
 
           echo "=== Tạo file .env thành công ==="
 
