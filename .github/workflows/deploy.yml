@@ -141,6 +141,11 @@ jobs:
           echo "=== Removing old containers & Starting Docker Compose services ==="
           docker compose down --remove-orphans || true
           docker rm -f flaresolverr web-diem-backend web-diem-frontend cloudflared web-diem-redis 2>/dev/null || true
+
+          # Debug: kiểm tra TUNNEL_TOKEN có được ghi vào .env.tunnel không
+          echo "=== .env.tunnel content (masked) ==="
+          grep -c 'TUNNEL_TOKEN' .env.tunnel && echo "TUNNEL_TOKEN found" || echo "WARNING: TUNNEL_TOKEN not found in .env.tunnel"
+
           if ! docker compose up -d --build; then
             echo "=== BACKEND LOGS ==="
             docker logs web-diem-backend || true
@@ -148,6 +153,12 @@ jobs:
             docker logs web-diem-frontend || true
             exit 1
           fi
+
+          # Chờ 15s rồi in log cloudflared để xác nhận tunnel đã kết nối
+          sleep 15
+          echo "=== CLOUDFLARED LOGS ==="
+          docker logs cloudflared --tail 30 || true
+
           docker compose ps
 
 
