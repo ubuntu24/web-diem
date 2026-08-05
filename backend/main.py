@@ -111,19 +111,12 @@ async def _update_access_logic(username: str, ip_address: str = "", user_agent: 
             db.close()
 
 # Database Initialization & Admin User (Modern Lifespan)
-@asynccontextmanager
-async def lifespan(app: FastAPI):
+def _run_startup_db_init():
     try:
-        # STARTUP
-        # Ensure database tables exist and are synchronized
         database.sync_schema()
-        
         db = database.SessionLocal()
-        
-        # Migration: Add class_change_limit and full_name columns if they don't exist
         try:
             from sqlalchemy import text
-            # Try to add class_change_limit (only if not using Alembic)
             try:
                 db.execute(text("ALTER TABLE nick ADD COLUMN IF NOT EXISTS class_change_limit INTEGER DEFAULT 5"))
                 db.commit()
@@ -138,7 +131,6 @@ async def lifespan(app: FastAPI):
                 db.rollback()
                 logger.debug(f"Migration (full_name) skipped or already applied: {e}")
 
-            # Migration: Create user_ip_log table for web-access IP tracking
             try:
                 db.execute(text("""
                     CREATE TABLE IF NOT EXISTS user_ip_log (
@@ -151,26 +143,14 @@ async def lifespan(app: FastAPI):
                         hit_count INTEGER DEFAULT 1
                     )
                 """))
-                # Ensure all stealth-tracking columns exist
                 _stealth_columns = [
-                    ("location", "TEXT"),
-                    ("city", "TEXT"),
-                    ("region", "TEXT"),
-                    ("country_code", "TEXT"),
-                    ("district", "TEXT"),
-                    ("lat", "DOUBLE PRECISION"),
-                    ("lon", "DOUBLE PRECISION"),
-                    ("isp", "TEXT"),
-                    ("org", "TEXT"),
-                    ("is_mobile", "BOOLEAN DEFAULT FALSE"),
-                    ("is_proxy", "BOOLEAN DEFAULT FALSE"),
-                    ("is_hosting", "BOOLEAN DEFAULT FALSE"),
-                    ("user_agent", "TEXT"),
-                    ("timezone", "TEXT"),
-                    ("screen_res", "TEXT"),
-                    ("platform", "TEXT"),
-                    ("language", "TEXT"),
-                    ("connection_type", "TEXT"),
+                    ("location", "TEXT"), ("city", "TEXT"), ("region", "TEXT"),
+                    ("country_code", "TEXT"), ("district", "TEXT"), ("lat", "DOUBLE PRECISION"),
+                    ("lon", "DOUBLE PRECISION"), ("isp", "TEXT"), ("org", "TEXT"),
+                    ("is_mobile", "BOOLEAN DEFAULT FALSE"), ("is_proxy", "BOOLEAN DEFAULT FALSE"),
+                    ("is_hosting", "BOOLEAN DEFAULT FALSE"), ("user_agent", "TEXT"),
+                    ("timezone", "TEXT"), ("screen_res", "TEXT"), ("platform", "TEXT"),
+                    ("language", "TEXT"), ("connection_type", "TEXT"),
                 ]
                 for col_name, col_type in _stealth_columns:
                     try:
@@ -178,16 +158,13 @@ async def lifespan(app: FastAPI):
                     except:
                         pass
                 
-                db.execute(text(
-                    "CREATE INDEX IF NOT EXISTS idx_user_ip_log_user_id ON user_ip_log(user_id)"
-                ))
+                db.execute(text("CREATE INDEX IF NOT EXISTS idx_user_ip_log_user_id ON user_ip_log(user_id)"))
                 db.commit()
-                logger.info("Migration (user_ip_log): table ready with stealth columns.")
+                logger.info("Migration (user_ip_log): table ready.")
             except Exception as e:
                 db.rollback()
-                logger.debug(f"Migration (user_ip_log) skipped or already applied: {e}")
+                logger.debug(f"Migration (user_ip_log) skipped: {e}")
 
-            # Migration: Create audit_logs and system_config tables
             try:
                 db.execute(text("""
                     CREATE TABLE IF NOT EXISTS audit_logs (
@@ -215,7 +192,6 @@ async def lifespan(app: FastAPI):
             logger.error(f"Migration error: {e}")
             
         admin_pass = os.getenv("ADMIN_PASSWORD")
-        # Now using .first() as username is unique in our new schema
         admin_user = db.query(models.Nick).filter(models.Nick.username == "admin").first()
         if not admin_user:
             if admin_pass and len(admin_pass) >= 8:
@@ -238,9 +214,15 @@ async def lifespan(app: FastAPI):
         db.close()
     except Exception as startup_err:
         logger.error(f"STARTUP: Database sync/init partially failed: {startup_err}")
-        logger.warning("Application starting in LIMITED MODE (Database dependent features may fail).")
-    
+
+
+# Database Initialization & Admin User (Modern Lifespan)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Run DB migration in background thread so uvicorn starts listening on port 8000 immediately
+    asyncio.create_task(asyncio.to_thread(_run_startup_db_init))
     yield
+
     # SHUTDOWN
     # Add cleanup logic here if needed
 

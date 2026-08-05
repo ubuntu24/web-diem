@@ -48,6 +48,7 @@ engine = create_engine(
     max_overflow=20,
     pool_pre_ping=True,
     pool_recycle=1800,
+    connect_args={"connect_timeout": 5} if "postgresql" in SQLALCHEMY_DATABASE_URL else {},
 )
 
 # Create a SessionLocal class
