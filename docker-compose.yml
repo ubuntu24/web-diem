@@ -47,8 +47,6 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: web-diem-backend
-    ports:
-      - "8000:8000"
     expose:
       - "8000"
     env_file:
@@ -92,8 +90,6 @@ services:
       args:
         - API_URL=http://backend:8000
     container_name: web-diem-frontend
-    ports:
-      - "3000:3000"
     expose:
       - "3000"
     env_file:
