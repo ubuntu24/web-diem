@@ -76,5 +76,8 @@ app.prepare().then(() => {
   });
 
   const PORT = parseInt(process.env.PORT || '3000', 10);
-  server.listen(PORT);
+  const HOST = process.env.HOSTNAME || '0.0.0.0';
+  server.listen(PORT, HOST, () => {
+    console.log(`> Ready on http://${HOST}:${PORT}`);
+  });
 });
