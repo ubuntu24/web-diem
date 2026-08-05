@@ -126,3 +126,10 @@ jobs:
 
           # Dọn dẹp ảnh Docker cũ trên runner để tiết kiệm disk
           docker image prune -a -f --filter "until=24h"
+
+      - name: Deploy Containers with Docker Compose
+        run: |
+          echo "=== Starting Docker Compose services ==="
+          docker compose up -d --build
+          docker compose ps
+
