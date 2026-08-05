@@ -1,4 +1,5 @@
 import hashlib
+import logging
 import os
 import secrets
 from datetime import datetime, timedelta
@@ -12,6 +13,8 @@ from fastapi import Depends, HTTPException, Request, status
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 # TTL for user cache (seconds)
 _USER_CACHE_TTL = 300  # 5 minutes
@@ -39,13 +42,8 @@ OBFUSCATION_ID_KEY = _obf_id_key.encode()
 PAYLOAD_OBFUSCATION_KEY = _payload_obf_key.encode()
 _WS_TICKET_TTL = 60
 
-
-
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# Initialize logger
-import logging
-logger = logging.getLogger(__name__)
 
 
 def _normalize_password(password: str) -> str:
