@@ -26,10 +26,17 @@ logger = logging.getLogger(__name__)
 # -------------------------------------------------------------------------
 _redis_client: Any = None
 _redis_url_in_use = ""
+_last_redis_check_time: float = 0.0
+_REDIS_RETRY_COOLDOWN: float = 60.0
 
 
 def _init_redis() -> None:
-    global _redis_client, _redis_url_in_use
+    global _redis_client, _redis_url_in_use, _last_redis_check_time
+    now = time.time()
+    if _redis_client is None and (now - _last_redis_check_time < _REDIS_RETRY_COOLDOWN):
+        return
+    _last_redis_check_time = now
+
     redis_url = os.getenv("REDIS_URL", "").strip()
     if not redis_url:
         return
@@ -40,14 +47,15 @@ def _init_redis() -> None:
         return
 
     try:
-        _redis_client = redis.Redis.from_url(
+        client = redis.Redis.from_url(
             redis_url,
             decode_responses=False,
-            socket_connect_timeout=1,
-            socket_timeout=1,
+            socket_connect_timeout=0.5,
+            socket_timeout=0.5,
             health_check_interval=30,
         )
-        _redis_client.ping()
+        client.ping()
+        _redis_client = client
         _redis_url_in_use = redis_url
         logger.info("[CACHE] Redis connected.")
     except Exception as exc:
@@ -59,6 +67,7 @@ def _init_redis() -> None:
 def _ensure_redis_client() -> None:
     if _redis_client is None:
         _init_redis()
+
 
 
 def _serialize(value: Any) -> bytes:
