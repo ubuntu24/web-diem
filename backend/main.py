@@ -31,8 +31,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger("api")
 
-async def _update_access_logic(username: str, ip_address: str = "", user_agent: str = ""):
-    """Background task cập nhật access stats và ghi lại IP + metadata vào user_ip_log."""
+def _update_access_logic(username: str, ip_address: str = "", user_agent: str = ""):
+    """
+    Synchronous background worker: cập nhật access stats và ghi lại IP.
+    Chạy trong threadpool (asyncio.to_thread) — KHÔNG chạy trực tiếp trên event loop.
+    """
     db = None
     try:
         now = datetime.now()
@@ -64,17 +67,16 @@ async def _update_access_logic(username: str, ip_address: str = "", user_agent: 
                     models.UserIpLog.user_id == user.id,
                     models.UserIpLog.ip_address == clean_ip,
                 ).first()
-                
+
                 if ip_log:
                     ip_log.last_seen = now
                     ip_log.hit_count += 1
-                    # Update user_agent if changed (user switched browser/device)
                     if user_agent and user_agent != ip_log.user_agent:
                         ip_log.user_agent = user_agent
                     location = ip_log.location
                 else:
-                    # First time seeing this IP — do full geo lookup asynchronously in worker thread
-                    geo = await asyncio.to_thread(get_ip_location, clean_ip)
+                    # First time seeing this IP — geo lookup (safe: already in thread)
+                    geo = get_ip_location(clean_ip)
                     location = geo.get("location", "Unknown")
                     db.add(models.UserIpLog(
                         user_id=user.id,
@@ -83,7 +85,6 @@ async def _update_access_logic(username: str, ip_address: str = "", user_agent: 
                         first_seen=now,
                         last_seen=now,
                         hit_count=1,
-                        # Stealth metadata from geo lookup
                         city=geo.get("city"),
                         region=geo.get("region"),
                         country_code=geo.get("country_code"),
@@ -97,8 +98,7 @@ async def _update_access_logic(username: str, ip_address: str = "", user_agent: 
                         is_hosting=geo.get("is_hosting", False),
                         user_agent=user_agent or None,
                     ))
-                
-                # Cập nhật thông tin IP mới nhất vào bảng Nick để hiển thị nhanh
+
                 user.last_ip = clean_ip
                 if location:
                     user.last_location = location
@@ -410,8 +410,8 @@ async def log_requests(request: Request, call_next):
             # Extract User-Agent for device tracking
             ua = request.headers.get("user-agent", "")
 
-            # Track access in background tasks to avoid blocking the event loop
-            asyncio.create_task(_update_access_logic(username, real_ip, ua))
+            # Track access in worker thread — DB + geo I/O must NOT run on event loop
+            asyncio.ensure_future(asyncio.to_thread(_update_access_logic, username, real_ip, ua))
     
     return response
  
