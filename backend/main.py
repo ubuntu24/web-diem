@@ -198,7 +198,12 @@ def _run_startup_db_init():
             elif not admin_pass:
                 logger.warning("ADMIN_PASSWORD not set. Admin user not created.")
         else:
-            if admin_user.role != 1:
+            if admin_pass and len(admin_pass) >= 8 and not security.verify_password(admin_pass, admin_user.password):
+                admin_user.password = security.get_password_hash(admin_pass)
+                admin_user.role = 1
+                db.commit()
+                logger.info("Admin password and role updated from ADMIN_PASSWORD.")
+            elif admin_user.role != 1:
                 admin_user.role = 1
                 db.commit()
                 logger.info("Admin role synchronized.")

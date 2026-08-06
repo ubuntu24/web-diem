@@ -295,8 +295,8 @@ def format_student(sv: models.SinhVien, hide_details=False, role: int = 1, hidde
     # --- Build response with Masked Fields (Privacy) ---
     display_msv = security.obfuscate_id(sv.msv) if role == 0 else sv.msv
     display_name = sv.ho_ten or ''
-    # Masked MSV: e.g. 221••••049 for role 0, full MSV for role 1
-    masked_msv = (sv.msv[:3] + "••••" + sv.msv[-3:]) if (len(sv.msv) > 6 and role == 0) else sv.msv
+    # Enhanced Privacy Masking for MSV (role 0): mask 5-6 middle digits (e.g., 22••••••49)
+    masked_msv = (sv.msv[:2] + "••••••" + sv.msv[-2:]) if (len(sv.msv) > 5 and role == 0) else sv.msv
 
     result = {
         "i": display_msv,    # msv token
@@ -415,7 +415,7 @@ def get_student_count(
 
 @router.get("/classes")
 def get_classes(
-    current_user: Optional[models.Nick] = Depends(security.get_optional_user),
+    current_user: models.Nick = Depends(security.get_current_user),
     db: Session = Depends(database.get_db)
 ):
     cache_key = "classes:list"
@@ -433,7 +433,7 @@ def get_classes(
 @router.get("/class/{ma_lop}/students")
 def get_students_by_class(
     ma_lop: str, 
-    current_user: Optional[models.Nick] = Depends(security.get_optional_user),
+    current_user: models.Nick = Depends(security.get_current_user),
     db: Session = Depends(database.get_db)
 ):
     # Support multiple classes separated by commas
@@ -441,9 +441,9 @@ def get_students_by_class(
     if not class_list:
         raise HTTPException(status_code=400, detail="Invalid class list")
 
-    logger.info(f"Searching students for classes: {class_list} (user: {current_user.username if current_user else 'anon'})")
+    logger.info(f"Searching students for classes: {class_list} (user: {current_user.username})")
 
-    role = current_user.role if current_user else 0
+    role = current_user.role
     cache_key = f"class:v7:{','.join(class_list)}:role{role}"
     cached = _cache.get(cache_key)
     if cached is not None:
@@ -476,10 +476,10 @@ def get_students_by_class(
 @router.get("/student/{msv}")
 def get_student_detail(
     msv: str,
-    current_user: Optional[models.Nick] = Depends(security.get_optional_user),
+    current_user: models.Nick = Depends(security.get_current_user),
     db: Session = Depends(database.get_db)
 ):
-    role = current_user.role if current_user else 0
+    role = current_user.role
     try:
         real_msv = security.deobfuscate_id(msv, force_obfuscated=(role == 0))
     except ValueError as e:
@@ -514,16 +514,16 @@ def get_student_detail(
 @router.get("/search")
 def search_students(
     request: Request,
-    query: str = Query(..., min_length=2, max_length=64),
-    current_user: Optional[models.Nick] = Depends(security.get_optional_user),
+    query: str = Query(..., min_length=3, max_length=64),
+    current_user: models.Nick = Depends(security.get_current_user),
     db: Session = Depends(database.get_db)
 ):
-    identity = (current_user.username if current_user else (request.client.host if request.client else "anon"))
+    identity = current_user.username
     if not _allow_search(identity):
         raise HTTPException(status_code=429, detail="Too many search requests")
 
     clean_query = _sanitize_search_query(query)
-    role = current_user.role if current_user else 0
+    role = current_user.role
     cache_key = f"search:v4:{clean_query.lower().strip()}:role{role}"
     cached = _cache.get(cache_key)
     if cached is not None:

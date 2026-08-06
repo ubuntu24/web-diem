@@ -305,13 +305,22 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 # Auth via one-time ticket (preferred) or JWT fallback
                 if msg.get("type") in ["auth_ticket", "auth"]:
-                    username = None
+                    ticket_user = None
                     if msg.get("type") == "auth_ticket" and msg.get("ticket"):
-                        username = security.consume_websocket_ticket(msg.get("ticket"))
+                        ticket_user = security.consume_websocket_ticket(msg.get("ticket"))
+                        # Bind check: ticket's owner MUST match the session's authenticated user_id
+                        if ticket_user and ticket_user != user_id:
+                            logger.warning(f"WebSocket identity spoofing attempt blocked: session '{user_id}' presented ticket for '{ticket_user}'")
+                            await websocket.send_text(json.dumps({"type": "error", "message": "Vé đăng nhập không hợp lệ với tài khoản này."}))
+                            await websocket.close()
+                            break
+                        username = ticket_user
                     elif msg.get("type") == "auth" and msg.get("token"):
                         try:
                             payload = jwt.decode(msg["token"], security.SECRET_KEY, algorithms=[security.ALGORITHM])
-                            username = payload.get("sub")
+                            tok_user = payload.get("sub")
+                            if tok_user and tok_user == user_id:
+                                username = tok_user
                         except JWTError:
                             pass
                     

@@ -563,6 +563,25 @@ export async function updateProfileBff(fullName: string): Promise<void> {
     if (!res.ok) throw new Error('Failed to update profile');
 }
 
+export async function recordClassChangeBff(): Promise<number> {
+    const res = await fetch('/v/user/class-change', {
+        method: 'POST',
+        credentials: 'include',
+        headers: withCsrf(),
+    });
+    if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        try {
+            const parsed = JSON.parse(text);
+            throw new Error(parsed?.detail || 'Hết lượt đổi lớp');
+        } catch (e: any) {
+            throw new Error(e.message || 'Không thể đổi lớp');
+        }
+    }
+    const data = await res.json();
+    return data?.remaining ?? 0;
+}
+
 export async function getUsersBff(): Promise<AdminUser[]> {
     const res = await fetch('/v/admin/users', { credentials: 'include' });
     if (!res.ok) throw new Error('Failed to fetch users');

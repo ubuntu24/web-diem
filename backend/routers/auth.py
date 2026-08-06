@@ -52,18 +52,33 @@ def login(payload: schemas.LoginRequest, request: Request, db: Session = Depends
     if not _check_rate_limit("login-user", f"{client_ip}:{normalized_username}", limit=12, window_seconds=60):
         raise HTTPException(status_code=429, detail="Too many login attempts")
 
+    # Account Lockout Check: 5 consecutive failures in 15 mins
+    lockout_key = f"lockout:{client_ip}:{normalized_username}"
+    if _cache.get(lockout_key):
+        raise HTTPException(
+            status_code=429,
+            detail="Tài khoản tạm thời bị khóa do nhập sai mật khẩu nhiều lần. Vui lòng thử lại sau 15 phút."
+        )
+
     user = db.query(models.Nick).filter(models.Nick.username == payload.username).first()
     if not user or not security.verify_password(payload.password, user.password):
+        # Record failed attempt
+        fail_key = f"fail_cnt:{client_ip}:{normalized_username}"
+        fails = (_cache.get(fail_key) or 0) + 1
+        _cache.set(fail_key, fails, ttl=900)
+        if fails >= 5:
+            _cache.set(lockout_key, True, ttl=900)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    # Clear failed attempts on successful login
+    _cache.delete(f"fail_cnt:{client_ip}:{normalized_username}")
     
     access_token = security.create_access_token(data={"sub": user.username})
     
-    # Đặt httpOnly cookie — RSC pages sử dụng để fetch data server-side
-    # Browser JS không đọc được httpOnly cookie (bảo mật hơn localStorage)
     cookie_max_age = 60 * 60 * 24 * 7  # 7 days in seconds
     is_production = security.IS_PRODUCTION
     response = JSONResponse(content={
@@ -87,8 +102,9 @@ def login(payload: schemas.LoginRequest, request: Request, db: Session = Depends
 async def logout(request: Request):
     from .websocket import manager
     
-    token = request.cookies.get("stoken")
+    token = security.get_token(request)
     if token:
+        security.revoke_token(token)
         try:
             payload = jwt.decode(token, security.SECRET_KEY, algorithms=[security.ALGORITHM])
             username = payload.get("sub")
@@ -111,13 +127,16 @@ def register(payload: schemas.RegisterRequest, request: Request, db: Session = D
     if not _check_rate_limit("register-user", f"{client_ip}:{normalized_username}", limit=6, window_seconds=60):
         raise HTTPException(status_code=429, detail="Too many register attempts")
 
-    # Check if user exists
+    # Enforce minimum password length
+    if not payload.password or len(payload.password) < 8:
+        raise HTTPException(status_code=400, detail="Mật khẩu phải có ít nhất 8 ký tự.")
+
+    # Check if user exists — return standardized non-leaking message to prevent enumeration
     user = db.query(models.Nick).filter(models.Nick.username == payload.username).first()
     if user:
-        raise HTTPException(status_code=400, detail="Username already exists")
+        raise HTTPException(status_code=400, detail="Registration cannot be completed with the provided username.")
     
     hashed_password = security.get_password_hash(payload.password)
-    # Default role 0 (Guest) with default permissions
     new_user = models.Nick(
         username=payload.username,
         password=hashed_password, 
@@ -175,9 +194,40 @@ def update_profile(
     db.commit()
     print(f"Backend: DB Commit Success for {user.username}. Changed '{old_name}' to '{user.full_name}'")
     
-    # Invalidate cache so that subsequent GETs see the new name
+    if payload.full_name is not None:
+        user.full_name = payload.full_name
+    db.commit()
     security.invalidate_user_cache(user.username)
-    return {"message": "Profile updated successfully"}
+    return {"message": "Profile updated"}
+
+
+@router.post("/user/class-change")
+def record_class_change(
+    current_user: models.Nick = Depends(security.get_current_user),
+    db: Session = Depends(database.get_db)
+):
+    from datetime import date, datetime
+    today = date.today()
+
+    if current_user.reset_limit_at and current_user.reset_limit_at.date() < today:
+        current_user.class_change_limit = 5
+        current_user.reset_limit_at = datetime.now()
+
+    if current_user.class_change_limit == -1:
+        return {"remaining": -1}
+
+    if current_user.class_change_limit <= 0:
+        raise HTTPException(
+            status_code=403,
+            detail="Bạn đã hết 5 lượt đổi lớp trong ngày. Vui lòng quay lại vào ngày mai hoặc nâng cấp VIP."
+        )
+
+    current_user.class_change_limit -= 1
+    current_user.reset_limit_at = datetime.now()
+    db.commit()
+
+    security.invalidate_user_cache(current_user.username)
+    return {"remaining": current_user.class_change_limit}
 
 
 @router.post("/ws-ticket")

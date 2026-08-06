@@ -120,6 +120,22 @@ def consume_websocket_ticket(ticket: str) -> Optional[str]:
     return username
 
 
+def revoke_token(token: str):
+    """Revoke a JWT token by adding its SHA-256 hash to cache denylist."""
+    if not token:
+        return
+    token_hash = hashlib.sha256(token.encode('utf-8')).hexdigest()
+    _cache.set(f"revoked_token:{token_hash}", True, ttl=60 * 60 * 24 * 7)
+
+
+def is_token_revoked(token: str) -> bool:
+    """Check if a JWT token has been revoked via logout."""
+    if not token:
+        return False
+    token_hash = hashlib.sha256(token.encode('utf-8')).hexdigest()
+    return _cache.get(f"revoked_token:{token_hash}") is True
+
+
 def get_current_user(request: Request, db: Session = Depends(database.get_db)):
     token = get_token(request)
     credentials_exception = HTTPException(
@@ -127,7 +143,7 @@ def get_current_user(request: Request, db: Session = Depends(database.get_db)):
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    if not token:
+    if not token or is_token_revoked(token):
         raise credentials_exception
     
     try:
@@ -146,7 +162,7 @@ def get_current_user(request: Request, db: Session = Depends(database.get_db)):
 
 def get_optional_user(request: Request, db: Session = Depends(database.get_db)):
     token = get_token(request)
-    if not token:
+    if not token or is_token_revoked(token):
         return None
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])

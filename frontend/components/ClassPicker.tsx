@@ -34,6 +34,8 @@ function incrementClassChange(): number {
     return count;
 }
 
+import { recordClassChangeBff } from '@/lib/api';
+
 export default function ClassPicker({
     classes,
     onClassSelected,
@@ -43,6 +45,7 @@ export default function ClassPicker({
 }: ClassPickerProps) {
     const [searchQuery, setSearchQuery] = useState('');
     const [error, setError] = useState<string | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const filteredClasses = classes.filter(c =>
         c.toLowerCase().includes(searchQuery.toLowerCase())
@@ -52,7 +55,7 @@ export default function ClassPicker({
     const remainingChanges = maxChanges === -1 ? '∞' : Math.max(0, maxChanges - classChangeCount);
     const isLimitReached = maxChanges === -1 ? false : classChangeCount >= maxChanges;
 
-    const handleSelect = (className: string) => {
+    const handleSelect = async (className: string) => {
         if (className === currentClass) {
             onClose?.();
             return;
@@ -63,10 +66,18 @@ export default function ClassPicker({
             return;
         }
 
-        incrementClassChange();
-        localStorage.setItem('selectedClass', className);
-        onClassSelected(className);
-        onClose?.();
+        setIsSubmitting(true);
+        try {
+            await recordClassChangeBff();
+            incrementClassChange();
+            localStorage.setItem('selectedClass', className);
+            onClassSelected(className);
+            onClose?.();
+        } catch (err: any) {
+            setError(err.message || "Bạn đã hết lượt đổi lớp trong ngày.");
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
