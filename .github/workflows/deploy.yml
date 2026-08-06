@@ -75,8 +75,6 @@ jobs:
           echo "DOCKER_ENV=true" >> frontend/.env
           
           # Ghi tiếp các biến khác
-          # NOTE: REDIS_URL disabled — using in-memory cache to avoid network latency hangs
-          # [ -n "${{ secrets.REDIS_URL }}" ] && echo "REDIS_URL=${{ secrets.REDIS_URL }}" >> backend/.env
           [ -n "${{ secrets.DATABASE_URL }}" ]          && echo "DATABASE_URL=${{ secrets.DATABASE_URL }}"                 >> backend/.env
           [ -n "${{ secrets.ADMIN_PASSWORD }}" ]        && echo "ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }}"             >> backend/.env
           [ -n "${{ secrets.TELEGRAM_BOT_TOKEN }}" ]    && echo "TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}"     >> backend/.env
