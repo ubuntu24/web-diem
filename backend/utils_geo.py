@@ -42,7 +42,7 @@ def _reverse_geocode_district(lat: float, lon: float) -> Optional[str]:
                 "accept-language": "vi",  # Vietnamese locale for VN addresses
             },
             headers={"User-Agent": "lifesuck-platform/1.0"},
-            timeout=4,
+            timeout=1.5,
         )
         if resp.status_code == 200:
             data = resp.json()
@@ -117,7 +117,7 @@ def get_ip_location(ip: str) -> dict:
         response = requests.get(
             f"http://ip-api.com/json/{ip}",
             params={"fields": _IP_API_FIELDS},
-            timeout=4,
+            timeout=1.5,
         )
         if response.status_code == 200:
             data = response.json()

@@ -73,8 +73,8 @@ async def _update_access_logic(username: str, ip_address: str = "", user_agent: 
                         ip_log.user_agent = user_agent
                     location = ip_log.location
                 else:
-                    # First time seeing this IP — do full geo lookup
-                    geo = get_ip_location(clean_ip)
+                    # First time seeing this IP — do full geo lookup asynchronously in worker thread
+                    geo = await asyncio.to_thread(get_ip_location, clean_ip)
                     location = geo.get("location", "Unknown")
                     db.add(models.UserIpLog(
                         user_id=user.id,
