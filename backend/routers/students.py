@@ -415,7 +415,7 @@ def get_student_count(
 
 @router.get("/classes")
 def get_classes(
-    current_user: models.Nick = Depends(security.get_current_user),
+    current_user: Optional[models.Nick] = Depends(security.get_optional_user),
     db: Session = Depends(database.get_db)
 ):
     cache_key = "classes:list"
@@ -433,7 +433,7 @@ def get_classes(
 @router.get("/class/{ma_lop}/students")
 def get_students_by_class(
     ma_lop: str, 
-    current_user: models.Nick = Depends(security.get_current_user),
+    current_user: Optional[models.Nick] = Depends(security.get_optional_user),
     db: Session = Depends(database.get_db)
 ):
     # Support multiple classes separated by commas
@@ -441,9 +441,9 @@ def get_students_by_class(
     if not class_list:
         raise HTTPException(status_code=400, detail="Invalid class list")
 
-    logger.info(f"Searching students for classes: {class_list} (user: {current_user.username})")
+    logger.info(f"Searching students for classes: {class_list} (user: {current_user.username if current_user else 'anon'})")
 
-    role = current_user.role
+    role = current_user.role if current_user else 0
     cache_key = f"class:v7:{','.join(class_list)}:role{role}"
     cached = _cache.get(cache_key)
     if cached is not None:
@@ -476,10 +476,10 @@ def get_students_by_class(
 @router.get("/student/{msv}")
 def get_student_detail(
     msv: str,
-    current_user: models.Nick = Depends(security.get_current_user),
+    current_user: Optional[models.Nick] = Depends(security.get_optional_user),
     db: Session = Depends(database.get_db)
 ):
-    role = current_user.role
+    role = current_user.role if current_user else 0
     try:
         real_msv = security.deobfuscate_id(msv, force_obfuscated=(role == 0))
     except ValueError as e:
@@ -515,15 +515,15 @@ def get_student_detail(
 def search_students(
     request: Request,
     query: str = Query(..., min_length=3, max_length=64),
-    current_user: models.Nick = Depends(security.get_current_user),
+    current_user: Optional[models.Nick] = Depends(security.get_optional_user),
     db: Session = Depends(database.get_db)
 ):
-    identity = current_user.username
+    identity = (current_user.username if current_user else (request.client.host if request.client else "anon"))
     if not _allow_search(identity):
         raise HTTPException(status_code=429, detail="Too many search requests")
 
     clean_query = _sanitize_search_query(query)
-    role = current_user.role
+    role = current_user.role if current_user else 0
     cache_key = f"search:v4:{clean_query.lower().strip()}:role{role}"
     cached = _cache.get(cache_key)
     if cached is not None:
