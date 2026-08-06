@@ -2,6 +2,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: web-diem-redis
+    profiles: [ "local-redis" ]
     command: [ "redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru" ]
     expose:
       - "6379"
@@ -54,7 +55,6 @@ services:
       - BACKEND_HOST=0.0.0.0
       - BACKEND_PORT=8000
       - NODE_ENV=production
-      - REDIS_URL=${REDIS_URL:-redis://web-diem-redis:6379}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000,*}
       - EXTRA_TRUSTED_HOSTS=${EXTRA_TRUSTED_HOSTS:-localhost,127.0.0.1}
     volumes:
@@ -62,9 +62,6 @@ services:
       - ./backend/static:/app/static
     networks:
       - backend-network
-    depends_on:
-      redis:
-        condition: service_healthy
     restart: always
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
@@ -129,7 +126,7 @@ services:
     restart: always
     env_file:
       - .env.tunnel
-    command: tunnel --no-autoupdate --protocol http2 run
+    command: tunnel --no-autoupdate run
     networks:
       - frontend-network
       - backend-network
