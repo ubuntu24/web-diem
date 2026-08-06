@@ -27,11 +27,18 @@ logger = logging.getLogger(__name__)
 _redis_client: Any = None
 _redis_url_in_use = ""
 _last_redis_check_time: float = 0.0
-_REDIS_RETRY_COOLDOWN: float = 60.0
-
+_redis_disabled_permanently: bool = False
 
 def _init_redis() -> None:
-    global _redis_client, _redis_url_in_use, _last_redis_check_time
+    global _redis_client, _redis_url_in_use, _last_redis_check_time, _redis_disabled_permanently
+    if _redis_disabled_permanently:
+        return
+
+    # Require explicit ENABLE_REDIS=true flag to use Redis (default to fast in-memory)
+    if os.getenv("ENABLE_REDIS", "").lower() not in ("true", "1", "yes"):
+        _redis_disabled_permanently = True
+        return
+
     now = time.time()
     if _redis_client is None and (now - _last_redis_check_time < _REDIS_RETRY_COOLDOWN):
         return
@@ -39,11 +46,13 @@ def _init_redis() -> None:
 
     redis_url = os.getenv("REDIS_URL", "").strip()
     if not redis_url:
+        _redis_disabled_permanently = True
         return
     if _redis_client is not None and _redis_url_in_use == redis_url:
         return
     if redis is None:
-        logger.warning("[CACHE] REDIS_URL is set but redis package is not installed; using in-memory cache.")
+        logger.warning("[CACHE] ENABLE_REDIS is set but redis package is not installed; using in-memory cache.")
+        _redis_disabled_permanently = True
         return
 
     try:
@@ -57,11 +66,12 @@ def _init_redis() -> None:
         client.ping()
         _redis_client = client
         _redis_url_in_use = redis_url
-        logger.info("[CACHE] Redis connected.")
+        logger.info("[CACHE] Redis connected successfully.")
     except Exception as exc:
         _redis_client = None
         _redis_url_in_use = ""
-        logger.warning(f"[CACHE] Redis unavailable ({exc}); using in-memory cache.")
+        _redis_disabled_permanently = True  # Permanently use fast in-memory cache to avoid hanging
+        logger.warning(f"[CACHE] Redis unavailable ({exc}); permanently switching to in-memory cache.")
 
 
 def _ensure_redis_client() -> None:
