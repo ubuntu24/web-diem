@@ -1,6 +1,9 @@
 import { cookies, headers } from 'next/headers';
 import { createDecipheriv, createHash } from 'node:crypto';
+import dns from 'node:dns';
 import { z } from 'zod';
+
+try { dns.setDefaultResultOrder('ipv4first'); } catch (_) {}
 
 export function getApiBaseUrl(): string {
     const url = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL;

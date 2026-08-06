@@ -1,4 +1,7 @@
 /* eslint-disable */
+const dns = require('node:dns');
+try { dns.setDefaultResultOrder('ipv4first'); } catch (_) {}
+
 /**
  * Custom Next.js server with WebSocket proxy support.
  *
