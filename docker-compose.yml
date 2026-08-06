@@ -128,7 +128,7 @@ services:
     restart: always
     env_file:
       - .env.tunnel
-    command: tunnel --no-autoupdate run
+    command: tunnel --no-autoupdate --protocol http2 run
     networks:
       - frontend-network
       - backend-network
