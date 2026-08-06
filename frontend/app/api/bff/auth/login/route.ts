@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { API_BASE_URL, enforceRateLimit, issueCsrfCookie, LoginBodySchema, badRequest } from '@/app/api/bff/_utils';
+import { getApiBaseUrl, enforceRateLimit, issueCsrfCookie, LoginBodySchema, badRequest } from '@/app/api/bff/_utils';
 
 export async function POST(request: Request) {
     const limited = enforceRateLimit(request, 'login', 12, 60_000);
@@ -17,7 +17,7 @@ export async function POST(request: Request) {
         let res: Response;
         let text: string;
         try {
-            res = await fetch(`${API_BASE_URL}/api/login`, {
+            res = await fetch(`${getApiBaseUrl()}/api/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(parsed.data),

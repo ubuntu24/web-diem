@@ -5,10 +5,7 @@ import { z } from 'zod';
 export function getApiBaseUrl(): string {
     const url = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL;
     if (url && url.trim()) return url.trim();
-    if (process.env.DOCKER_ENV === 'true' || process.env.NODE_ENV === 'production') {
-        return 'http://backend:8000';
-    }
-    return 'http://127.0.0.1:8000';
+    return 'http://backend:8000';
 }
 
 export const API_BASE_URL = getApiBaseUrl();
