@@ -34,12 +34,17 @@ Maintain the **lifesuck** brand as a neutral, premium, and professional data pla
 - **Binary**: The `rtk.exe` binary is located in `.venv/Scripts/` (Windows). Ensure it's in your PATH or call it explicitly if needed.
 - **Benefit**: Reduces token consumption by 60-90% on command outputs.
 
+### 6. UI Audit & Verification Protocol
+Whenever the user asks to check, audit, or verify the UI (giao diện):
+1. **Design Anti-pattern Check (Impeccable)**: Always run `npx -y impeccable detect frontend` to audit UI quality, color contrast, and AI design anti-patterns.
+2. **Live E2E Verification (webapp-testing)**: Always use `webapp-testing` skill pattern with Playwright & `with_server.py` to start the dev server (`npm --prefix frontend run dev` on port 3000), capture full-page screenshots, check browser console logs, and verify branding compliance (0 forbidden terms).
+
 ---
 
 ## 🧪 Testing Requirements
 Before finishing any task:
 1.  **Unit**: Run `pytest` for backend and `npm test` for frontend.
-2.  **UI**: Verify changes with a Playwright script if the UI logic has changed.
+2.  **UI**: Verify changes with `impeccable detect` and a Playwright script if the UI logic has changed.
 3.  **Branding Check**: Perform a `grep` for forbidden terms to ensure no branding leaks occurred.
 
 ---

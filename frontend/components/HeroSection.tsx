@@ -29,7 +29,7 @@ export default function HeroSection({ username, totalClasses, totalStudents, onl
             <motion.div
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 p-8 text-white shadow-xl"
+                className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-8 text-white shadow-xl border border-indigo-500/20"
             >
                 <div className="relative z-10">
                     <h1 className="text-2xl md:text-3xl font-bold mb-2 flex flex-wrap items-center gap-2 md:gap-3">

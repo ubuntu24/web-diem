@@ -45,7 +45,7 @@ export default function UserMenu({ username, onLogout }: UserMenuProps) {
                             {({ active }) => (
                                 <Link
                                     href="/profile"
-                                    className={`${active ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-300'
+                                    className={`${active ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-900 dark:text-indigo-200' : 'text-slate-700 dark:text-slate-300'
                                         } group flex w-full items-center rounded-lg px-2 py-2 text-sm transition-colors`}
                                 >
                                     <User className="mr-2 h-4 w-4" />
@@ -59,7 +59,7 @@ export default function UserMenu({ username, onLogout }: UserMenuProps) {
                             {({ active }) => (
                                 <button
                                     onClick={onLogout}
-                                    className={`${active ? 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400' : 'text-slate-700 dark:text-slate-300'
+                                    className={`${active ? 'bg-red-50 dark:bg-red-950/60 text-red-900 dark:text-red-200' : 'text-slate-700 dark:text-slate-300'
                                         } group flex w-full items-center rounded-lg px-2 py-2 text-sm transition-colors`}
                                 >
                                     <LogOut className="mr-2 h-4 w-4" />

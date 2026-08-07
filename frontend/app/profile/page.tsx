@@ -93,10 +93,10 @@ export default function ProfilePage() {
                     transition={{ duration: 0.5 }}
                     className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl overflow-hidden border border-slate-100 dark:border-slate-800 transition-colors"
                 >
-                    <div className="bg-gradient-to-br from-indigo-500 via-blue-600 to-teal-500 h-40 relative">
+                    <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 h-40 relative border-b border-indigo-500/20">
                         <div className="absolute -bottom-12 left-1/2 -translate-x-1/2">
                             <div className="w-28 h-28 bg-white dark:bg-slate-900 rounded-3xl p-1.5 shadow-2xl transform rotate-3 transition-colors">
-                                <div className="w-full h-full bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-4xl transition-colors border border-slate-100 dark:border-slate-700">
+                                <div className="w-full h-full bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-slate-900 dark:text-white font-bold text-4xl transition-colors border border-slate-100 dark:border-slate-700">
                                     {(user.full_name || user.username || '?').charAt(0).toUpperCase()}
                                 </div>
                             </div>
@@ -122,7 +122,7 @@ export default function ProfilePage() {
 
                                     <button
                                         onClick={() => setIsEditing(true)}
-                                        className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-indigo-50 dark:hover:bg-indigo-900/40 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all duration-300 font-semibold text-sm group"
+                                        className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white transition-all duration-300 font-semibold text-sm group"
                                     >
                                         <Edit3 className="w-4 h-4 group-hover:rotate-12 transition-transform" />
                                         Chỉnh sửa tên

@@ -52,21 +52,21 @@ export function ThemeToggle() {
                             <div className="p-1">
                                 <button
                                     onClick={() => { setTheme("light"); setIsOpen(false); }}
-                                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors ${theme === 'light' ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
+                                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors ${theme === 'light' ? 'bg-indigo-50 text-indigo-900 dark:bg-indigo-950/60 dark:text-indigo-200' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
                                 >
                                     <Sun className="h-4 w-4" />
                                     <span>Sáng</span>
                                 </button>
                                 <button
                                     onClick={() => { setTheme("dark"); setIsOpen(false); }}
-                                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors ${theme === 'dark' ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
+                                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors ${theme === 'dark' ? 'bg-indigo-50 text-indigo-900 dark:bg-indigo-950/60 dark:text-indigo-200' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
                                 >
                                     <Moon className="h-4 w-4" />
                                     <span>Tối</span>
                                 </button>
                                 <button
                                     onClick={() => { setTheme("system"); setIsOpen(false); }}
-                                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors ${theme === 'system' ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
+                                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors ${theme === 'system' ? 'bg-indigo-50 text-indigo-900 dark:bg-indigo-950/60 dark:text-indigo-200' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
                                 >
                                     <Monitor className="h-4 w-4" />
                                     <span>Hệ thống</span>

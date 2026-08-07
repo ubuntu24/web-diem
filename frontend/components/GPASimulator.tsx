@@ -140,7 +140,7 @@ export default function GPASimulator({ currentCredits, currentPoints }: GPASimul
 
                     <div className="relative z-10">
                         <div className="text-indigo-200 dark:text-indigo-300 text-sm font-medium mb-1 uppercase tracking-wider">Thành tích tích lũy dự kiến</div>
-                        <div className="text-5xl font-bold mb-4 tracking-tight text-white dark:text-indigo-50">
+                        <div className="text-5xl font-bold mb-4 tracking-tight text-white">
                             {projectedGPA}
                         </div>
 

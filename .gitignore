@@ -46,6 +46,7 @@ Thumbs.db
 # AI Agent Skills
 .agents/
 .agent/
+.github/skills/
 
 # Security & Keys
 *.pem

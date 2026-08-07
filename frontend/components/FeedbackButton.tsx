@@ -38,7 +38,7 @@ export default function FeedbackButton({ username }: { username: string }) {
             {/* Floating Button */}
             <motion.button
                 onClick={() => setOpen(true)}
-                className="fixed bottom-6 left-6 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-300/40 dark:shadow-violet-900/40 flex items-center justify-center hover:scale-110 active:scale-95 transition-transform"
+                className="fixed bottom-6 left-6 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white shadow-lg shadow-indigo-950/40 border border-indigo-500/20 flex items-center justify-center hover:scale-110 active:scale-95 transition-transform"
                 whileHover={{ rotate: [0, -10, 10, 0] }}
                 title="Góp ý kiến"
             >
@@ -65,7 +65,7 @@ export default function FeedbackButton({ username }: { username: string }) {
                         >
                             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
                                 {/* Header */}
-                                <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-violet-600 to-indigo-600 text-white">
+                                <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white border-b border-indigo-500/20">
                                     <div className="flex items-center gap-2">
                                         <MessageSquarePlus className="w-5 h-5" />
                                         <span className="font-bold text-sm">Góp ý kiến</span>
@@ -115,7 +115,7 @@ export default function FeedbackButton({ username }: { username: string }) {
                                                 <button
                                                     onClick={handleSend}
                                                     disabled={!message.trim() || sending}
-                                                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-lg text-sm font-bold shadow-md shadow-violet-200 dark:shadow-violet-900/30 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-slate-900 to-indigo-950 text-white rounded-lg text-sm font-bold shadow-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all border border-indigo-500/20"
                                                 >
                                                     {sending ? (
                                                         <Loader2 className="w-4 h-4 animate-spin" />
