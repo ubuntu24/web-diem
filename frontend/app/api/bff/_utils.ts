@@ -39,7 +39,7 @@ function unwrapJsonString(text: string): string {
 }
 
 function maybeDecryptUpstreamBody(text: string): string | null {
-    const payloadKey = process.env.PAYLOAD_OBFUSCATION_KEY || "PAYLOAD_OBFUSCATION_KEY_2026";
+    const payloadKey = process.env.PAYLOAD_OBFUSCATION_KEY;
     if (!payloadKey) return null;
 
     const payload = unwrapJsonString(text);
@@ -103,19 +103,11 @@ export async function authHeadersFromCookies(extra?: HeadersInit, clientRequest?
     }
     if (token) merged.Authorization = `Bearer ${token}`;
 
-    // Forward real client IP to backend (avoids Docker internal 172.x.x.x)
-    // Extract using Next.js headers() utility for all server-side contexts
+    // Forward real client IP to backend from trusted proxy (Cloudflare)
     try {
         const reqHeaders = await headers();
-        const fwd = (clientRequest ? clientRequest.headers.get('x-forwarded-for') : null) || reqHeaders.get('x-forwarded-for');
-        const realIp =
-            (clientRequest ? clientRequest.headers.get('cf-connecting-ip') : null) ||
-            reqHeaders.get('cf-connecting-ip') ||
-            (fwd ? fwd.split(',')[0].trim() : null) ||
-            (clientRequest ? clientRequest.headers.get('x-real-ip') : null) ||
-            reqHeaders.get('x-real-ip');
-
-        if (realIp) merged['X-Real-IP'] = realIp;
+        const cfIp = (clientRequest ? clientRequest.headers.get('cf-connecting-ip') : null) || reqHeaders.get('cf-connecting-ip');
+        if (cfIp) merged['X-Real-IP'] = cfIp;
     } catch (e) {
         // Fallback for cases outside request context
     }
@@ -124,9 +116,14 @@ export async function authHeadersFromCookies(extra?: HeadersInit, clientRequest?
 }
 
 function clientIp(request: Request): string {
+    const cf = request.headers.get('cf-connecting-ip');
+    if (cf) return cf.trim();
     const fwd = request.headers.get('x-forwarded-for');
-    if (fwd) return fwd.split(',')[0].trim();
-    return request.headers.get('cf-connecting-ip') || 'unknown';
+    if (fwd) {
+        const hops = fwd.split(',').map((h) => h.trim()).filter(Boolean);
+        if (hops.length) return hops[hops.length - 1];
+    }
+    return 'unknown';
 }
 
 export function enforceRateLimit(request: Request, scope: string, limit: number, windowMs: number): Response | null {
@@ -149,27 +146,45 @@ export function enforceRateLimit(request: Request, scope: string, limit: number,
     return null;
 }
 
+const gStore = globalThis as unknown as { __csrfStore?: Map<string, { token: string; expiresAt: number }> };
+if (!gStore.__csrfStore) gStore.__csrfStore = new Map();
+
+async function csrfKeyForSession(): Promise<string | null> {
+    const store = await cookies();
+    return store.get('stoken')?.value?.slice(-32) ?? null;
+}
+
 export async function issueCsrfCookie(): Promise<string> {
+    const sessionKey = await csrfKeyForSession();
     const token = crypto.randomUUID().replace(/-/g, '');
+    if (sessionKey) {
+        gStore.__csrfStore!.set(sessionKey, { token, expiresAt: Date.now() + 60 * 60 * 1000 });
+    }
     const store = await cookies();
     store.set('csrf_token', token, {
-        httpOnly: false,
+        httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
         path: '/',
-        maxAge: 60 * 60 * 24 * 7,
+        maxAge: 60 * 60 * 1000,
     });
     return token;
 }
 
 export async function requireCsrf(request: Request): Promise<Response | null> {
-    const store = await cookies();
-    const cookieToken = store.get('csrf_token')?.value;
-    const headerToken = request.headers.get('x-csrf-token');
-
-    if (!cookieToken || !headerToken || cookieToken !== headerToken) {
+    const sessionKey = await csrfKeyForSession();
+    if (!sessionKey) {
         return Response.json({ detail: 'Invalid CSRF token' }, { status: 403 });
     }
+    const expected = gStore.__csrfStore!.get(sessionKey);
+    if (!expected || expected.expiresAt < Date.now()) {
+        return Response.json({ detail: 'Invalid CSRF token' }, { status: 403 });
+    }
+    const headerToken = request.headers.get('x-csrf-token');
+    if (!headerToken || headerToken !== expected.token) {
+        return Response.json({ detail: 'Invalid CSRF token' }, { status: 403 });
+    }
+    gStore.__csrfStore!.delete(sessionKey);
     return null;
 }
 

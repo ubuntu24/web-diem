@@ -50,17 +50,20 @@ export async function POST(request: Request) {
                 maxAge: 60 * 60 * 24 * 7,
             });
             store.set('role', String(role), {
-                httpOnly: false,
+                httpOnly: true,
                 secure: process.env.NODE_ENV === 'production',
                 sameSite: 'lax',
                 path: '/',
                 maxAge: 60 * 60 * 24 * 7,
             });
-            const csrf = await issueCsrfCookie();
-            data.csrf_token = csrf;
+            await issueCsrfCookie();
         }
 
-        return Response.json(data);
+        return Response.json({
+            token_type: data?.token_type ?? 'bearer',
+            role: data?.role ?? 0,
+            class_change_limit: data?.class_change_limit ?? 0,
+        });
     } catch (error: any) {
         console.error('[BFF Login Fatal Error]:', error);
         return Response.json({

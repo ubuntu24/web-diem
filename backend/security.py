@@ -29,14 +29,18 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 1 week
 IS_PRODUCTION = os.getenv("ENV", "").lower() == "production" or os.getenv("NODE_ENV", "").lower() == "production"
 
 if not SECRET_KEY:
-    logger.warning("SECRET_KEY is not set in environment; using default fallback key")
-    SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-replace-this-immediately")
+    raise RuntimeError(
+        "SECRET_KEY environment variable is required; refusing to start with a known default key"
+    )
 
-_obf_id_key = os.getenv("OBFUSCATION_ID_KEY", "ID_OBFUSCATION_SALT_2026")
-_payload_obf_key = os.getenv("PAYLOAD_OBFUSCATION_KEY", "PAYLOAD_OBFUSCATION_KEY_2026")
+_obf_id_key = os.getenv("OBFUSCATION_ID_KEY")
+_payload_obf_key = os.getenv("PAYLOAD_OBFUSCATION_KEY")
 
-if not os.getenv("OBFUSCATION_ID_KEY") or not os.getenv("PAYLOAD_OBFUSCATION_KEY"):
-    logger.warning("OBFUSCATION_ID_KEY or PAYLOAD_OBFUSCATION_KEY not set in environment; using default obfuscation keys")
+if not _obf_id_key or not _payload_obf_key:
+    raise RuntimeError(
+        "OBFUSCATION_ID_KEY and PAYLOAD_OBFUSCATION_KEY environment variables are required; "
+        "refusing to start with known default keys"
+    )
 
 OBFUSCATION_ID_KEY = _obf_id_key.encode()
 PAYLOAD_OBFUSCATION_KEY = _payload_obf_key.encode()
@@ -114,10 +118,7 @@ def consume_websocket_ticket(ticket: str) -> Optional[str]:
     if not ticket:
         return None
     cache_key = f"ws_ticket:{ticket}"
-    username = _cache.get(cache_key)
-    if username:
-        _cache.delete(cache_key)
-    return username
+    return _cache.pop(cache_key)
 
 
 def revoke_token(token: str):

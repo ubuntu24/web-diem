@@ -35,11 +35,22 @@ def _allow_chat_message(identity: str) -> bool:
     return True
 
 
+_MAX_CONNECTIONS_PER_USER = 2
+_MAX_TOTAL_CONNECTIONS = 500
+_MAX_FRAME_SIZE = 64 * 1024  # 64 KB
+
 class ConnectionManager:
     def __init__(self):
         self.active_connections: List[dict] = []
+        self._last_online_broadcast = 0.0
 
     async def connect(self, websocket: WebSocket, user_identifier: str, ip: Optional[str], is_admin: bool = False, fp: Optional[str] = None):
+        per_user = sum(1 for c in self.active_connections if c.get("user") == user_identifier)
+        if per_user >= _MAX_CONNECTIONS_PER_USER or len(self.active_connections) >= _MAX_TOTAL_CONNECTIONS:
+            await websocket.accept()
+            await websocket.send_text(json.dumps({"type": "error", "message": "Quá nhiều kết nối. Vui lòng thử lại sau."}))
+            await websocket.close()
+            return
         await websocket.accept()
         self.active_connections.append({
             "ws": websocket,
@@ -111,6 +122,11 @@ class ConnectionManager:
                 logger.debug(f"Broadcast failed (connection likely closed): {e}")
 
     async def broadcast_online_count(self):
+        import time
+        now = time.monotonic()
+        if now - self._last_online_broadcast < 1.0:
+            return
+        self._last_online_broadcast = now
         unique_users = len(set(
             conn["user"]
             for conn in self.active_connections
@@ -282,6 +298,9 @@ async def websocket_endpoint(websocket: WebSocket):
             try:
                 # Require a ping or message at least every 30 seconds
                 data = await asyncio.wait_for(websocket.receive_text(), timeout=30.0)
+                if len(data) > _MAX_FRAME_SIZE:
+                    await websocket.send_text(json.dumps({"type": "error", "message": "Tin nhắn quá lớn."}))
+                    continue
             except asyncio.TimeoutError:
                 logger.info(f"WebSocket: Connection timed out ({client_ip})")
                 manager.disconnect(websocket)
@@ -324,8 +343,9 @@ async def websocket_endpoint(websocket: WebSocket):
                         except JWTError:
                             pass
                     
-                    if msg.get("fp"):
-                        device_fp = msg["fp"]
+                    raw_fp = msg.get("fp")
+                    if raw_fp and isinstance(raw_fp, str) and len(raw_fp) <= 128:
+                        device_fp = raw_fp
 
                     if username:
                         # Ban Check again with username/FP
@@ -386,8 +406,6 @@ async def websocket_endpoint(websocket: WebSocket):
                     rate_keys = [f"user:{sender}"]
                     if sender_ip:
                         rate_keys.append(f"ip:{sender_ip}")
-                    if sender_fp:
-                        rate_keys.append(f"fp:{sender_fp}")
 
                     if not all(_allow_chat_message(key) for key in rate_keys):
                         await websocket.send_text(json.dumps({

@@ -23,7 +23,7 @@ const nextConfig: NextConfig = {
     const cloudflareInsights = 'https://static.cloudflareinsights.com';
     const scriptSrc = isDev
       ? `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${cloudflareInsights} https://cdn.jsdelivr.net`
-      : `script-src 'self' 'unsafe-inline' ${cloudflareInsights} https://cdn.jsdelivr.net`;
+      : `script-src 'self' ${cloudflareInsights} https://cdn.jsdelivr.net`;
 
     const csp = [
       "default-src 'self' https: http:",

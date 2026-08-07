@@ -1,4 +1,5 @@
 import time
+import threading
 
 import cache as _cache
 import database
@@ -11,9 +12,6 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/api")
-
-
-import threading
 
 _rl_lock = threading.Lock()
 
@@ -29,6 +27,7 @@ def _resolve_client_ip(request: Request) -> str:
 
     return request.client.host if request.client else "unknown"
 
+
 def _check_rate_limit(scope: str, identity: str, limit: int, window_seconds: int) -> bool:
     with _rl_lock:
         now = time.time()
@@ -42,6 +41,7 @@ def _check_rate_limit(scope: str, identity: str, limit: int, window_seconds: int
         _cache.set(key, attempts, ttl=window_seconds)
         return True
 
+
 @router.post("/login")
 def login(payload: schemas.LoginRequest, request: Request, db: Session = Depends(database.get_db)):
     client_ip = _resolve_client_ip(request)
@@ -52,21 +52,40 @@ def login(payload: schemas.LoginRequest, request: Request, db: Session = Depends
     if not _check_rate_limit("login-user", f"{client_ip}:{normalized_username}", limit=12, window_seconds=60):
         raise HTTPException(status_code=429, detail="Too many login attempts")
 
-    # Account Lockout Check: 5 consecutive failures in 15 mins
-    lockout_key = f"lockout:{client_ip}:{normalized_username}"
+    # Account Lockout Check: lock the account only when failures originate from
+    # multiple distinct source IPs (distributed brute force). A single-IP failure
+    # streak bans only that IP, so one attacker cannot lock a victim's account.
+    lockout_key = f"lockout:{normalized_username}"
+    fail_ips_key = f"fail_ips:{normalized_username}"
+    ip_ban_key = f"ip_ban:{client_ip}"
+
+    if _cache.get(ip_ban_key):
+        raise HTTPException(
+            status_code=429,
+            detail="Quá nhiều lần thử đăng nhập thất bại từ IP này. Vui lòng thử lại sau 15 phút."
+        )
+
     if _cache.get(lockout_key):
         raise HTTPException(
             status_code=429,
             detail="Tài khoản tạm thời bị khóa do nhập sai mật khẩu nhiều lần. Vui lòng thử lại sau 15 phút."
         )
 
-    user = db.query(models.Nick).filter(models.Nick.username == payload.username).first()
+    user = db.query(models.Nick).filter(models.Nick.username == normalized_username).first()
     if not user or not security.verify_password(payload.password, user.password):
-        # Record failed attempt
+        # Record failing source IP
+        fail_ips = _cache.get(fail_ips_key) or []
+        if client_ip not in fail_ips:
+            fail_ips.append(client_ip)
+        _cache.set(fail_ips_key, fail_ips, ttl=900)
+
+        # Per-IP failure streak bans only that IP
         fail_key = f"fail_cnt:{client_ip}:{normalized_username}"
         fails = (_cache.get(fail_key) or 0) + 1
         _cache.set(fail_key, fails, ttl=900)
         if fails >= 5:
+            _cache.set(ip_ban_key, True, ttl=900)
+        if len(fail_ips) >= 3:
             _cache.set(lockout_key, True, ttl=900)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -76,9 +95,11 @@ def login(payload: schemas.LoginRequest, request: Request, db: Session = Depends
 
     # Clear failed attempts on successful login
     _cache.delete(f"fail_cnt:{client_ip}:{normalized_username}")
-    
+    _cache.delete(fail_ips_key)
+    _cache.delete(lockout_key)
+
     access_token = security.create_access_token(data={"sub": user.username})
-    
+
     cookie_max_age = 60 * 60 * 24 * 7  # 7 days in seconds
     is_production = security.IS_PRODUCTION
     response = JSONResponse(content={
@@ -98,10 +119,11 @@ def login(payload: schemas.LoginRequest, request: Request, db: Session = Depends
     )
     return response
 
+
 @router.post("/logout")
 async def logout(request: Request):
     from .websocket import manager
-    
+
     token = security.get_token(request)
     if token:
         security.revoke_token(token)
@@ -116,6 +138,7 @@ async def logout(request: Request):
     response = JSONResponse(content={"message": "Logged out successfully"})
     response.delete_cookie("stoken", path="/")
     return response
+
 
 @router.post("/register")
 def register(payload: schemas.RegisterRequest, request: Request, db: Session = Depends(database.get_db)):
@@ -132,23 +155,23 @@ def register(payload: schemas.RegisterRequest, request: Request, db: Session = D
         raise HTTPException(status_code=400, detail="Mật khẩu phải có ít nhất 8 ký tự.")
 
     # Check if user exists — return standardized non-leaking message to prevent enumeration
-    user = db.query(models.Nick).filter(models.Nick.username == payload.username).first()
+    user = db.query(models.Nick).filter(models.Nick.username == normalized_username).first()
     if user:
         raise HTTPException(status_code=400, detail="Registration cannot be completed with the provided username.")
-    
+
     hashed_password = security.get_password_hash(payload.password)
     new_user = models.Nick(
         username=payload.username,
-        password=hashed_password, 
+        password=hashed_password,
         role=0
     )
     db.add(new_user)
     db.commit()
     return {"message": "User created successfully"}
 
+
 @router.get("/me")
 def read_users_me(current_user: models.Nick = Depends(security.get_current_user)):
-    # Masked fields: u=username, fn=full_name, r=role, rl=reset_limit_at, ca=created_at, cl=class_change_limit
     data = {
         "u": current_user.username,
         "fn": current_user.full_name,
@@ -157,13 +180,11 @@ def read_users_me(current_user: models.Nick = Depends(security.get_current_user)
         "ca": current_user.created_at.isoformat() if current_user.created_at else None,
         "cl": current_user.class_change_limit,
     }
-    # Return as encrypted string
     return security.obfuscate_payload(data)
 
 
 @router.get("/me-profile")
 def read_user_profile(current_user: models.Nick = Depends(security.get_current_user)):
-    # Minimal profile payload only; excludes role/reset/limit fields.
     data = {
         "u": current_user.username,
         "fn": current_user.full_name,
@@ -178,24 +199,16 @@ def update_profile(
     current_user: models.Nick = Depends(security.get_current_user),
     db: Session = Depends(database.get_db)
 ):
-    print(f"Backend: Received profile update for {current_user.username}")
-    # Re-fetch the user using both ID and username to ensure precise attachment in composite PK table
     user = db.query(models.Nick).filter(
         models.Nick.id == current_user.id,
         models.Nick.username == current_user.username
     ).first()
-    
+
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-        
-    old_name = user.full_name
-    user.full_name = payload.full_name.strip()
-    db.add(user) # Explicitly mark for update
-    db.commit()
-    print(f"Backend: DB Commit Success for {user.username}. Changed '{old_name}' to '{user.full_name}'")
-    
+
     if payload.full_name is not None:
-        user.full_name = payload.full_name
+        user.full_name = payload.full_name.strip()
     db.commit()
     security.invalidate_user_cache(user.username)
     return {"message": "Profile updated"}

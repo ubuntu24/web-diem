@@ -194,6 +194,29 @@ def delete(key: str):
     _mem_delete(key)
 
 
+def pop(key: str) -> Optional[Any]:
+    """Atomically remove a key and return its value, or None if absent."""
+    _ensure_redis_client()
+    if _redis_client is not None:
+        try:
+            raw = _redis_client.getdel(key)
+            if raw is None:
+                return None
+            return _deserialize(raw)
+        except Exception as exc:
+            logger.warning(f"[CACHE] Redis GETDEL failed for key '{key}': {exc}. Falling back to memory.")
+    with _lock:
+        entry = _store.get(key)
+        if entry is None:
+            return None
+        value, expire_at = entry
+        del _store[key]
+        if time.time() > expire_at:
+            return None
+        return value
+
+
+
 def delete_prefix(prefix: str):
     """Xóa tất cả keys bắt đầu bằng prefix (tương đương Redis SCAN + DEL)."""
     _ensure_redis_client()

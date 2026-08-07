@@ -476,10 +476,11 @@ def get_students_by_class(
 @router.get("/student/{msv}")
 def get_student_detail(
     msv: str,
-    current_user: Optional[models.Nick] = Depends(security.get_optional_user),
+    current_user: models.Nick = Depends(security.get_current_user),
     db: Session = Depends(database.get_db)
 ):
     role = current_user.role if current_user else 0
+    hide_details = (role != 1)
     try:
         real_msv = security.deobfuscate_id(msv, force_obfuscated=(role == 0))
     except ValueError as e:
@@ -505,7 +506,7 @@ def get_student_detail(
         ).all()
         hidden_keys = {r.subject_key for r in rules}
 
-    data = format_student(student, role=role, hidden_keys=hidden_keys)
+    data = format_student(student, hide_details=hide_details, role=role, hidden_keys=hidden_keys)
     result = security.obfuscate_payload(data)
     _cache.set(cache_key, result, ttl=_TTL_STUDENT)
     return result

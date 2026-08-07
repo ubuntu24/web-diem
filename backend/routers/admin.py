@@ -19,6 +19,8 @@ def get_online_users(
     current_user: models.Nick = Depends(security.get_current_user),
     db: Session = Depends(database.get_db)
 ):
+    if current_user.role != 1:
+        raise HTTPException(status_code=403, detail="Not authorized")
     # Đếm theo user (username từ JWT) để 2 tài khoản khác nhau = 2 người
     unique_users = len(set(conn["user"] for conn in manager.active_connections))
     data = {"count": unique_users}
@@ -467,6 +469,8 @@ def get_subjects(
     db: Session = Depends(database.get_db)
 ):
     """Lấy danh sách tất cả các môn học duy nhất trong hệ thống."""
+    if current_user.role != 1:
+        raise HTTPException(status_code=403, detail="Not authorized")
     
     # Lấy các môn học duy nhất (kết hợp mã môn và tên môn)
     subjects = (

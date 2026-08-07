@@ -86,3 +86,11 @@ frontend/playwright-report/
 .tempmediaStorage/
 artifact/
 workflows/
+
+# Security Pentest & Vulnerability Reports
+pentest/
+strix/
+vulnerabilities/
+.scan-artifacts/
+*.zip
+
