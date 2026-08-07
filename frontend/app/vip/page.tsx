@@ -32,7 +32,7 @@ export default function VipPage() {
                             </div>
                         </motion.div>
                         <h1 className="text-3xl md:text-5xl font-black text-white mb-2 italic tracking-tighter">
-                            SIÊU CẤP <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">VIP PRO</span> ĐÃ SẴN SÀNG!
+                            SIÊU CẤP <span className="text-amber-400">VIP PRO</span> ĐÃ SẴN SÀNG!
                         </h1>
                         <p className="text-slate-400 font-medium">Bạn đã được chọn để nhận đặc quyền vô tận...</p>
                     </div>

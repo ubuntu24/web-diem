@@ -38,8 +38,16 @@ function unwrapJsonString(text: string): string {
     }
 }
 
+function getPayloadKey(): string | undefined {
+    if (process.env.PAYLOAD_OBFUSCATION_KEY) return process.env.PAYLOAD_OBFUSCATION_KEY;
+    if (process.env.SECRET_KEY) {
+        return createHash('sha256').update(process.env.SECRET_KEY + ':payload').digest('hex');
+    }
+    return undefined;
+}
+
 function maybeDecryptUpstreamBody(text: string): string | null {
-    const payloadKey = process.env.PAYLOAD_OBFUSCATION_KEY;
+    const payloadKey = getPayloadKey();
     if (!payloadKey) return null;
 
     const payload = unwrapJsonString(text);

@@ -33,14 +33,8 @@ if not SECRET_KEY:
         "SECRET_KEY environment variable is required; refusing to start with a known default key"
     )
 
-_obf_id_key = os.getenv("OBFUSCATION_ID_KEY")
-_payload_obf_key = os.getenv("PAYLOAD_OBFUSCATION_KEY")
-
-if not _obf_id_key or not _payload_obf_key:
-    raise RuntimeError(
-        "OBFUSCATION_ID_KEY and PAYLOAD_OBFUSCATION_KEY environment variables are required; "
-        "refusing to start with known default keys"
-    )
+_obf_id_key = os.getenv("OBFUSCATION_ID_KEY") or hashlib.sha256((SECRET_KEY + ":obf_id").encode()).hexdigest()
+_payload_obf_key = os.getenv("PAYLOAD_OBFUSCATION_KEY") or hashlib.sha256((SECRET_KEY + ":payload").encode()).hexdigest()
 
 OBFUSCATION_ID_KEY = _obf_id_key.encode()
 PAYLOAD_OBFUSCATION_KEY = _payload_obf_key.encode()

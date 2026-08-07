@@ -110,7 +110,7 @@ export default function StudentCharts({ student, scale }: StudentChartsProps) {
         let tooltip = container.select(".chart-tooltip") as any;
         if (tooltip.empty()) {
             tooltip = container.append("div")
-                .attr("class", "chart-tooltip absolute hidden z-20 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md border border-slate-200 dark:border-slate-700 p-3 rounded-xl shadow-2xl text-xs pointer-events-none transition-opacity duration-200 border-l-4 border-l-blue-500");
+                .attr("class", "chart-tooltip absolute hidden z-20 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md border border-slate-200/80 dark:border-slate-700/80 p-3 rounded-xl shadow-xl text-xs pointer-events-none transition-opacity duration-200");
         }
         return tooltip;
     };

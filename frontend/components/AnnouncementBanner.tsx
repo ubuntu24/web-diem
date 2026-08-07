@@ -35,7 +35,7 @@ export default function AnnouncementBanner() {
             >
                 <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3 flex-1 justify-center">
-                        <Megaphone className="w-4 h-4 flex-shrink-0 animate-bounce" />
+                        <Megaphone className="w-4 h-4 flex-shrink-0 opacity-90 transition-transform hover:scale-110" />
                         <p className="text-sm font-medium leading-tight text-center">
                             {announcement}
                         </p>
