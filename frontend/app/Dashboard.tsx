@@ -865,11 +865,11 @@ export default function Dashboard() {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 sm:h-20 flex items-center justify-between">
                     <div className="flex items-center gap-2 sm:gap-4 shrink-0">
                         <div className="flex items-center gap-2 cursor-pointer group" onClick={() => loadClasses()}>
-                            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-indigo-950/20 group-hover:scale-110 transition-transform duration-300 border border-indigo-500/20">
+                            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-indigo-500/20 group-hover:scale-110 transition-transform duration-300">
                                 <Award className="w-6 h-6 sm:w-7 sm:h-7" />
                             </div>
                             <div className="hidden sm:block">
-                                <h1 className="text-xl font-black tracking-tight text-foreground group-hover:text-slate-900 dark:group-hover:text-white transition-colors uppercase">lifesuck</h1>
+                                <h1 className="text-xl font-black tracking-tight text-foreground group-hover:text-indigo-500 transition-colors uppercase">lifesuck</h1>
                                 <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest leading-tight">Bảng Điều Khiển Cao Cấp</p>
                             </div>
                         </div>
@@ -1094,7 +1094,7 @@ export default function Dashboard() {
                                             filteredStudents.map((sv) => (
                                                 <div key={sv.msv} onClick={() => loadGrade(sv.msv)} className="stagger-item p-4 md:p-6 hover:bg-indigo-500/5 dark:hover:bg-indigo-500/10 cursor-pointer transition-all flex items-center gap-4 md:gap-6 group relative">
                                                     <div className="relative shrink-0">
-                                                        <div className="w-20 h-20 bg-slate-500/5 dark:bg-slate-800 rounded-3xl flex items-center justify-center text-slate-700 dark:text-slate-200 group-hover:bg-indigo-500/20 group-hover:text-slate-900 dark:group-hover:text-white transition-all duration-500 group-hover:rotate-6 group-hover:scale-105 border-2 border-border shadow-inner"><span className="font-black text-3xl">{sv.ho_ten.charAt(0).toUpperCase()}</span></div>
+                                                        <div className="w-20 h-20 bg-slate-500/5 dark:bg-slate-800 rounded-3xl flex items-center justify-center text-slate-400 dark:text-slate-300 group-hover:bg-indigo-500/20 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-all duration-500 group-hover:rotate-6 group-hover:scale-105 border-2 border-border shadow-inner"><span className="font-black text-3xl">{sv.ho_ten.charAt(0).toUpperCase()}</span></div>
                                                         <div className="absolute -bottom-2 -right-2 flex gap-1 z-10">
                                                             {(() => {
                                                                 const cumGPA = calculateCumulativeGPA(sv);
@@ -1110,7 +1110,7 @@ export default function Dashboard() {
                                                         </div>
                                                     </div>
                                                     <div className="flex-1 min-w-0">
-                                                        <div className="font-black text-lg md:text-xl text-foreground group-hover:text-slate-900 dark:group-hover:text-white transition-colors break-words leading-tight">{sv.ho_ten}</div>
+                                                        <div className="font-black text-lg md:text-xl text-foreground group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors break-words leading-tight">{sv.ho_ten}</div>
                                                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-2 font-bold uppercase tracking-widest">{role !== 0 && <><span className="font-mono text-indigo-500/70">{sv.msv}</span><span className="w-1.5 h-1.5 rounded-full bg-border"></span></>}{role !== 0 && sv.ngay_sinh && <span className="flex items-center gap-1"><Award className="w-3.5 h-3.5" />{sv.ngay_sinh}</span>}</div>
                                                     </div>
                                                     {sv.ma_lop && (<div className="hidden sm:block px-4 py-2 bg-slate-500/5 dark:bg-slate-800 rounded-xl text-xs font-black text-slate-500 dark:text-slate-400 border border-border group-hover:border-indigo-500/50 transition-colors uppercase tracking-widest">{sv.ma_lop}</div>)}
@@ -1174,7 +1174,7 @@ export default function Dashboard() {
                                                     );
                                                 })()}
                                             </div>
-                                            <div className="mt-8 p-6 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 border-2 border-indigo-500/20 rounded-2xl text-white text-center shadow-2xl">
+                                            <div className="mt-8 p-6 bg-gradient-to-br from-indigo-600 to-violet-700 dark:from-indigo-600/20 dark:to-violet-700/20 border-2 border-indigo-400/20 rounded-2xl text-white text-center shadow-2xl shadow-indigo-500/20">
                                                 <div className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80 mb-1 text-indigo-100 italic">CÔNG LỰC TÍCH LŨY</div>
                                                 <div className="text-4xl font-black text-white">{gpa}</div>
                                             </div>
@@ -1244,7 +1244,7 @@ export default function Dashboard() {
             {!isChatOpen && (
                 <motion.button
                     onClick={() => setIsChatOpen(true)}
-                    className="fixed bottom-6 right-6 sm:bottom-8 sm:right-8 z-50 w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white shadow-xl shadow-indigo-950/50 border border-indigo-500/20 flex items-center justify-center hover:scale-110 active:scale-95 transition-transform"
+                    className="fixed bottom-6 right-6 sm:bottom-8 sm:right-8 z-50 w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-xl shadow-violet-500/30 dark:shadow-violet-900/50 flex items-center justify-center hover:scale-110 active:scale-95 transition-transform"
                     whileHover={{ rotate: [0, 10, -10, 0] }}
                     initial={{ scale: 0, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}

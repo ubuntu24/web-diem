@@ -27,7 +27,7 @@ export default function VipPage() {
                             transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
                             className="inline-block mb-4"
                         >
-                            <div className="p-3 bg-gradient-to-tr from-amber-500 via-yellow-500 to-amber-600 rounded-full shadow-lg shadow-amber-500/20">
+                            <div className="p-3 bg-gradient-to-tr from-indigo-500 to-purple-500 rounded-full">
                                 <Music2 className="w-8 h-8 text-white" />
                             </div>
                         </motion.div>

@@ -68,7 +68,7 @@ function UserDetailModal({ userId, username, onClose }: { userId: number; userna
                     className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col border border-slate-200 dark:border-slate-700"
                 >
                     {/* Header */}
-                    <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900">
+                    <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-indigo-600 to-violet-600">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
                                 <UserIcon className="w-5 h-5 text-white" />
@@ -528,7 +528,7 @@ export default function AdminUserList() {
                                                     title="Xem IP & lượt truy cập"
                                                 >
                                                     <div className="relative">
-                                                        <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 group-hover:bg-indigo-100 dark:group-hover:bg-indigo-950/60 flex items-center justify-center text-slate-700 dark:text-slate-200 group-hover:text-indigo-900 transition-colors">
+                                                        <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/30 flex items-center justify-center text-slate-500 group-hover:text-indigo-600 transition-colors">
                                                             <UserIcon className="w-4 h-4" />
                                                         </div>
                                                         {onlineUsers.includes(user.username) && (
@@ -679,8 +679,8 @@ export default function AdminUserList() {
                                             </td>
                                             <td className="px-6 py-3">
                                                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                                                    log.action.includes('BAN') ? 'bg-red-100 text-red-900 dark:bg-red-950/60 dark:text-red-200' : 
-                                                    log.action.includes('UPDATE') ? 'bg-blue-100 text-blue-900 dark:bg-blue-950/60 dark:text-blue-200' : 'bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-200'
+                                                    log.action.includes('BAN') ? 'bg-red-100 text-red-700' : 
+                                                    log.action.includes('UPDATE') ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700'
                                                 }`}>
                                                     {log.action}
                                                 </span>

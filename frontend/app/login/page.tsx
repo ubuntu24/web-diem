@@ -65,7 +65,7 @@ export default function LoginPage() {
                     <motion.div
                         initial={{ rotate: -10 }}
                         animate={{ rotate: 0 }}
-                        className="w-16 h-16 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-indigo-950/40 text-white border border-indigo-500/20"
+                        className="w-16 h-16 bg-gradient-to-br from-indigo-600 to-violet-700 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-indigo-500/30 text-white"
                     >
                         <Award className="w-8 h-8" />
                     </motion.div>
@@ -118,7 +118,7 @@ export default function LoginPage() {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full bg-gradient-to-r from-slate-900 to-indigo-950 hover:scale-[1.02] active:scale-[0.98] text-white font-black py-4 rounded-2xl transition-all shadow-xl shadow-indigo-950/20 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 tracking-widest uppercase text-sm border border-indigo-500/20"
+                        className="w-full bg-gradient-to-r from-indigo-600 to-violet-700 hover:scale-[1.02] active:scale-[0.98] text-white font-black py-4 rounded-2xl transition-all shadow-xl shadow-indigo-500/20 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 tracking-widest uppercase text-sm"
                     >
                         {loading ? (
                             <>

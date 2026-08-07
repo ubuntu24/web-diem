@@ -202,7 +202,7 @@ export default function PerformanceAnalysis({ role = 0 }: { role?: number }) {
                                         <div key={name} className="space-y-1">
                                             <button
                                                 onClick={() => hasMultiple ? toggleGroup(name) : handleSelectSubject(items[0])}
-                                                className={`w-full text-left p-3 rounded-xl transition-all flex items-center gap-3 group ${(!hasMultiple && isActive) || (hasMultiple && isAllSelected) ? 'bg-indigo-600 text-white shadow-lg' : 'hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-900 dark:text-slate-100'}`}
+                                                className={`w-full text-left p-3 rounded-xl transition-all flex items-center gap-3 group ${(!hasMultiple && isActive) || (hasMultiple && isAllSelected) ? 'bg-indigo-600 text-white shadow-lg' : 'hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-slate-700 dark:text-slate-300'}`}
                                             >
                                                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${(!hasMultiple && isActive) || (hasMultiple && isAllSelected) ? 'bg-white/20' : 'bg-indigo-500/10 text-indigo-600'}`}>
                                                     <BookOpen className="w-4 h-4" />
@@ -234,7 +234,7 @@ export default function PerformanceAnalysis({ role = 0 }: { role?: number }) {
                                                         {/* Option to select all versions */}
                                                         <button
                                                             onClick={() => handleSelectAllCodes(items)}
-                                                            className={`w-full text-left p-2 rounded-lg text-xs font-bold transition-all flex items-center justify-between group ${isAllSelected ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/50'}`}
+                                                            className={`w-full text-left p-2 rounded-lg text-xs font-bold transition-all flex items-center justify-between group ${isAllSelected ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600' : 'text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900/50'}`}
                                                         >
                                                             <span>Tất cả phiên bản</span>
                                                             {isAllSelected && <div className="w-1.5 h-1.5 rounded-full bg-indigo-600" />}
@@ -244,7 +244,7 @@ export default function PerformanceAnalysis({ role = 0 }: { role?: number }) {
                                                             <button
                                                                 key={`${s.code}-${sIndex}`}
                                                                 onClick={() => handleSelectSubject(s)}
-                                                                className={`w-full text-left p-2 rounded-lg text-xs font-medium transition-all flex items-center justify-between group ${selectedSubject?.code === s.code ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 font-bold' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/50'}`}
+                                                                className={`w-full text-left p-2 rounded-lg text-xs font-medium transition-all flex items-center justify-between group ${selectedSubject?.code === s.code ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 font-bold' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-900/50'}`}
                                                             >
                                                                 <span className="font-mono">{s.code}</span>
                                                                 {selectedSubject?.code === s.code && <div className="w-1.5 h-1.5 rounded-full bg-indigo-600" />}
@@ -309,9 +309,9 @@ export default function PerformanceAnalysis({ role = 0 }: { role?: number }) {
                                         </div>
                                     </div>
                                     <div className="text-right">
-                                        <p className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase">Tổng số nhóm</p>
+                                        <p className="text-xs font-black text-slate-400 uppercase">Tổng số nhóm</p>
                                         <div className="flex items-center gap-4 justify-end">
-                                            <p className="text-2xl font-black text-slate-900 dark:text-white">{Object.keys(subjectData || {}).length}</p>
+                                            <p className="text-2xl font-black text-indigo-600">{Object.keys(subjectData || {}).length}</p>
                                             <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
                                                 <button 
                                                     onClick={() => setExpandedClasses(Object.keys(subjectData || {}))}

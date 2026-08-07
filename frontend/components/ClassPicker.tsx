@@ -88,7 +88,7 @@ export default function ClassPicker({
                 className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col max-h-[90vh]"
             >
                 {/* Header */}
-                <div className="p-6 border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-slate-50 to-slate-100/50 dark:from-slate-900 dark:to-slate-800/80">
+                <div className="p-6 border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-indigo-50/50 to-blue-50/50 dark:from-indigo-900/20 dark:to-blue-900/20">
                     <div className="flex items-center justify-between mb-4">
                         <div>
                             <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">

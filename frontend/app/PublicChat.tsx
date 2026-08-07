@@ -216,7 +216,7 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
                     >
                         <div className="premium-glass rounded-t-[3rem] sm:rounded-[2.5rem] shadow-2xl border-border/50 overflow-hidden flex flex-col h-full">
                             {/* Header */}
-                            <div className="flex items-center justify-between px-7 py-6 sm:px-6 sm:py-5 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white shadow-xl">
+                            <div className="flex items-center justify-between px-7 py-6 sm:px-6 sm:py-5 bg-gradient-to-r from-indigo-600 to-violet-700 text-white shadow-xl">
                                 <div className="flex items-center gap-4">
                                     <div className="w-12 h-12 sm:w-10 sm:h-10 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md shadow-inner border border-white/10 group animate-pulse">
                                         <Zap className="w-6 h-6 sm:w-5 h-5 text-white fill-white/20" />
@@ -296,7 +296,7 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
                                                 {!isSystem && isMe && (
                                                     <button 
                                                         onClick={() => setReplyTo(m)}
-                                                        className="opacity-0 group-hover:opacity-100 p-2 sm:p-2 bg-indigo-500/5 dark:bg-indigo-500/10 hover:bg-indigo-700 hover:text-white rounded-xl transition-all text-slate-200 active:scale-90"
+                                                        className="opacity-0 group-hover:opacity-100 p-2 sm:p-2 bg-indigo-500/5 dark:bg-indigo-500/10 hover:bg-indigo-600 hover:text-white rounded-xl transition-all text-slate-400 active:scale-90"
                                                     >
                                                         <MessageCircle className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
                                                     </button>
@@ -305,7 +305,7 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
                                                 <div className={`${isSystem
                                                         ? 'bg-rose-500/10 border-2 border-rose-500/20 text-rose-600 dark:text-rose-400 text-[11px] px-6 py-2 rounded-full font-black uppercase tracking-widest italic flex items-center gap-2'
                                                         : isMe
-                                                            ? 'bg-gradient-to-br from-slate-900 to-indigo-950 text-white rounded-[1.5rem] rounded-tr-none px-5 py-3 text-sm shadow-xl shadow-indigo-500/15 font-bold leading-relaxed border border-indigo-500/20'
+                                                            ? 'bg-gradient-to-br from-indigo-600 to-violet-700 text-white rounded-[1.5rem] rounded-tr-none px-5 py-3 text-sm shadow-xl shadow-indigo-500/15 font-bold leading-relaxed'
                                                             : 'bg-white dark:bg-slate-800/80 backdrop-blur-md border-2 border-border/50 text-slate-800 dark:text-slate-100 rounded-[1.5rem] rounded-tl-none px-5 py-3 text-sm shadow-lg font-bold leading-relaxed'
                                                     } transition-all hover:scale-[1.02] active:scale-[0.98]`}>
                                                     {isSystem && <ShieldAlert className="w-3.5 h-3.5" />}
@@ -315,7 +315,7 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
                                                 {!isSystem && !isMe && (
                                                     <button 
                                                         onClick={() => setReplyTo(m)}
-                                                        className="opacity-0 group-hover:opacity-100 p-2 sm:p-2 bg-slate-500/5 dark:bg-slate-800 hover:bg-indigo-700 hover:text-white rounded-xl transition-all text-slate-200 active:scale-90"
+                                                        className="opacity-0 group-hover:opacity-100 p-2 sm:p-2 bg-slate-500/5 dark:bg-slate-800 hover:bg-indigo-600 hover:text-white rounded-xl transition-all text-slate-400 active:scale-90"
                                                     >
                                                         <MessageCircle className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
                                                     </button>
@@ -352,7 +352,7 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
                                             </div>
                                             <button 
                                                 onClick={() => setReplyTo(null)}
-                                                className="p-2 hover:bg-rose-500/10 hover:text-rose-500 rounded-xl transition-all text-slate-200 active:scale-90"
+                                                className="p-2 hover:bg-rose-500/10 hover:text-rose-500 rounded-xl transition-all text-slate-400 active:scale-90"
                                             >
                                                 <X className="w-4 h-4" />
                                             </button>
@@ -375,7 +375,7 @@ export default function PublicChat({ user, socket, isOpen, onClose }: PublicChat
                                     <button
                                         onClick={send}
                                         disabled={!user || !input.trim() || status !== 1}
-                                        className="p-4 sm:p-3.5 bg-gradient-to-br from-slate-900 to-indigo-950 text-white rounded-2xl shadow-xl shadow-indigo-500/30 hover:scale-[1.05] active:scale-[0.95] transition-all disabled:opacity-50 disabled:grayscale flex-shrink-0 border border-indigo-500/20"
+                                        className="p-4 sm:p-3.5 bg-gradient-to-br from-indigo-600 to-violet-700 text-white rounded-2xl shadow-xl shadow-indigo-500/30 hover:scale-[1.05] active:scale-[0.95] transition-all disabled:opacity-50 disabled:grayscale flex-shrink-0 border border-white/10"
                                     >
                                         <Send className="w-6 h-6 sm:w-5 h-5 flex-shrink-0" />
                                     </button>
