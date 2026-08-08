@@ -104,11 +104,6 @@ const nextConfig: NextConfig = {
     ]
   },
   output: 'standalone',
-  experimental: {
-    // ⚡ OPTIMIZATION: Tăng tốc độ build và giảm RAM (Next.js 16)
-    cpus: 1,
-    workerThreads: false,
-  },
   typescript: {
     ignoreBuildErrors: false,
   },

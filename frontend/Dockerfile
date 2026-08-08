@@ -12,10 +12,12 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ARG API_URL=http://backend:8000
 ENV API_URL=${API_URL}
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 # Ensure standalone mode is used
 ENV NEXT_OUTPUT_STANDALONE=true
-# ⚡ OPTIMIZATION: Limit Node memory and force IPv4 first DNS lookup to avoid IPv6 hang in Docker
-ENV NODE_OPTIONS="--max-old-space-size=1536 --dns-result-order=ipv4first"
+# ⚡ OPTIMIZATION: Allow Node memory up to 3072MB and force IPv4 first DNS lookup to avoid OOM in Docker
+ENV NODE_OPTIONS="--max-old-space-size=3072 --dns-result-order=ipv4first"
 RUN npm run build
 
 # Stage 3: Runner
