@@ -1,9 +1,11 @@
 # Stage 1: Install dependencies
 FROM node:20-alpine AS deps
-RUN apk add --no-cache libc6-compat
+# Install build dependencies for native modules (lightningcss, esbuild, etc.)
+RUN apk add --no-cache libc6-compat python3 make g++
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci
+# Fix: npm rebuild ensures native binaries match Alpine MUSL platform
+RUN npm ci && npm rebuild
 
 # Stage 2: Build the application
 FROM node:20-alpine AS builder
