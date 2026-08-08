@@ -1,5 +1,5 @@
 import { cookies, headers } from 'next/headers';
-import { createDecipheriv, createHash } from 'node:crypto';
+import { createDecipheriv, createHash, createHmac } from 'node:crypto';
 import dns from 'node:dns';
 import { z } from 'zod';
 
@@ -154,45 +154,50 @@ export function enforceRateLimit(request: Request, scope: string, limit: number,
     return null;
 }
 
-const gStore = globalThis as unknown as { __csrfStore?: Map<string, { token: string; expiresAt: number }> };
-if (!gStore.__csrfStore) gStore.__csrfStore = new Map();
+// ── HMAC-stateless CSRF ──────────────────────────────────────────────────────
+// Token = HMAC-SHA256(SECRET_KEY, sessionKey)
+// No server-side state needed → survives Next.js hot-reloads.
 
-async function csrfKeyForSession(): Promise<string | null> {
+function _csrfSecret(): string {
+    return process.env.SECRET_KEY || 'fallback-csrf-secret-change-me';
+}
+
+async function _csrfSessionKey(): Promise<string | null> {
     const store = await cookies();
     return store.get('stoken')?.value?.slice(-32) ?? null;
 }
 
+function _hmacToken(sessionKey: string): string {
+    return createHmac('sha256', _csrfSecret()).update(sessionKey).digest('hex');
+}
+
 export async function issueCsrfCookie(): Promise<string> {
-    const sessionKey = await csrfKeyForSession();
-    const token = crypto.randomUUID().replace(/-/g, '');
-    if (sessionKey) {
-        gStore.__csrfStore!.set(sessionKey, { token, expiresAt: Date.now() + 60 * 60 * 1000 });
-    }
+    const sessionKey = await _csrfSessionKey();
+    // If no session key yet, use a random nonce so the cookie is still set
+    const token = sessionKey
+        ? _hmacToken(sessionKey)
+        : createHmac('sha256', _csrfSecret()).update(Date.now().toString()).digest('hex');
     const store = await cookies();
     store.set('csrf_token', token, {
-        httpOnly: true,
+        httpOnly: false,        // Must be readable by JS so withCsrf() can forward it
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
         path: '/',
-        maxAge: 60 * 60 * 1000,
+        maxAge: 60 * 60,        // 1 hour in SECONDS (not ms)
     });
     return token;
 }
 
 export async function requireCsrf(request: Request): Promise<Response | null> {
-    const sessionKey = await csrfKeyForSession();
+    const sessionKey = await _csrfSessionKey();
     if (!sessionKey) {
         return Response.json({ detail: 'Invalid CSRF token' }, { status: 403 });
     }
-    const expected = gStore.__csrfStore!.get(sessionKey);
-    if (!expected || expected.expiresAt < Date.now()) {
-        return Response.json({ detail: 'Invalid CSRF token' }, { status: 403 });
-    }
+    const expected = _hmacToken(sessionKey);
     const headerToken = request.headers.get('x-csrf-token');
-    if (!headerToken || headerToken !== expected.token) {
+    if (!headerToken || headerToken !== expected) {
         return Response.json({ detail: 'Invalid CSRF token' }, { status: 403 });
     }
-    gStore.__csrfStore!.delete(sessionKey);
     return null;
 }
 

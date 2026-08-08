@@ -2,10 +2,9 @@ import { cookies } from 'next/headers';
 import { getApiBaseUrl, authHeadersFromCookies, cacheScopeFromToken, issueCsrfCookie, withTtlCache, fetchUpstream } from '@/app/api/bff/_utils';
 
 export async function GET(request: Request) {
-    const store = await cookies();
-    if (!store.get('csrf_token')?.value) {
-        await issueCsrfCookie();
-    }
+    // Always refresh CSRF cookie so it stays in sync with HMAC-derived token.
+    // (Old approach: only issue when missing → stale after hot-reload)
+    await issueCsrfCookie();
 
     // Pass request so authHeadersFromCookies can forward the real client IP
     const headers = await authHeadersFromCookies(undefined, request);

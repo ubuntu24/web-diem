@@ -436,10 +436,12 @@ def get_classes(
     db: Session = Depends(database.get_db)
 ):
     cache_key = "classes:list"
-    cached = _cache.get(cache_key)
-    if cached is not None:
-        logger.debug("[CACHE HIT] classes:list")
-        return cached
+    # Skip cache entirely when TTL=0 (dev mode) — cache.set() clamps 0→1s
+    if _TTL_CLASSES > 0:
+        cached = _cache.get(cache_key)
+        if cached is not None:
+            logger.debug("[CACHE HIT] classes:list")
+            return cached
 
     classes = db.query(models.SinhVien.ma_lop).distinct().order_by(models.SinhVien.ma_lop).all()
     class_list = [c[0] for c in classes if c[0]]
@@ -452,7 +454,8 @@ def get_classes(
         "cohorts": cohorts
     }
     result = security.obfuscate_payload(data)
-    _cache.set(cache_key, result, ttl=_TTL_CLASSES)
+    if _TTL_CLASSES > 0:
+        _cache.set(cache_key, result, ttl=_TTL_CLASSES)
     return result
 
 @router.get("/class/{ma_lop}/students")
@@ -505,7 +508,11 @@ def get_student_detail(
     db: Session = Depends(database.get_db)
 ):
     role = current_user.role if current_user else 0
-    hide_details = (role != 1)
+    # All authenticated users can see grade details.
+    # hide_details only masks personal info (name, DOB, hometown) for role=0;
+    # the grade array 'd' is always returned for any logged-in user.
+    hide_personal_info = (role != 1)  # role 0 gets masked personal info
+    hide_details = False              # grade 'd' array: always show for authenticated users
     try:
         real_msv = security.deobfuscate_id(msv, force_obfuscated=(role == 0))
     except ValueError as e:
