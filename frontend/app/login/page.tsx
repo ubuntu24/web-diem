@@ -23,7 +23,7 @@ export default function LoginPage() {
         try {
             const result = await loginUserBff(username, password);
 
-            if (result?.access_token) {
+            if (result && (result.access_token || result.role !== undefined)) {
                 localStorage.setItem('role', String(result.role ?? 0));
                 toast.success('Đăng nhập thành công!');
                 // Full navigation guarantees new cookies are used immediately by RSC routes.

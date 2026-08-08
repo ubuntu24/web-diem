@@ -35,6 +35,7 @@ function incrementClassChange(): number {
 }
 
 import { recordClassChangeBff } from '@/lib/api';
+import { parseCohort, groupClassesByCohort, CohortType } from '@/lib/cohort';
 
 export default function ClassPicker({
     classes,
@@ -44,12 +45,20 @@ export default function ClassPicker({
     onClose
 }: ClassPickerProps) {
     const [searchQuery, setSearchQuery] = useState('');
+    const [selectedCohort, setSelectedCohort] = useState<CohortType>('ALL');
     const [error, setError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const filteredClasses = classes.filter(c =>
-        c.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const grouped = groupClassesByCohort(classes);
+    const k16Count = grouped.K16.length;
+    const k17Count = grouped.K17.length;
+
+    const filteredClasses = classes.filter(c => {
+        const matchesSearch = c.toLowerCase().includes(searchQuery.toLowerCase());
+        if (!matchesSearch) return false;
+        if (selectedCohort === 'ALL') return true;
+        return parseCohort(c) === selectedCohort;
+    });
 
     const classChangeCount = getClassChangeCount();
     const remainingChanges = maxChanges === -1 ? '∞' : Math.max(0, maxChanges - classChangeCount);
@@ -110,11 +119,45 @@ export default function ClassPicker({
                         <Search className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
                         <input
                             type="text"
-                            placeholder="Tìm kiếm lớp (ví dụ: DHMT16A1HN)..."
+                            placeholder="Tìm kiếm lớp (ví dụ: DHTI16A1, DHTI17A4)..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="w-full pl-12 pr-4 py-3 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium"
                         />
+                    </div>
+
+                    {/* Cohort Tabs */}
+                    <div className="flex items-center gap-2 mt-4 overflow-x-auto pb-1">
+                        <button
+                            type="button"
+                            onClick={() => setSelectedCohort('ALL')}
+                            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${selectedCohort === 'ALL'
+                                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
+                                    : 'bg-white/80 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-indigo-300'
+                                }`}
+                        >
+                            Tất cả ({classes.length})
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setSelectedCohort('K16')}
+                            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${selectedCohort === 'K16'
+                                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
+                                    : 'bg-white/80 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-indigo-300'
+                                }`}
+                        >
+                            🎓 K16 ({k16Count})
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setSelectedCohort('K17')}
+                            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${selectedCohort === 'K17'
+                                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
+                                    : 'bg-white/80 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-indigo-300'
+                                }`}
+                        >
+                            🎓 K17 ({k17Count})
+                        </button>
                     </div>
                 </div>
 

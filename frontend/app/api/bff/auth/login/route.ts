@@ -60,6 +60,7 @@ export async function POST(request: Request) {
         }
 
         return Response.json({
+            access_token: token,
             token_type: data?.token_type ?? 'bearer',
             role: data?.role ?? 0,
             class_change_limit: data?.class_change_limit ?? 0,

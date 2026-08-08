@@ -31,6 +31,7 @@ import PerformanceAnalysis from '@/components/PerformanceAnalysis';
 import ClassPicker from '@/components/ClassPicker';
 import FeedbackButton from '@/components/FeedbackButton';
 import StudentCharts from '@/components/StudentCharts';
+import { parseCohort, groupClassesByCohort, CohortType } from '@/lib/cohort';
 import anime from 'animejs/lib/anime.js';
 
 export default function Dashboard() {
@@ -38,6 +39,7 @@ export default function Dashboard() {
     const [view, setView] = useState<'classes' | 'students' | 'grades' | 'search' | 'admin' | 'performance_analysis'>('classes');
     const [loading, setLoading] = useState(false);
     const [classes, setClasses] = useState<string[]>([]);
+    const [selectedCohort, setSelectedCohort] = useState<CohortType>('ALL');
     const [students, setStudents] = useState<Student[]>([]);
     const [selectedClass, setSelectedClass] = useState('');
     const [currentStudent, setCurrentStudent] = useState<Student | null>(null);
@@ -1020,17 +1022,88 @@ export default function Dashboard() {
                                                 </div>
                                             </div>
                                         ) : (
-                                            <div className="text-center py-12"><MapPin className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-4" /><p className="text-slate-500 dark:text-slate-400 font-medium">Vui lòng chọn lớp để bắt đầu</p><button onClick={() => setShowClassPicker(true)} className="mt-4 px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors">Chọn lớp</button></div>
+                                            <div className="text-center py-12"><MapPin className="w-12 h-12 text-slate-300 dark:bg-slate-600 mx-auto mb-4" /><p className="text-slate-500 dark:text-slate-400 font-medium">Vui lòng chọn lớp để bắt đầu</p><button onClick={() => setShowClassPicker(true)} className="mt-4 px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors">Chọn lớp</button></div>
                                         )
                                     ) : (
-                                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                                            {classes.map((cls, index) => (
-                                                <div key={cls} onClick={() => compareMode ? toggleClassSelection(cls) : loadStudents(cls)} className={`stagger-item premium-card p-4 md:p-6 rounded-2xl flex flex-col items-center justify-center gap-4 group relative overflow-hidden ${compareMode && selectedClasses.includes(cls) ? 'border-indigo-500 bg-indigo-500/5 ring-4 ring-indigo-500/10' : ''} cursor-pointer`}>
-                                                    {compareMode && (<div className={`absolute top-3 right-3 w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all duration-300 ${selectedClasses.includes(cls) ? 'bg-indigo-600 border-indigo-600 scale-110' : 'bg-white/50 dark:bg-slate-800/50 border-border'}`}>{selectedClasses.includes(cls) && <div className="w-2 h-2 bg-white rounded-sm" />}</div>)}
-                                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-500 ${compareMode && selectedClasses.includes(cls) ? 'bg-indigo-600 text-white' : 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 dark:bg-indigo-500/20'} group-hover:scale-110 group-hover:rotate-6 shadow-indigo-500/10 shadow-lg`}><span className="font-black text-sm tracking-widest">{cls.substring(0, 2)}</span></div>
-                                                    <div className={`font-bold text-sm truncate w-full text-center transition-colors ${compareMode && selectedClasses.includes(cls) ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-300'} group-hover:text-indigo-600`}>{cls}</div>
-                                                </div>
-                                            ))}
+                                        <div className="space-y-6">
+                                            {(() => {
+                                                const grouped = groupClassesByCohort(classes);
+                                                const displayedClasses = classes.filter(cls => {
+                                                    if (selectedCohort === 'ALL') return true;
+                                                    return parseCohort(cls) === selectedCohort;
+                                                });
+
+                                                return (
+                                                    <>
+                                                        <div className="flex items-center gap-2 flex-wrap mb-4">
+                                                            <button
+                                                                onClick={() => setSelectedCohort('ALL')}
+                                                                className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 ${
+                                                                    selectedCohort === 'ALL'
+                                                                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/25 scale-105'
+                                                                        : 'premium-card text-slate-600 dark:text-slate-400 hover:text-indigo-600'
+                                                                }`}
+                                                            >
+                                                                <span>Tất cả lớp</span>
+                                                                <span className={`px-2 py-0.5 rounded-md text-[10px] ${selectedCohort === 'ALL' ? 'bg-white/20 text-white' : 'bg-slate-500/10'}`}>
+                                                                    {classes.length}
+                                                                </span>
+                                                            </button>
+                                                            <button
+                                                                onClick={() => setSelectedCohort('K16')}
+                                                                className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 ${
+                                                                    selectedCohort === 'K16'
+                                                                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/25 scale-105'
+                                                                        : 'premium-card text-slate-600 dark:text-slate-400 hover:text-indigo-600'
+                                                                }`}
+                                                            >
+                                                                <span>🎓 K16</span>
+                                                                <span className={`px-2 py-0.5 rounded-md text-[10px] ${selectedCohort === 'K16' ? 'bg-white/20 text-white' : 'bg-slate-500/10'}`}>
+                                                                    {grouped.K16.length}
+                                                                </span>
+                                                            </button>
+                                                            <button
+                                                                onClick={() => setSelectedCohort('K17')}
+                                                                className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 ${
+                                                                    selectedCohort === 'K17'
+                                                                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/25 scale-105'
+                                                                        : 'premium-card text-slate-600 dark:text-slate-400 hover:text-indigo-600'
+                                                                }`}
+                                                            >
+                                                                <span>🎓 K17</span>
+                                                                <span className={`px-2 py-0.5 rounded-md text-[10px] ${selectedCohort === 'K17' ? 'bg-white/20 text-white' : 'bg-slate-500/10'}`}>
+                                                                    {grouped.K17.length}
+                                                                </span>
+                                                            </button>
+                                                            {grouped.OTHER.length > 0 && (
+                                                                <button
+                                                                    onClick={() => setSelectedCohort('OTHER')}
+                                                                    className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 ${
+                                                                        selectedCohort === 'OTHER'
+                                                                            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/25 scale-105'
+                                                                            : 'premium-card text-slate-600 dark:text-slate-400 hover:text-indigo-600'
+                                                                    }`}
+                                                                >
+                                                                    <span>Khác</span>
+                                                                    <span className={`px-2 py-0.5 rounded-md text-[10px] ${selectedCohort === 'OTHER' ? 'bg-white/20 text-white' : 'bg-slate-500/10'}`}>
+                                                                        {grouped.OTHER.length}
+                                                                    </span>
+                                                                </button>
+                                                            )}
+                                                        </div>
+
+                                                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                                                            {displayedClasses.map((cls, index) => (
+                                                                <div key={cls} onClick={() => compareMode ? toggleClassSelection(cls) : loadStudents(cls)} className={`stagger-item premium-card p-4 md:p-6 rounded-2xl flex flex-col items-center justify-center gap-4 group relative overflow-hidden ${compareMode && selectedClasses.includes(cls) ? 'border-indigo-500 bg-indigo-500/5 ring-4 ring-indigo-500/10' : ''} cursor-pointer`}>
+                                                                    {compareMode && (<div className={`absolute top-3 right-3 w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all duration-300 ${selectedClasses.includes(cls) ? 'bg-indigo-600 border-indigo-600 scale-110' : 'bg-white/50 dark:bg-slate-800/50 border-border'}`}>{selectedClasses.includes(cls) && <div className="w-2 h-2 bg-white rounded-sm" />}</div>)}
+                                                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-500 ${compareMode && selectedClasses.includes(cls) ? 'bg-indigo-600 text-white' : 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 dark:bg-indigo-500/20'} group-hover:scale-110 group-hover:rotate-6 shadow-indigo-500/10 shadow-lg`}><span className="font-black text-sm tracking-widest">{cls.substring(0, 2)}</span></div>
+                                                                    <div className={`font-bold text-sm truncate w-full text-center transition-colors ${compareMode && selectedClasses.includes(cls) ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-300'} group-hover:text-indigo-600`}>{cls}</div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </>
+                                                );
+                                            })()}
                                         </div>
                                     )}
                                 </div>

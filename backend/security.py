@@ -11,6 +11,29 @@ import models
 from dotenv import load_dotenv
 from fastapi import Depends, HTTPException, Request, status
 from jose import JWTError, jwt
+# Patch bcrypt 4.x / Python 3.13 compatibility with passlib
+try:
+    import bcrypt
+    if not hasattr(bcrypt, '__about__'):
+        class _BcryptAbout:
+            pass
+        _about = _BcryptAbout()
+        _about.__version__ = getattr(bcrypt, '__version__', '4.0.0')
+        bcrypt.__about__ = _about
+
+    import passlib.handlers.bcrypt
+    if hasattr(passlib.handlers.bcrypt, '_BcryptBackend'):
+        _orig_calc = passlib.handlers.bcrypt._BcryptBackend._calc_checksum
+        def _safe_calc_checksum(self, secret):
+            if isinstance(secret, str):
+                secret = secret.encode('utf-8')
+            if len(secret) > 72:
+                secret = secret[:72]
+            return _orig_calc(self, secret)
+        passlib.handlers.bcrypt._BcryptBackend._calc_checksum = _safe_calc_checksum
+except Exception:
+    pass
+
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
@@ -59,20 +82,21 @@ def get_token(request: Request) -> Optional[str]:
     return request.cookies.get("stoken")
 
 def verify_password(plain_password, hashed_password):
-    plain = plain_password if isinstance(plain_password, str) else str(plain_password)
+    if not plain_password or not hashed_password:
+        return False
+    plain = _normalize_password(plain_password)
     try:
         if pwd_context.verify(plain, hashed_password):
             return True
     except Exception as e:
-        logger.warning(f"Password verification encountered an error: {e}")
-
-    normalized = _normalize_password(plain)
-    if normalized != plain:
+        logger.warning(f"Password verification error: {e}")
+    # Fallback check for unnormalized legacy hashes if any
+    raw = plain_password if isinstance(plain_password, str) else str(plain_password)
+    if len(raw.encode("utf-8")) <= 72:
         try:
-            return pwd_context.verify(normalized, hashed_password)
-        except Exception as e:
-            logger.debug(f"Normalized password verification failed: {e}")
-            return False
+            return pwd_context.verify(raw, hashed_password)
+        except Exception:
+            pass
     return False
 
 def get_password_hash(password):

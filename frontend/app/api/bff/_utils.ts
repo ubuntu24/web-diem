@@ -8,10 +8,10 @@ try { dns.setDefaultResultOrder('ipv4first'); } catch (_) {}
 export function getApiBaseUrl(): string {
     const url = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL;
     if (url && url.trim()) return url.trim();
-    return 'http://backend:8000';
+    return 'http://127.0.0.1:8000';
 }
 
-export const API_BASE_URL = getApiBaseUrl();
+export const API_BASE_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
 const BFF_CACHE_MAX_KEYS = Number(process.env.BFF_CACHE_MAX_KEYS || 1000);
 
 export async function fetchUpstream(url: string, init?: RequestInit): Promise<{ status: number, body: string }> {

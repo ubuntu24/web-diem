@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 # Cache TTLs (seconds)
 _TTL_STUDENT   = 3600   # 1 hour  — student detail + grades
 _TTL_CLASS     = 1800   # 30 min  — class student list
-_TTL_CLASSES   = 3600   # 1 hour  — full class name list
+_TTL_CLASSES   = 0 if not security.IS_PRODUCTION else 3600   # 0s in dev, 1 hour in prod
 _TTL_COUNT     = 3600   # 1 hour  — student count
 _TTL_SEARCH    = 300    # 5 min   — search results
 
@@ -413,6 +413,23 @@ def get_student_count(
     return result
 
 
+def _parse_cohort(ma_lop: str) -> str:
+    if not ma_lop:
+        return "OTHER"
+    norm = ma_lop.strip().upper()
+    has17 = "17" in norm or "117" in norm
+    has16 = "16" in norm or "116" in norm
+    if has17 and not has16:
+        return "K17"
+    if has16 and not has17:
+        return "K16"
+    if "117" in norm or "17" in norm:
+        return "K17"
+    if "116" in norm or "16" in norm:
+        return "K16"
+    return "OTHER"
+
+
 @router.get("/classes")
 def get_classes(
     current_user: Optional[models.Nick] = Depends(security.get_optional_user),
@@ -425,7 +442,15 @@ def get_classes(
         return cached
 
     classes = db.query(models.SinhVien.ma_lop).distinct().order_by(models.SinhVien.ma_lop).all()
-    data = {"classes": [c[0] for c in classes if c[0]]}
+    class_list = [c[0] for c in classes if c[0]]
+    cohorts = {"K16": [], "K17": [], "OTHER": []}
+    for c in class_list:
+        cohorts[_parse_cohort(c)].append(c)
+
+    data = {
+        "classes": class_list,
+        "cohorts": cohorts
+    }
     result = security.obfuscate_payload(data)
     _cache.set(cache_key, result, ttl=_TTL_CLASSES)
     return result

@@ -100,7 +100,7 @@ class BangDiem(Base):
 class Nick(Base):
     __tablename__ = "nick"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, index=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     username: Mapped[str] = mapped_column(Text, unique=True, nullable=False, index=True)
     password: Mapped[str] = mapped_column(Text, nullable=False)
@@ -118,7 +118,7 @@ class Nick(Base):
 class UserAccess(Base):
     __tablename__ = "user_access"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, index=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("nick.id", ondelete="CASCADE"), nullable=False)
     access_date: Mapped[date] = mapped_column(Date, server_default=func.current_date(), nullable=False)
     last_update: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
@@ -127,7 +127,7 @@ class UserAccess(Base):
 class ChatMessage(Base):
     __tablename__ = "chat_messages"
 
-    id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     user_id = Column(BigInteger, ForeignKey("nick.id", ondelete="CASCADE"), nullable=False)
     message = Column(Text, nullable=False)
     ip_address = Column(Text, nullable=True)
@@ -139,7 +139,7 @@ class ChatMessage(Base):
 class BanRecord(Base):
     __tablename__ = "ban_records"
 
-    id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     user_id = Column(BigInteger, ForeignKey("nick.id", ondelete="CASCADE"), nullable=True)
     ip_address = Column(Text, nullable=True)
     device_fingerprint = Column(Text, nullable=True)
@@ -160,7 +160,7 @@ class AuditLog(Base):
     """Ghi lại các hành động quan trọng của Admin hoặc hệ thống."""
     __tablename__ = "audit_logs"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, index=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True)
     user_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("nick.id", ondelete="SET NULL"), nullable=True)
     action: Mapped[str] = mapped_column(Text, nullable=False) # e.g., "BAN_USER", "UPDATE_CONFIG"
     details: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -173,7 +173,7 @@ class UserIpLog(Base):
     """Lưu lịch sử địa chỉ IP của từng user khi vào web (mỗi IP duy nhất = 1 bản ghi)."""
     __tablename__ = "user_ip_log"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, index=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("nick.id", ondelete="CASCADE"), nullable=False, index=True)
     ip_address: Mapped[str] = mapped_column(Text, nullable=False)
     location: Mapped[Optional[str]] = mapped_column(Text, nullable=True) # e.g., "Cầu Giấy, Hanoi"
