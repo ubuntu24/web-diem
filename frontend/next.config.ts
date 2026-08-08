@@ -17,6 +17,12 @@ const apiBase = getApiBase();
 
 const nextConfig: NextConfig = {
   poweredByHeader: false, // Security: Remove X-Powered-By header
+
+  // Fix: Explicitly set Turbopack root to avoid monorepo detection issues
+  // when a package-lock.json exists at the repo root
+  turbopack: {
+    root: __dirname,
+  },
   // Security Headers
   async headers() {
     const isDev = process.env.NODE_ENV !== 'production';
